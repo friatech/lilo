@@ -1,7 +1,7 @@
 package io.firat.lilo;
 
-import graphql.language.Field;
+import graphql.schema.DataFetchingEnvironment;
 
 public interface QueryRetriever {
-    String get(String url, Field field);
+    String get(DataFetchingEnvironment environment);
 }

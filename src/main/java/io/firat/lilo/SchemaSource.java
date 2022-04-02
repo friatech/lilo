@@ -8,7 +8,6 @@ import lombok.Getter;
 public class SchemaSource {
 
     private String name;
-    private final String url;
     private final IntrospectionRetriever introspectionRetriever;
     private final QueryRetriever queryRetriever;
 }
