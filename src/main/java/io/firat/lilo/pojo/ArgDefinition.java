@@ -9,7 +9,7 @@ public class ArgDefinition {
     private String  name;
     private String  description;
     private Type    type;
-    private boolean defaultValue;
+    private Object  defaultValue;
     @JsonProperty("isDeprecated")
     private boolean isDeprecated;
     private String  deprecationReason;

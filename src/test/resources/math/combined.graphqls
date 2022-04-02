@@ -1,0 +1,4 @@
+type Query {
+    add(a: Int!, b: Int!): Int!
+    subtract(a: Int!, b: Int!): Int!
+}
