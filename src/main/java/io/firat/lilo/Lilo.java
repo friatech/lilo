@@ -18,6 +18,7 @@ import graphql.schema.idl.TypeDefinitionRegistry;
 import graphql.schema.idl.TypeRuntimeWiring;
 import io.firat.lilo.pojo.Directive;
 import io.firat.lilo.pojo.IntrospectionResult;
+import io.firat.lilo.pojo.MutationType;
 import io.firat.lilo.pojo.QueryType;
 import io.firat.lilo.pojo.Schema;
 import io.firat.lilo.pojo.SchemaContainer;
@@ -75,30 +76,15 @@ public final class Lilo {
                 final Schema              schema = graphQLResult.getData().getSchema();
                 mergeSchema(this.combinedSchema, schema);
 
-                final SchemaParser             parser                 = new SchemaParser();
-                final Document                 schemaDoc              = new IntrospectionResultToSchema().createSchemaDefinition(data);
-                final TypeDefinitionRegistry   typeDefinitionRegistry = parser.buildRegistry(schemaDoc);
-                final String                   queryTypeName          = schema.getQueryType().getName();
-                final Optional<TypeDefinition> queryOptional          = typeDefinitionRegistry.getType(queryTypeName);
+                final SchemaParser           parser                 = new SchemaParser();
+                final Document               schemaDoc              = new IntrospectionResultToSchema().createSchemaDefinition(data);
+                final TypeDefinitionRegistry typeDefinitionRegistry = parser.buildRegistry(schemaDoc);
 
-                if (!this.typeRuntimeWiringBuilders.containsKey(queryTypeName)) {
-                    this.typeRuntimeWiringBuilders.put(queryTypeName, newTypeWiring(queryTypeName));
-                }
+                final String queryTypeName    = schema.getQueryType() == null ? null : schema.getQueryType().getName();
+                final String mutationTypeName = schema.getMutationType() == null ? null : schema.getMutationType().getName();
 
-                final TypeRuntimeWiring.Builder queryWiringBuilder = this.typeRuntimeWiringBuilders.get(queryTypeName);
-
-                final TypeDefinition        typeDefinition = queryOptional.get();
-                final List<FieldDefinition> children       = typeDefinition.getChildren();
-
-                for (final FieldDefinition field : children) {
-                    queryWiringBuilder.dataFetcher(field.getName(), e -> {
-                        final String s     = schemaSource.getQueryRetriever().get(e);
-                        final Map    map   = OBJECT_MAPPER.readValue(s, Map.class);
-                        final Map    data1 = (Map) map.get("data");
-
-                        return data1.get(field.getName());
-                    });
-                }
+                this.assignDataFetchers(typeDefinitionRegistry, schemaSource, queryTypeName);
+                this.assignDataFetchers(typeDefinitionRegistry, schemaSource, mutationTypeName);
             } catch (final Exception e) {
                 throw new IllegalArgumentException("Error while inspection read", e);
             }
@@ -106,9 +92,37 @@ public final class Lilo {
             return this;
         }
 
+        private void assignDataFetchers(final TypeDefinitionRegistry typeDefinitionRegistry, final SchemaSource schemaSource, final String typeName) {
+
+            if (typeName == null) {
+                return;
+            }
+
+            if (!this.typeRuntimeWiringBuilders.containsKey(typeName)) {
+                this.typeRuntimeWiringBuilders.put(typeName, newTypeWiring(typeName));
+            }
+
+            final TypeRuntimeWiring.Builder typeWiringBuilder = this.typeRuntimeWiringBuilders.get(typeName);
+
+            final Optional<TypeDefinition> typeDefinitionOptional = typeDefinitionRegistry.getType(typeName);
+            final TypeDefinition           typeDefinition         = typeDefinitionOptional.get();
+            final List<FieldDefinition>    children               = typeDefinition.getChildren();
+
+            for (final FieldDefinition field : children) {
+                typeWiringBuilder.dataFetcher(field.getName(), e -> {
+                    final String s     = schemaSource.getQueryRetriever().get(e);
+                    final Map    map   = OBJECT_MAPPER.readValue(s, Map.class);
+                    final Map    data1 = (Map) map.get("data");
+
+                    return data1.get(field.getName());
+                });
+            }
+        }
+
         private static void mergeSchema(final Schema targetSchema, final Schema sourceSchema) {
 
             mergeSchemaQueryType(targetSchema, sourceSchema);
+            mergeSchemaMutationType(targetSchema, sourceSchema);
             mergeSchemaTypes(targetSchema, sourceSchema);
             mergeSchemaDirectives(targetSchema, sourceSchema);
         }
@@ -158,6 +172,9 @@ public final class Lilo {
             final var                                     targetTypeMap          = targetSchemaTypes.stream().collect(Collectors.toMap(io.firat.lilo.pojo.TypeDefinition::getName, st -> st));
             final List<io.firat.lilo.pojo.TypeDefinition> finalTargetSchemaTypes = targetSchemaTypes;
 
+            final String queryTypeName    = sourceSchema.getQueryType() == null ? null : sourceSchema.getQueryType().getName();
+            final String mutationTypeName = sourceSchema.getMutationType() == null ? null : sourceSchema.getMutationType().getName();
+
             sourceSchemaTypes.forEach(st -> {
 
                 if (!targetTypeMap.containsKey(st.getName())) {
@@ -165,18 +182,23 @@ public final class Lilo {
                     targetTypeMap.put(st.getName(), st);
                 }
 
-                if (st.getName().equals(sourceSchema.getQueryType().getName())) {
-                    final var targetQueryTypeDefinition = targetTypeMap.get(st.getName());
-
-                    final var targetFields = targetQueryTypeDefinition.getFields().stream().collect(Collectors.toMap(f -> f.getName(), f -> f));
-                    st.getFields().stream().forEach(f -> {
-                        if (!targetFields.containsKey(f.getName())) {
-                            targetQueryTypeDefinition.getFields().add(f);
-                            targetFields.put(f.getName(), f);
-                        }
-                    });
-                }
+                addFields(queryTypeName, st, targetTypeMap);
+                addFields(mutationTypeName, st, targetTypeMap);
             });
+        }
+
+        private static void addFields(final String typeName, final io.firat.lilo.pojo.TypeDefinition typeDefinition, final Map<String, io.firat.lilo.pojo.TypeDefinition> targetTypeMap) {
+            if (typeDefinition.getName().equals(typeName)) {
+                final var targetQueryTypeDefinition = targetTypeMap.get(typeDefinition.getName());
+
+                final var targetFields = targetQueryTypeDefinition.getFields().stream().collect(Collectors.toMap(f -> f.getName(), f -> f));
+                typeDefinition.getFields().stream().forEach(f -> {
+                    if (!targetFields.containsKey(f.getName())) {
+                        targetQueryTypeDefinition.getFields().add(f);
+                        targetFields.put(f.getName(), f);
+                    }
+                });
+            }
         }
 
         private static void mergeSchemaQueryType(final Schema targetSchema, final Schema sourceSchema) {
@@ -193,6 +215,23 @@ public final class Lilo {
                 targetSchema.setQueryType(sourceSchemaQueryType);
             } else if (!sourceSchemaQueryType.getName().equals(targetSchemaQueryType.getName())) {
                 throw new IllegalArgumentException("Query type name mismatches");
+            }
+        }
+
+        private static void mergeSchemaMutationType(final Schema targetSchema, final Schema sourceSchema) {
+
+            final MutationType sourceSchemaQueryType = sourceSchema.getMutationType();
+
+            if (sourceSchemaQueryType == null) {
+                return;
+            }
+
+            final MutationType targetSchemaQueryType = targetSchema.getMutationType();
+
+            if (targetSchemaQueryType == null) {
+                targetSchema.setMutationType(sourceSchemaQueryType);
+            } else if (!sourceSchemaQueryType.getName().equals(targetSchemaQueryType.getName())) {
+                throw new IllegalArgumentException("Mutation type name mismatches");
             }
         }
 

@@ -8,7 +8,7 @@ import lombok.Data;
 public class Schema {
 
     private QueryType            queryType;
-    private Map<String, Object>  mutationType;
+    private MutationType         mutationType;
     private Map<String, Object>  subscriptionType;
     private List<TypeDefinition> types;
     private List<Directive>      directives;
