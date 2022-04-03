@@ -18,12 +18,19 @@ type User implements UserRequest {
     role: Role!
 }
 
+input UserForm {
+    name: String!
+    age: Int!
+    enabled: Boolean!
+    role: Role!
+}
+
 type Queries {
     get(id: Int!): User!
 }
 
 type Mutations {
-    create(name: String!, age: Int!, enabled: Boolean!, role: Role!): User!
+    create(user: UserForm!): User!
 }
 
 schema {

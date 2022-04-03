@@ -20,13 +20,20 @@ type User implements UserRequest {
     role: Role!
 }
 
+input UserForm {
+    name: String!
+    age: Int!
+    enabled: Boolean!
+    role: Role!
+}
+
 type Queries {
     get(id: Int!): User!
     list: [User!]!
 }
 
 type Mutations {
-    create(name: String!, age: Int!, enabled: Boolean!, role: Role!): User!
+    create(user: UserForm!): User!
     delete(id: Int!): Void
 }
 

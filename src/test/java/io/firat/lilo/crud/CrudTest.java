@@ -233,7 +233,7 @@ class CrudTest {
         final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
             .query("""
                 mutation {
-                    create(name: "John", age: 34, enabled: true, role: ADMIN) {
+                    create(user: {name: "John", age: 34, enabled: true, role: ADMIN}) {
                         id
                         name
                         age
@@ -262,7 +262,7 @@ class CrudTest {
 
         final String project1Query = """
             mutation {
-                create(name: "John", age: 34, enabled: true, role: ADMIN) {
+                create(user: {name: "John", age: 34, enabled: true, role: ADMIN}) {
                     id
                     name
                     age

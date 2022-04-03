@@ -10,7 +10,7 @@ public class TypeDefinition {
     private String                name;
     private String                description;
     private List<FieldDefinition> fields;
-    private List<String>          inputFields;
+    private List<ArgDefinition>   inputFields;
     private List<InterfaceType>   interfaces;
     private List<EnumValue>       enumValues;
     private List<Type>            possibleTypes;
