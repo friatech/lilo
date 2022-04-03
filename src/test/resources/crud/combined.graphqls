@@ -1,3 +1,5 @@
+scalar Void
+
 type User {
     id: Int!
     name: String!
@@ -12,7 +14,7 @@ type Queries {
 
 type Mutations {
     create(name: String!, age: Int!, enabled: Boolean!): User!
-    delete(id: Int!): String
+    delete(id: Int!): Void
 }
 
 schema {

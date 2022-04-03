@@ -6,9 +6,15 @@ import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
 import graphql.introspection.IntrospectionQuery;
+import graphql.schema.Coercing;
+import graphql.schema.CoercingParseLiteralException;
+import graphql.schema.CoercingParseValueException;
+import graphql.schema.CoercingSerializeException;
+import graphql.schema.GraphQLScalarType;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
+import io.firat.lilo.DummyCoercing;
 import io.firat.lilo.IntrospectionRetriever;
 import io.firat.lilo.Lilo;
 import io.firat.lilo.QueryRetriever;
@@ -59,6 +65,7 @@ class CrudTest {
                     .dataFetcher("create", env -> Map.of("id", 1, "name", env.<String>getArgument("name"), "age", env.<Integer>getArgument("age"), "enabled", env.<Integer>getArgument("enabled")))
                     .dataFetcher("delete", env -> null)
             )
+            .scalar(GraphQLScalarType.newScalar().name("Void").coercing(new DummyCoercing()).build())
             .build();
     }
 
@@ -100,6 +107,7 @@ class CrudTest {
                 newTypeWiring("Mutations")
                     .dataFetcher("delete", env -> null)
             )
+            .scalar(GraphQLScalarType.newScalar().name("Void").coercing(new DummyCoercing()).build())
             .build();
     }
 

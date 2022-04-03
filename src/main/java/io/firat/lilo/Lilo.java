@@ -9,9 +9,12 @@ import graphql.GraphQL;
 import graphql.introspection.IntrospectionResultToSchema;
 import graphql.language.Document;
 import graphql.language.FieldDefinition;
+import graphql.language.ScalarTypeDefinition;
 import graphql.language.TypeDefinition;
+import graphql.schema.GraphQLScalarType;
 import graphql.schema.GraphQLSchema;
 import graphql.schema.idl.RuntimeWiring;
+import graphql.schema.idl.ScalarInfo;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
@@ -23,7 +26,7 @@ import io.firat.lilo.pojo.QueryType;
 import io.firat.lilo.pojo.Schema;
 import io.firat.lilo.pojo.SchemaContainer;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -57,7 +60,8 @@ public final class Lilo {
     public static class LiloBuilder {
 
         private final Schema                                 combinedSchema            = new Schema();
-        private final Map<String, TypeRuntimeWiring.Builder> typeRuntimeWiringBuilders = new LinkedHashMap<>();
+        private final Map<String, TypeRuntimeWiring.Builder> typeRuntimeWiringBuilders = new HashMap<>();
+        private final Map<String, ScalarTypeDefinition>      scalars                   = new HashMap<>();
 
         private LiloBuilder() {
         }
@@ -85,6 +89,8 @@ public final class Lilo {
 
                 this.assignDataFetchers(typeDefinitionRegistry, schemaSource, queryTypeName);
                 this.assignDataFetchers(typeDefinitionRegistry, schemaSource, mutationTypeName);
+
+                this.scalars.putAll(typeDefinitionRegistry.scalars());
             } catch (final Exception e) {
                 throw new IllegalArgumentException("Error while inspection read", e);
             }
@@ -248,7 +254,14 @@ public final class Lilo {
                 final TypeDefinitionRegistry typeRegistry         = parser.buildRegistry(schemaDoc);
                 final RuntimeWiring.Builder  runtimeWiringBuilder = RuntimeWiring.newRuntimeWiring();
 
+                final DummyCoercing dummyCoercing = new DummyCoercing();
+
                 this.typeRuntimeWiringBuilders.values().forEach(runtimeWiringBuilder::type);
+                this.scalars
+                    .values()
+                    .stream()
+                    .filter(sd -> !ScalarInfo.GRAPHQL_SPECIFICATION_SCALARS_DEFINITIONS.containsKey(sd.getName()))
+                    .forEach(sd -> runtimeWiringBuilder.scalar(GraphQLScalarType.newScalar().name(sd.getName()).coercing(dummyCoercing).build()));
 
                 final RuntimeWiring   runtimeWiring   = runtimeWiringBuilder.build();
                 final SchemaGenerator schemaGenerator = new SchemaGenerator();

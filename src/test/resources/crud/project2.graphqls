@@ -1,3 +1,5 @@
+scalar Void
+
 type User {
     id: Int!
     name: String!
@@ -10,7 +12,7 @@ type Queries {
 }
 
 type Mutations {
-    delete(id: Int!): String
+    delete(id: Int!): Void
 }
 
 schema {
