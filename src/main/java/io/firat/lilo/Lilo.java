@@ -11,7 +11,10 @@ import graphql.language.Document;
 import graphql.language.FieldDefinition;
 import graphql.language.InterfaceTypeDefinition;
 import graphql.language.ScalarTypeDefinition;
+import graphql.language.Type;
 import graphql.language.TypeDefinition;
+import graphql.language.TypeName;
+import graphql.language.UnionTypeDefinition;
 import graphql.schema.GraphQLScalarType;
 import graphql.schema.GraphQLSchema;
 import graphql.schema.idl.RuntimeWiring;
@@ -268,8 +271,22 @@ public final class Lilo {
                     .types()
                     .values()
                     .stream()
-                    .filter(t -> t instanceof InterfaceTypeDefinition)
-                    .forEach(t ->runtimeWiringBuilder.type(newTypeWiring(t.getName()).typeResolver(env -> null)));
+                    .filter(t -> t instanceof InterfaceTypeDefinition || t instanceof UnionTypeDefinition)
+                    .forEach(t -> {
+                        if (t instanceof InterfaceTypeDefinition) {
+                            runtimeWiringBuilder.type(newTypeWiring(t.getName()).typeResolver(env -> null));
+                        } else {
+                            runtimeWiringBuilder.type(newTypeWiring(t.getName()).typeResolver(env -> {
+                                final Map<String, Object> result = env.getObject();
+
+                                if (!result.containsKey("__typename")) {
+                                    throw new IllegalArgumentException("Please provide __typename for union types");
+                                }
+
+                                return env.getSchema().getObjectType(result.get("__typename").toString());
+                            }));
+                        }
+                    });
 
                 final RuntimeWiring   runtimeWiring   = runtimeWiringBuilder.build();
                 final SchemaGenerator schemaGenerator = new SchemaGenerator();

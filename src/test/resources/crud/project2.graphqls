@@ -1,18 +1,19 @@
 scalar Void
 
 enum Role {
-  ADMIN
-  USER
+    GUEST
+    USER
+    ADMIN
 }
 
-interface UserRequest {
+interface UserBase {
     name: String!
     age: Int!
     enabled: Boolean!
     role: Role!
 }
 
-type User implements UserRequest {
+type User implements UserBase {
     id: Int!
     name: String!
     age: Int!
@@ -20,12 +21,23 @@ type User implements UserRequest {
     role: Role!
 }
 
+type WebUser implements UserBase {
+    id: Int!
+    username: String
+    name: String!
+    age: Int!
+    enabled: Boolean!
+    role: Role!
+}
+
+union SystemUser = User | WebUser
+
 type Queries {
-    list: [User!]!
+    list: [SystemUser!]!
 }
 
 type Mutations {
-    delete(id: Int!): Void
+    delete(id: Int! = 1): Void
 }
 
 schema {

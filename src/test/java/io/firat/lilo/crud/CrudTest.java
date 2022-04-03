@@ -11,6 +11,8 @@ import graphql.schema.Coercing;
 import graphql.schema.CoercingParseLiteralException;
 import graphql.schema.CoercingParseValueException;
 import graphql.schema.CoercingSerializeException;
+import graphql.schema.GraphQLFieldDefinition;
+import graphql.schema.GraphQLNonNull;
 import graphql.schema.GraphQLObjectType;
 import graphql.schema.GraphQLScalarType;
 import graphql.schema.TypeResolver;
@@ -34,6 +36,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import static graphql.Scalars.GraphQLString;
+import static graphql.schema.GraphQLNonNull.nonNull;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 
 @ExtendWith(MockitoExtension.class)
@@ -42,7 +46,7 @@ class CrudTest {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String       SCHEMA1_NAME  = "project1";
     private static final String       SCHEMA2_NAME  = "project2";
-    private static final Map<String, Object> RESULT_MAP = Map.of("id", 1, "name", "John", "age", 34, "enabled", true, "role", "ADMIN");
+    private static final Map<String, Object> RESULT_MAP = Map.of("id", 1, "name", "John", "age", 34, "enabled", true, "role", "ADMIN", "username", "john", "__typename", "WebUser");
 
     @Mock
     private IntrospectionRetriever introspection1Retriever;
@@ -69,7 +73,8 @@ class CrudTest {
                     .dataFetcher("create", env -> RESULT_MAP)
                     .dataFetcher("delete", env -> null)
             )
-            .type(newTypeWiring("UserRequest").typeResolver(env -> null))
+            .type(newTypeWiring("UserBase").typeResolver(env -> null))
+            .type(newTypeWiring("SystemUser").typeResolver(env -> env.getSchema().getObjectType("WebUser")))
             .scalar(GraphQLScalarType.newScalar().name("Void").coercing(new DummyCoercing()).build())
             .build();
     }
@@ -98,7 +103,8 @@ class CrudTest {
                 newTypeWiring("Mutations")
                     .dataFetcher("create", env -> RESULT_MAP)
             )
-            .type(newTypeWiring("UserRequest").typeResolver(env -> null))
+            .type(newTypeWiring("UserBase").typeResolver(env -> null))
+            .type(newTypeWiring("SystemUser").typeResolver(env -> env.getSchema().getObjectType("WebUser")))
             .build();
     }
 
@@ -113,7 +119,8 @@ class CrudTest {
                 newTypeWiring("Mutations")
                     .dataFetcher("delete", env -> null)
             )
-            .type(newTypeWiring("UserRequest").typeResolver(env -> null))
+            .type(newTypeWiring("UserBase").typeResolver(env -> null))
+            .type(newTypeWiring("SystemUser").typeResolver(env -> env.getSchema().getObjectType("WebUser")))
             .scalar(GraphQLScalarType.newScalar().name("Void").coercing(new DummyCoercing()).build())
             .build();
     }
@@ -150,18 +157,26 @@ class CrudTest {
             .query("""
                 query {
                     get(id: 1) {
-                        id
-                        name
-                        age
-                        enabled
-                        role
+                        __typename
+                        ... on WebUser {
+                            id
+                            name
+                            age
+                            enabled
+                            role
+                            username
+                        }
                     }
                     list {
-                        id
-                        name
-                        age
-                        enabled
-                        role
+                        __typename
+                        ... on WebUser {
+                            id
+                            name
+                            age
+                            enabled
+                            role
+                            username
+                        }
                     }
                 }
                 """)
@@ -185,11 +200,15 @@ class CrudTest {
         final String project1Query = """
             query {
                 get(id: 1) {
-                    id
-                    name
-                    age
-                    enabled
-                    role
+                    __typename
+                    ... on WebUser {
+                        id
+                        name
+                        age
+                        enabled
+                        role
+                        username
+                    }
                 }
             }
             """;
@@ -200,11 +219,15 @@ class CrudTest {
         final String project2Query = """
             query {
                 list {
-                    id
-                    name
-                    age
-                    enabled
-                    role
+                    __typename
+                    ... on WebUser {
+                        id
+                        name
+                        age
+                        enabled
+                        role
+                        username
+                    }
                 }
             }
             """;
@@ -234,11 +257,15 @@ class CrudTest {
             .query("""
                 mutation {
                     create(user: {name: "John", age: 34, enabled: true, role: ADMIN}) {
-                        id
-                        name
-                        age
-                        enabled
-                        role
+                        __typename
+                        ... on WebUser {
+                            id
+                            name
+                            age
+                            enabled
+                            role
+                            username
+                        }
                     }
                     delete(id: 1)
                 }
@@ -263,11 +290,15 @@ class CrudTest {
         final String project1Query = """
             mutation {
                 create(user: {name: "John", age: 34, enabled: true, role: ADMIN}) {
-                    id
-                    name
-                    age
-                    enabled
-                    role
+                    __typename
+                    ... on WebUser {
+                        id
+                        name
+                        age
+                        enabled
+                        role
+                        username
+                    }
                 }
             }
             """;
