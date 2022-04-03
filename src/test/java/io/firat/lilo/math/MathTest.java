@@ -112,7 +112,7 @@ class MathTest {
     @Test
     void stitchingTest() throws IOException {
 
-        // Combined result
+        // Combined result -----------------------------------------------------
         final Map<String, Object> expected = Map.of("add", 3, "subtract", 10);
 
         final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
@@ -124,8 +124,7 @@ class MathTest {
         final ExecutionResult result = combinedGraphQL.execute(executionInput);
         Assertions.assertEquals(expected, result.getData());
 
-        // Stitching result
-
+        // Stitching result ----------------------------------------------------
         final GraphQL project1GraphQL = createGraphQL("/math/add.graphqls", createProject1Wiring());
         final GraphQL project2GraphQL = createGraphQL("/math/subtract.graphqls", createProject2Wiring());
 

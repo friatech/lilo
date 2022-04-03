@@ -22,6 +22,7 @@ import io.firat.lilo.pojo.QueryType;
 import io.firat.lilo.pojo.Schema;
 import io.firat.lilo.pojo.SchemaContainer;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -54,8 +55,8 @@ public final class Lilo {
 
     public static class LiloBuilder {
 
-        private final Schema                    combinedSchema     = new Schema();
-        private final TypeRuntimeWiring.Builder queryWiringBuilder = newTypeWiring("Query");
+        private final Schema                                 combinedSchema            = new Schema();
+        private final Map<String, TypeRuntimeWiring.Builder> typeRuntimeWiringBuilders = new LinkedHashMap<>();
 
         private LiloBuilder() {
         }
@@ -70,29 +71,32 @@ public final class Lilo {
 
                 final IntrospectionResult graphQLResult = OBJECT_MAPPER.readValue(introspectionResponse, IntrospectionResult.class);
 
-                final Map<String, Object> data = (Map<String, Object>) introspectionMap.get("data");
-                mergeSchema(this.combinedSchema, graphQLResult.getData().getSchema());
+                final Map<String, Object> data   = (Map<String, Object>) introspectionMap.get("data");
+                final Schema              schema = graphQLResult.getData().getSchema();
+                mergeSchema(this.combinedSchema, schema);
 
-                final SchemaParser           parser                 = new SchemaParser();
-                final Document               schemaDoc              = new IntrospectionResultToSchema().createSchemaDefinition(data);
-                final TypeDefinitionRegistry typeDefinitionRegistry = parser.buildRegistry(schemaDoc);
+                final SchemaParser             parser                 = new SchemaParser();
+                final Document                 schemaDoc              = new IntrospectionResultToSchema().createSchemaDefinition(data);
+                final TypeDefinitionRegistry   typeDefinitionRegistry = parser.buildRegistry(schemaDoc);
+                final String                   queryTypeName          = schema.getQueryType().getName();
+                final Optional<TypeDefinition> queryOptional          = typeDefinitionRegistry.getType(queryTypeName);
 
-                final Optional<TypeDefinition> queryOptional = typeDefinitionRegistry.getType("Query");
-
-                if (queryOptional.isEmpty()) {
-                    return this;
+                if (!this.typeRuntimeWiringBuilders.containsKey(queryTypeName)) {
+                    this.typeRuntimeWiringBuilders.put(queryTypeName, newTypeWiring(queryTypeName));
                 }
+
+                final TypeRuntimeWiring.Builder queryWiringBuilder = this.typeRuntimeWiringBuilders.get(queryTypeName);
 
                 final TypeDefinition        typeDefinition = queryOptional.get();
                 final List<FieldDefinition> children       = typeDefinition.getChildren();
 
                 for (final FieldDefinition field : children) {
-                    this.queryWiringBuilder.dataFetcher(field.getName(), e -> {
-                        final String s = schemaSource.getQueryRetriever().get(e);
-                        final Map    map = OBJECT_MAPPER.readValue(s, Map.class);
-                        final Map data1 = (Map) map.get("data");
-                        final Object data2 = data1.get(field.getName());
-                        return data2;
+                    queryWiringBuilder.dataFetcher(field.getName(), e -> {
+                        final String s     = schemaSource.getQueryRetriever().get(e);
+                        final Map    map   = OBJECT_MAPPER.readValue(s, Map.class);
+                        final Map    data1 = (Map) map.get("data");
+
+                        return data1.get(field.getName());
                     });
                 }
             } catch (final Exception e) {
@@ -200,14 +204,14 @@ public final class Lilo {
                 final String schemaText = OBJECT_MAPPER.writeValueAsString(schemaContainer);
                 final Map    schemaMap  = OBJECT_MAPPER.readValue(schemaText, Map.class);
 
-                final SchemaParser           parser       = new SchemaParser();
-                final Document               schemaDoc    = new IntrospectionResultToSchema().createSchemaDefinition(schemaMap);
-                final TypeDefinitionRegistry typeRegistry = parser.buildRegistry(schemaDoc);
+                final SchemaParser           parser               = new SchemaParser();
+                final Document               schemaDoc            = new IntrospectionResultToSchema().createSchemaDefinition(schemaMap);
+                final TypeDefinitionRegistry typeRegistry         = parser.buildRegistry(schemaDoc);
+                final RuntimeWiring.Builder  runtimeWiringBuilder = RuntimeWiring.newRuntimeWiring();
 
-                final RuntimeWiring runtimeWiring = RuntimeWiring.newRuntimeWiring()
-                    .type(this.queryWiringBuilder)
-                    .build();
+                this.typeRuntimeWiringBuilders.values().forEach(runtimeWiringBuilder::type);
 
+                final RuntimeWiring   runtimeWiring   = runtimeWiringBuilder.build();
                 final SchemaGenerator schemaGenerator = new SchemaGenerator();
                 final GraphQLSchema   graphQLSchema   = schemaGenerator.makeExecutableSchema(typeRegistry, runtimeWiring);
                 final GraphQL         graphQL         = GraphQL.newGraphQL(graphQLSchema).build();

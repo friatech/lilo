@@ -1,0 +1,19 @@
+type User {
+    id: Int!
+    name: String!
+    age: Int!
+    enabled: Boolean!
+}
+
+type Queries {
+    list: [User!]!
+}
+
+type Mutations {
+    delete(id: Int!): String
+}
+
+schema {
+    query: Queries
+    mutation: Mutations
+}

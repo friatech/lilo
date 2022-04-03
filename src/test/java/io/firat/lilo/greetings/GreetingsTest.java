@@ -112,7 +112,7 @@ class GreetingsTest {
     @Test
     void stitchingTest() throws IOException {
 
-        // Combined result
+        // Combined result -----------------------------------------------------
         final Map<String, Object> expected = Map.of("greeting1", "Hello greeting1", "greeting2", "Hello greeting2");
 
         final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
@@ -124,8 +124,7 @@ class GreetingsTest {
         final ExecutionResult result = combinedGraphQL.execute(executionInput);
         Assertions.assertEquals(expected, result.getData());
 
-        // Stitching result
-
+        // Stitching result ----------------------------------------------------
         final GraphQL project1GraphQL = createGraphQL("/greetings/greeting1.graphqls", createProject1Wiring());
         final GraphQL project2GraphQL = createGraphQL("/greetings/greeting2.graphqls", createProject2Wiring());
 

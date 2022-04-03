@@ -1,0 +1,19 @@
+type User {
+    id: Int!
+    name: String!
+    age: Int!
+    enabled: Boolean!
+}
+
+type Queries {
+    get(id: Int!): User!
+}
+
+type Mutations {
+    create(name: String!, age: Int!, enabled: Boolean!): User!
+}
+
+schema {
+    query: Queries
+    mutation: Mutations
+}
