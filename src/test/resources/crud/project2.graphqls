@@ -1,10 +1,16 @@
 scalar Void
 
+enum Role {
+  ADMIN
+  USER
+}
+
 type User {
     id: Int!
     name: String!
     age: Int!
     enabled: Boolean!
+    role: Role!
 }
 
 type Queries {

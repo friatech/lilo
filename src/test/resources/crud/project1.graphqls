@@ -1,8 +1,14 @@
+enum Role {
+  ADMIN
+  USER
+}
+
 type User {
     id: Int!
     name: String!
     age: Int!
     enabled: Boolean!
+    role: Role!
 }
 
 type Queries {
@@ -10,7 +16,7 @@ type Queries {
 }
 
 type Mutations {
-    create(name: String!, age: Int!, enabled: Boolean!): User!
+    create(name: String!, age: Int!, enabled: Boolean!, role: Role!): User!
 }
 
 schema {

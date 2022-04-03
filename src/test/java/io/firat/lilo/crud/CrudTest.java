@@ -39,6 +39,7 @@ class CrudTest {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String       SCHEMA1_NAME  = "project1";
     private static final String       SCHEMA2_NAME  = "project2";
+    private static final Map<String, Object> RESULT_MAP = Map.of("id", 1, "name", "John", "age", 34, "enabled", true, "role", "ADMIN");
 
     @Mock
     private IntrospectionRetriever introspection1Retriever;
@@ -57,12 +58,12 @@ class CrudTest {
         return RuntimeWiring.newRuntimeWiring()
             .type(
                 newTypeWiring("Queries")
-                    .dataFetcher("get", env -> Map.of("id", 1, "name", "John", "age", 34, "enabled", true))
-                    .dataFetcher("list", env -> List.of(Map.of("id", 1, "name", "John", "age", 34, "enabled", true)))
+                    .dataFetcher("get", env -> RESULT_MAP)
+                    .dataFetcher("list", env -> List.of(RESULT_MAP))
             )
             .type(
                 newTypeWiring("Mutations")
-                    .dataFetcher("create", env -> Map.of("id", 1, "name", env.<String>getArgument("name"), "age", env.<Integer>getArgument("age"), "enabled", env.<Integer>getArgument("enabled")))
+                    .dataFetcher("create", env -> RESULT_MAP)
                     .dataFetcher("delete", env -> null)
             )
             .scalar(GraphQLScalarType.newScalar().name("Void").coercing(new DummyCoercing()).build())
@@ -87,11 +88,11 @@ class CrudTest {
         return RuntimeWiring.newRuntimeWiring()
             .type(
                 newTypeWiring("Queries")
-                    .dataFetcher("get", env -> Map.of("id", 1, "name", "John", "age", 34, "enabled", true))
+                    .dataFetcher("get", env -> RESULT_MAP)
             )
             .type(
                 newTypeWiring("Mutations")
-                    .dataFetcher("create", env -> Map.of("id", 1, "name", env.<String>getArgument("name"), "age", env.<Integer>getArgument("age"), "enabled", env.<Integer>getArgument("enabled")))
+                    .dataFetcher("create", env -> RESULT_MAP)
             )
             .build();
     }
@@ -101,7 +102,7 @@ class CrudTest {
         return RuntimeWiring.newRuntimeWiring()
             .type(
                 newTypeWiring("Queries")
-                    .dataFetcher("list", env -> List.of(Map.of("id", 1, "name", "John", "age", 34, "enabled", true)))
+                    .dataFetcher("list", env -> List.of(RESULT_MAP))
             )
             .type(
                 newTypeWiring("Mutations")
@@ -137,8 +138,7 @@ class CrudTest {
     void stitchingQueryTest() throws IOException {
 
         // Combined result -----------------------------------------------------
-        final Map<String, Object> user     = Map.of("id", 1, "name", "John", "age", 34, "enabled", true);
-        final Map<String, Object> expected = Map.of("get", user, "list", List.of(user));
+        final Map<String, Object> expected = Map.of("get", RESULT_MAP, "list", List.of(RESULT_MAP));
 
         final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
             .query("""
@@ -148,12 +148,14 @@ class CrudTest {
                         name
                         age
                         enabled
+                        role
                     }
                     list {
                         id
                         name
                         age
                         enabled
+                        role
                     }
                 }
                 """)
@@ -181,6 +183,7 @@ class CrudTest {
                     name
                     age
                     enabled
+                    role
                 }
             }
             """;
@@ -195,6 +198,7 @@ class CrudTest {
                     name
                     age
                     enabled
+                    role
                 }
             }
             """;
@@ -215,20 +219,20 @@ class CrudTest {
     void stitchingMutationTest() throws IOException {
 
         // Combined result -----------------------------------------------------
-        final Map<String, Object> user     = Map.of("id", 1, "name", "John", "age", 34, "enabled", true);
         final Map<String, Object> expected = new HashMap<>();
 
-        expected.put("create", user);
+        expected.put("create", RESULT_MAP);
         expected.put("delete", null);
 
         final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
             .query("""
                 mutation {
-                    create(name: "John", age: 34, enabled: true) {
+                    create(name: "John", age: 34, enabled: true, role: ADMIN) {
                         id
                         name
                         age
                         enabled
+                        role
                     }
                     delete(id: 1)
                 }
@@ -252,11 +256,12 @@ class CrudTest {
 
         final String project1Query = """
             mutation {
-                create(name: "John", age: 34, enabled: true) {
+                create(name: "John", age: 34, enabled: true, role: ADMIN) {
                     id
                     name
                     age
                     enabled
+                    role
                 }
             }
             """;
