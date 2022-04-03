@@ -5,12 +5,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
+import graphql.TypeResolutionEnvironment;
 import graphql.introspection.IntrospectionQuery;
 import graphql.schema.Coercing;
 import graphql.schema.CoercingParseLiteralException;
 import graphql.schema.CoercingParseValueException;
 import graphql.schema.CoercingSerializeException;
+import graphql.schema.GraphQLObjectType;
 import graphql.schema.GraphQLScalarType;
+import graphql.schema.TypeResolver;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
@@ -66,6 +69,7 @@ class CrudTest {
                     .dataFetcher("create", env -> RESULT_MAP)
                     .dataFetcher("delete", env -> null)
             )
+            .type(newTypeWiring("UserRequest").typeResolver(env -> null))
             .scalar(GraphQLScalarType.newScalar().name("Void").coercing(new DummyCoercing()).build())
             .build();
     }
@@ -94,6 +98,7 @@ class CrudTest {
                 newTypeWiring("Mutations")
                     .dataFetcher("create", env -> RESULT_MAP)
             )
+            .type(newTypeWiring("UserRequest").typeResolver(env -> null))
             .build();
     }
 
@@ -108,6 +113,7 @@ class CrudTest {
                 newTypeWiring("Mutations")
                     .dataFetcher("delete", env -> null)
             )
+            .type(newTypeWiring("UserRequest").typeResolver(env -> null))
             .scalar(GraphQLScalarType.newScalar().name("Void").coercing(new DummyCoercing()).build())
             .build();
     }

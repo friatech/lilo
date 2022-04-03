@@ -9,6 +9,7 @@ import graphql.GraphQL;
 import graphql.introspection.IntrospectionResultToSchema;
 import graphql.language.Document;
 import graphql.language.FieldDefinition;
+import graphql.language.InterfaceTypeDefinition;
 import graphql.language.ScalarTypeDefinition;
 import graphql.language.TypeDefinition;
 import graphql.schema.GraphQLScalarType;
@@ -262,6 +263,13 @@ public final class Lilo {
                     .stream()
                     .filter(sd -> !ScalarInfo.GRAPHQL_SPECIFICATION_SCALARS_DEFINITIONS.containsKey(sd.getName()))
                     .forEach(sd -> runtimeWiringBuilder.scalar(GraphQLScalarType.newScalar().name(sd.getName()).coercing(dummyCoercing).build()));
+
+                typeRegistry
+                    .types()
+                    .values()
+                    .stream()
+                    .filter(t -> t instanceof InterfaceTypeDefinition)
+                    .forEach(t ->runtimeWiringBuilder.type(newTypeWiring(t.getName()).typeResolver(env -> null)));
 
                 final RuntimeWiring   runtimeWiring   = runtimeWiringBuilder.build();
                 final SchemaGenerator schemaGenerator = new SchemaGenerator();

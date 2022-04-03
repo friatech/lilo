@@ -3,7 +3,14 @@ enum Role {
   USER
 }
 
-type User {
+interface UserRequest {
+    name: String!
+    age: Int!
+    enabled: Boolean!
+    role: Role!
+}
+
+type User implements UserRequest {
     id: Int!
     name: String!
     age: Int!

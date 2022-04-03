@@ -4,14 +4,14 @@ import java.util.List;
 import lombok.Data;
 
 @Data
-public class TypeDefinition {
+public class InterfaceType {
 
-    private String                kind;
     private String                name;
     private String                description;
+    private String                kind;
     private List<FieldDefinition> fields;
     private List<String>          inputFields;
     private List<InterfaceType>   interfaces;
     private List<EnumValue>       enumValues;
-    private List<Type>            possibleTypes;
+    private List<TypeDefinition>  possibleTypes;
 }
