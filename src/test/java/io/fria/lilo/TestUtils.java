@@ -1,12 +1,10 @@
 package io.fria.lilo;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import graphql.GraphQL;
+import static io.fria.lilo.JsonUtils.toObj;
+import static io.fria.lilo.JsonUtils.toStr;
 
 public final class TestUtils {
-
-    private static final ObjectMapper OBJECT_MAPPER = createMapper();
 
     private TestUtils() {
     }
@@ -25,27 +23,12 @@ public final class TestUtils {
     }
 
     public static String runQuery(final GraphQL graphQL, final String query) {
-
-        try {
-            return runQuery(graphQL, OBJECT_MAPPER.readValue(query, GraphQLRequest.class));
-        } catch (final Exception e) {
-            throw new IllegalArgumentException("Serialization Exception");
-        }
+        return runQuery(graphQL, toObj(query, GraphQLRequest.class));
     }
 
     public static String runQuery(final GraphQL graphQL, final GraphQLRequest graphQLRequest) {
 
-        try {
-            return OBJECT_MAPPER.writeValueAsString(graphQL.execute(graphQLRequest.toExecutionInput()));
-        } catch (final Exception e) {
-            throw new IllegalArgumentException("Serialization Exception");
-        }
-    }
-
-    private static ObjectMapper createMapper() {
-        final ObjectMapper mapper = new ObjectMapper();
-        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        return mapper;
+        return toStr(graphQL.execute(graphQLRequest.toExecutionInput()));
     }
 
     public static class TestIntrospectionRetriever implements IntrospectionRetriever {

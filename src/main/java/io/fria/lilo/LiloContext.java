@@ -1,8 +1,5 @@
 package io.fria.lilo;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import graphql.GraphQL;
 import graphql.introspection.IntrospectionQuery;
 import graphql.introspection.IntrospectionResultToSchema;
@@ -16,6 +13,7 @@ import graphql.language.ScalarTypeDefinition;
 import graphql.language.Selection;
 import graphql.language.TypeDefinition;
 import graphql.language.UnionTypeDefinition;
+import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.GraphQLScalarType;
 import graphql.schema.GraphQLSchema;
 import graphql.schema.TypeResolver;
@@ -25,7 +23,6 @@ import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import graphql.schema.idl.TypeRuntimeWiring;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -34,13 +31,24 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
+import static io.fria.lilo.JsonUtils.getList;
+import static io.fria.lilo.JsonUtils.getMap;
+import static io.fria.lilo.JsonUtils.getName;
+import static io.fria.lilo.JsonUtils.toMap;
+import static io.fria.lilo.JsonUtils.toStr;
 
 public class LiloContext {
 
-    private static final ObjectMapper                       OBJECT_MAPPER           = createMapper();
-    private static final TypeResolver                       INTERFACE_TYPE_RESOLVER = env -> null;
-    private static final String                             INTROSPECTION_REQUEST   = createRequest(IntrospectionQuery.INTROSPECTION_QUERY, null, "IntrospectionQuery");
-    private static final TypeResolver                       UNION_TYPE_RESOLVER     = env -> {
+    private static final TypeResolver INTERFACE_TYPE_RESOLVER = env -> null;
+    private static final String       INTROSPECTION_REQUEST   = toStr(
+        GraphQLRequest
+            .builder()
+            .query(IntrospectionQuery.INTROSPECTION_QUERY)
+            .operationName("IntrospectionQuery")
+            .build()
+    );
+
+    private static final TypeResolver UNION_TYPE_RESOLVER = env -> {
         final Map<String, Object> result = env.getObject();
 
         if (!result.containsKey("__typename")) {
@@ -49,8 +57,9 @@ public class LiloContext {
 
         return env.getSchema().getObjectType(result.get("__typename").toString());
     };
-    private              Map<String, ProcessedSchemaSource> sourceMap;
-    private              GraphQL                            graphQL;
+
+    private Map<String, ProcessedSchemaSource> sourceMap;
+    private GraphQL                            graphQL;
 
     LiloContext(final SchemaSource... schemaSources) {
 
@@ -115,45 +124,6 @@ public class LiloContext {
         final GraphQLSchema   graphQLSchema   = schemaGenerator.makeExecutableSchema(typeRegistry, runtimeWiring);
 
         return GraphQL.newGraphQL(graphQLSchema).build();
-    }
-
-    private static ObjectMapper createMapper() {
-        final ObjectMapper mapper = new ObjectMapper();
-        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        return mapper;
-    }
-
-    private static String createRequest(final String query, final Map<String, Object> variables, final String operationName) {
-
-        try {
-
-            final HashMap<Object, Object> requestMap = new HashMap<>();
-            requestMap.put("query", query);
-
-            if (variables != null) {
-                requestMap.put("variables", variables);
-            }
-
-            if (operationName != null) {
-                requestMap.put("operationName", operationName);
-            }
-
-            return OBJECT_MAPPER.writeValueAsString(requestMap);
-        } catch (final IOException e) {
-            throw new IllegalArgumentException("Could not create introspection request");
-        }
-    }
-
-    private static List<Map<String, Object>> getList(final Map<String, Object> map, final String key) {
-        return (List<Map<String, Object>>) map.get(key);
-    }
-
-    private static Map<String, Object> getMap(final Map<String, Object> map, final String key) {
-        return (Map<String, Object>) map.get(key);
-    }
-
-    private static String getName(final Map<String, Object> map) {
-        return (String) map.get("name");
     }
 
     private static void mergeSchema(final Map<String, Object> targetSchema, final Map<String, Object> sourceSchema) {
@@ -254,21 +224,15 @@ public class LiloContext {
 
     public ProcessedSchemaSource processSource(final SchemaSource schemaSource) {
 
-        try {
-            final String introspectionResponse = schemaSource.getIntrospectionRetriever().get(this, INTROSPECTION_REQUEST);
-            final Map<String, Object> introspectionResult = OBJECT_MAPPER.readValue(introspectionResponse, new TypeReference<>() {
-            });
+        final var introspectionResponse  = schemaSource.getIntrospectionRetriever().get(this, INTROSPECTION_REQUEST);
+        final var introspectionResult    = toMap(introspectionResponse);
+        final var data                   = getMap(introspectionResult, "data");
+        final var schema                 = getMap(data, "__schema");
+        final var parser                 = new SchemaParser();
+        final var schemaDoc              = new IntrospectionResultToSchema().createSchemaDefinition(data);
+        final var typeDefinitionRegistry = parser.buildRegistry(schemaDoc);
 
-            final var data                   = getMap(introspectionResult, "data");
-            final var schema                 = getMap(data, "__schema");
-            final var parser                 = new SchemaParser();
-            final var schemaDoc              = new IntrospectionResultToSchema().createSchemaDefinition(data);
-            final var typeDefinitionRegistry = parser.buildRegistry(schemaDoc);
-
-            return new ProcessedSchemaSource(schemaSource, schema, typeDefinitionRegistry);
-        } catch (final Exception e) {
-            throw new IllegalArgumentException("Error while inspection read", e);
-        }
+        return new ProcessedSchemaSource(schemaSource, schema, typeDefinitionRegistry);
     }
 
     public void reload(final String schemaName) {
@@ -303,45 +267,46 @@ public class LiloContext {
 
             final String fieldName = field.getName();
 
-            typeWiringBuilder.dataFetcher(fieldName, e -> {
-                final List<Definition> definitions = e.getDocument().getDefinitions();
-
-                if (definitions.isEmpty()) {
-                    throw new IllegalArgumentException("query is not in appropriate format");
-                }
-
-                final OperationDefinition definition = (OperationDefinition) definitions.get(0);
-                final Optional<Selection> queryNodeOptional = definition.getSelectionSet().getSelections()
-                    .stream().filter(f -> fieldName.equals(((Field) f).getName()))
-                    .findFirst();
-
-                if (queryNodeOptional.isEmpty()) {
-                    throw new IllegalArgumentException("query is not in appropriate format");
-                }
-
-                final Field  subField     = (Field) queryNodeOptional.get();
-                final String subFieldText = AstPrinter.printAst(subField);
-
-                final OperationDefinition.Operation operation = definition.getOperation();
-                final String                        query;
-
-                if (operation.equals(OperationDefinition.Operation.MUTATION)) {
-                    query = "mutation {\n" + subFieldText + "\n}";
-                } else if (operation.equals(OperationDefinition.Operation.QUERY)) {
-                    query = "query {\n" + subFieldText + "\n}";
-                } else {
-                    throw new IllegalArgumentException("Unsupported operation type");
-                }
-
-                final String requestQuery = createRequest(query, e.getVariables(), null);
-                final String queryResult  = schemaSource.getQueryRetriever().get(this, requestQuery, e.getLocalContext());
-                final Map<String, Object> queryResultMap = OBJECT_MAPPER.readValue(queryResult, new TypeReference<>() {
-                });
-                final Map<String, Object> queryResultData = getMap(queryResultMap, "data");
-
-                return queryResultData.get(fieldName);
-            });
+            typeWiringBuilder.dataFetcher(fieldName, e -> createDataFetcher(e, schemaSource, fieldName));
         }
+    }
+
+    private Object createDataFetcher(final DataFetchingEnvironment environment, final SchemaSource schemaSource, final String fieldName) {
+
+        final List<Definition> definitions = environment.getDocument().getDefinitions();
+
+        if (definitions.isEmpty()) {
+            throw new IllegalArgumentException("query is not in appropriate format");
+        }
+
+        final OperationDefinition definition = (OperationDefinition) definitions.get(0);
+        final Optional<Selection> queryNodeOptional = definition.getSelectionSet().getSelections()
+            .stream().filter(f -> fieldName.equals(((Field) f).getName()))
+            .findFirst();
+
+        if (queryNodeOptional.isEmpty()) {
+            throw new IllegalArgumentException("query is not in appropriate format");
+        }
+
+        final Field                         subField     = (Field) queryNodeOptional.get();
+        final String                        subFieldText = AstPrinter.printAst(subField);
+        final OperationDefinition.Operation operation    = definition.getOperation();
+        final String                        query;
+
+        if (operation.equals(OperationDefinition.Operation.MUTATION)) {
+            query = "mutation {\n" + subFieldText + "\n}";
+        } else if (operation.equals(OperationDefinition.Operation.QUERY)) {
+            query = "query {\n" + subFieldText + "\n}";
+        } else {
+            throw new IllegalArgumentException("Unsupported operation type");
+        }
+
+        final var requestQuery    = toStr(GraphQLRequest.builder().query(query).variables(environment.getVariables()).build());
+        final var queryResult     = schemaSource.getQueryRetriever().get(this, requestQuery, environment.getLocalContext());
+        final var queryResultMap  = toMap(queryResult);
+        final var queryResultData = getMap(queryResultMap, "data");
+
+        return queryResultData.get(fieldName);
     }
 
     private void assignHandler(final ProcessedSchemaSource ss, final Map<String, TypeRuntimeWiring.Builder> typeRuntimeWiringBuilders, final Map<String, Object> combinedSchemaMap, final Map<String, ScalarTypeDefinition> scalars) {
