@@ -15,12 +15,12 @@ class ProcessedSchemaSource {
         this.typeDefinitionRegistry = typeDefinitionRegistry;
     }
 
-    SchemaSource getSchemaSource() {
-        return this.schemaSource;
-    }
-
     Map<String, Object> getSchema() {
         return this.schema;
+    }
+
+    SchemaSource getSchemaSource() {
+        return this.schemaSource;
     }
 
     TypeDefinitionRegistry getTypeDefinitionRegistry() {

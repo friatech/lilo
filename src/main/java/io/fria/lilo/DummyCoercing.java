@@ -8,8 +8,8 @@ import graphql.schema.CoercingSerializeException;
 public class DummyCoercing implements Coercing<Object, Object> {
 
     @Override
-    public Object serialize(final Object dataFetcherResult) throws CoercingSerializeException {
-        return null;
+    public Object parseLiteral(final Object input) throws CoercingParseLiteralException {
+        throw new CoercingParseValueException("This is a dummy implementation");
     }
 
     @Override
@@ -18,7 +18,7 @@ public class DummyCoercing implements Coercing<Object, Object> {
     }
 
     @Override
-    public Object parseLiteral(final Object input) throws CoercingParseLiteralException {
-        throw new CoercingParseValueException("This is a dummy implementation");
+    public Object serialize(final Object dataFetcherResult) throws CoercingSerializeException {
+        return null;
     }
 }

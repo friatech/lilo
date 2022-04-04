@@ -267,8 +267,26 @@ public class LiloContext {
 
             final String fieldName = field.getName();
 
-            typeWiringBuilder.dataFetcher(fieldName, e -> createDataFetcher(e, schemaSource, fieldName));
+            typeWiringBuilder.dataFetcher(fieldName, e -> this.createDataFetcher(e, schemaSource, fieldName));
         }
+    }
+
+    private void assignHandler(final ProcessedSchemaSource ss, final Map<String, TypeRuntimeWiring.Builder> typeRuntimeWiringBuilders, final Map<String, Object> combinedSchemaMap, final Map<String, ScalarTypeDefinition> scalars) {
+
+        final var schema                 = ss.getSchema();
+        final var schemaSource           = ss.getSchemaSource();
+        final var typeDefinitionRegistry = ss.getTypeDefinitionRegistry();
+        final var queryType              = getMap(schema, "queryType");
+        final var queryTypeName          = queryType == null ? null : getName(queryType);
+        final var mutationType           = getMap(schema, "mutationType");
+        final var mutationTypeName       = mutationType == null ? null : getName(mutationType);
+
+        this.assignDataFetchers(typeRuntimeWiringBuilders, typeDefinitionRegistry, schemaSource, queryTypeName);
+        this.assignDataFetchers(typeRuntimeWiringBuilders, typeDefinitionRegistry, schemaSource, mutationTypeName);
+
+        scalars.putAll(typeDefinitionRegistry.scalars());
+
+        mergeSchema(combinedSchemaMap, schema);
     }
 
     private Object createDataFetcher(final DataFetchingEnvironment environment, final SchemaSource schemaSource, final String fieldName) {
@@ -307,24 +325,6 @@ public class LiloContext {
         final var queryResultData = getMap(queryResultMap, "data");
 
         return queryResultData.get(fieldName);
-    }
-
-    private void assignHandler(final ProcessedSchemaSource ss, final Map<String, TypeRuntimeWiring.Builder> typeRuntimeWiringBuilders, final Map<String, Object> combinedSchemaMap, final Map<String, ScalarTypeDefinition> scalars) {
-
-        final var schema                 = ss.getSchema();
-        final var schemaSource           = ss.getSchemaSource();
-        final var typeDefinitionRegistry = ss.getTypeDefinitionRegistry();
-        final var queryType              = getMap(schema, "queryType");
-        final var queryTypeName          = queryType == null ? null : getName(queryType);
-        final var mutationType           = getMap(schema, "mutationType");
-        final var mutationTypeName       = mutationType == null ? null : getName(mutationType);
-
-        this.assignDataFetchers(typeRuntimeWiringBuilders, typeDefinitionRegistry, schemaSource, queryTypeName);
-        this.assignDataFetchers(typeRuntimeWiringBuilders, typeDefinitionRegistry, schemaSource, mutationTypeName);
-
-        scalars.putAll(typeDefinitionRegistry.scalars());
-
-        mergeSchema(combinedSchemaMap, schema);
     }
 
     private GraphQL createGraphQL(final Map<String, ProcessedSchemaSource> sourceMap) {
