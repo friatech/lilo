@@ -25,6 +25,7 @@ import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import graphql.schema.idl.TypeRuntimeWiring;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -36,9 +37,10 @@ import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 
 public class LiloContext {
 
-    private static final ObjectMapper OBJECT_MAPPER           = createMapper();
-    private static final TypeResolver INTERFACE_TYPE_RESOLVER = env -> null;
-    private static final TypeResolver UNION_TYPE_RESOLVER     = env -> {
+    private static final ObjectMapper                       OBJECT_MAPPER           = createMapper();
+    private static final TypeResolver                       INTERFACE_TYPE_RESOLVER = env -> null;
+    private static final String                             INTROSPECTION_REQUEST   = createIntrospectionRequest();
+    private static final TypeResolver                       UNION_TYPE_RESOLVER     = env -> {
         final Map<String, Object> result = env.getObject();
 
         if (!result.containsKey("__typename")) {
@@ -47,9 +49,8 @@ public class LiloContext {
 
         return env.getSchema().getObjectType(result.get("__typename").toString());
     };
-
-    private Map<String, ProcessedSchemaSource> sourceMap;
-    private GraphQL                            graphQL;
+    private              Map<String, ProcessedSchemaSource> sourceMap;
+    private              GraphQL                            graphQL;
 
     LiloContext(final SchemaSource... schemaSources) {
 
@@ -59,25 +60,6 @@ public class LiloContext {
 
         this.graphQL = this.createGraphQL(sourceMap);
         this.sourceMap = sourceMap;
-    }
-
-    public ProcessedSchemaSource processSource(final SchemaSource schemaSource) {
-
-        try {
-            final String introspectionResponse = schemaSource.getIntrospectionRetriever().get(this, IntrospectionQuery.INTROSPECTION_QUERY);
-            final Map<String, Object> introspectionResult = OBJECT_MAPPER.readValue(introspectionResponse, new TypeReference<>() {
-            });
-
-            final var data                   = getMap(introspectionResult, "data");
-            final var schema                 = getMap(data, "__schema");
-            final var parser                 = new SchemaParser();
-            final var schemaDoc              = new IntrospectionResultToSchema().createSchemaDefinition(data);
-            final var typeDefinitionRegistry = parser.buildRegistry(schemaDoc);
-
-            return new ProcessedSchemaSource(schemaSource, schema, typeDefinitionRegistry);
-        } catch (final Exception e) {
-            throw new IllegalArgumentException("Error while inspection read", e);
-        }
     }
 
     private static void addFields(final String typeName, final Map<String, Object> typeDefinition, final Map<String, Map<String, Object>> targetTypeMap) {
@@ -133,6 +115,19 @@ public class LiloContext {
         final GraphQLSchema   graphQLSchema   = schemaGenerator.makeExecutableSchema(typeRegistry, runtimeWiring);
 
         return GraphQL.newGraphQL(graphQLSchema).build();
+    }
+
+    private static String createIntrospectionRequest() {
+        try {
+            final Map<String, Object> bodyMap = new HashMap<>() {{
+                this.put("query", IntrospectionQuery.INTROSPECTION_QUERY);
+                this.put("operationName", "IntrospectionQuery");
+            }};
+
+            return OBJECT_MAPPER.writeValueAsString(bodyMap);
+        } catch (final IOException e) {
+            throw new IllegalArgumentException("Could not create introspection request");
+        }
     }
 
     private static ObjectMapper createMapper() {
@@ -249,10 +244,29 @@ public class LiloContext {
         return this.graphQL;
     }
 
+    public ProcessedSchemaSource processSource(final SchemaSource schemaSource) {
+
+        try {
+            final String introspectionResponse = schemaSource.getIntrospectionRetriever().get(this, INTROSPECTION_REQUEST);
+            final Map<String, Object> introspectionResult = OBJECT_MAPPER.readValue(introspectionResponse, new TypeReference<>() {
+            });
+
+            final var data                   = getMap(introspectionResult, "data");
+            final var schema                 = getMap(data, "__schema");
+            final var parser                 = new SchemaParser();
+            final var schemaDoc              = new IntrospectionResultToSchema().createSchemaDefinition(data);
+            final var typeDefinitionRegistry = parser.buildRegistry(schemaDoc);
+
+            return new ProcessedSchemaSource(schemaSource, schema, typeDefinitionRegistry);
+        } catch (final Exception e) {
+            throw new IllegalArgumentException("Error while inspection read", e);
+        }
+    }
+
     public void reload(final String schemaName) {
 
         final ProcessedSchemaSource processedSource = this.sourceMap.get(schemaName);
-        final ProcessedSchemaSource updatedSource   = processSource(processedSource.getSchemaSource());
+        final ProcessedSchemaSource updatedSource   = this.processSource(processedSource.getSchemaSource());
 
         final HashMap<String, ProcessedSchemaSource> sourceMapClone = new HashMap<>(this.sourceMap);
         sourceMapClone.put(schemaName, updatedSource);
@@ -301,7 +315,7 @@ public class LiloContext {
                 final String subFieldText = AstPrinter.printAst(subField);
 
                 final OperationDefinition.Operation operation = definition.getOperation();
-                final String query;
+                final String                        query;
 
                 if (operation.equals(OperationDefinition.Operation.MUTATION)) {
                     query = "mutation {\n" + subFieldText + "\n}";
