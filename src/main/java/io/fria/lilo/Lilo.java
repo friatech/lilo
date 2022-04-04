@@ -13,12 +13,12 @@ public final class Lilo {
         this.context = context;
     }
 
-    public LiloContext getContext() {
-        return this.context;
-    }
-
     public static LiloBuilder builder() {
         return new LiloBuilder();
+    }
+
+    public LiloContext getContext() {
+        return this.context;
     }
 
     public ExecutionResult stitch(final ExecutionInput executionInput) {

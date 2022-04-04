@@ -51,7 +51,7 @@ public class LiloContext {
             .map(LiloContext::processSource)
             .collect(Collectors.toMap(ss -> ss.getSchemaSource().getName(), ss -> ss));
 
-        Map<String, Object>                          combinedSchemaMap         = new HashMap<>();
+        final Map<String, Object>                    combinedSchemaMap         = new HashMap<>();
         final Map<String, TypeRuntimeWiring.Builder> typeRuntimeWiringBuilders = new HashMap<>();
         final Map<String, ScalarTypeDefinition>      scalars                   = new HashMap<>();
 
@@ -65,8 +65,8 @@ public class LiloContext {
             final var mutationType           = getMap(schema, "mutationType");
             final var mutationTypeName       = mutationType == null ? null : getName(mutationType);
 
-            assignDataFetchers(typeRuntimeWiringBuilders, typeDefinitionRegistry, schemaSource, queryTypeName);
-            assignDataFetchers(typeRuntimeWiringBuilders, typeDefinitionRegistry, schemaSource, mutationTypeName);
+            this.assignDataFetchers(typeRuntimeWiringBuilders, typeDefinitionRegistry, schemaSource, queryTypeName);
+            this.assignDataFetchers(typeRuntimeWiringBuilders, typeDefinitionRegistry, schemaSource, mutationTypeName);
 
             scalars.putAll(typeDefinitionRegistry.scalars());
 
@@ -75,6 +75,72 @@ public class LiloContext {
 
         this.graphQL = combine(typeRuntimeWiringBuilders, combinedSchemaMap, scalars);
         this.sourceMap = sourceMap;
+    }
+
+    public static ProcessedSchemaSource processSource(final SchemaSource schemaSource) {
+
+        try {
+            final String introspectionResponse = schemaSource.getIntrospectionRetriever().get();
+            final Map<String, Object> introspectionResult = OBJECT_MAPPER.readValue(introspectionResponse, new TypeReference<>() {
+            });
+
+            final var data                   = getMap(introspectionResult, "data");
+            final var schema                 = getMap(data, "__schema");
+            final var parser                 = new SchemaParser();
+            final var schemaDoc              = new IntrospectionResultToSchema().createSchemaDefinition(data);
+            final var typeDefinitionRegistry = parser.buildRegistry(schemaDoc);
+
+            return new ProcessedSchemaSource(schemaSource, schema, typeDefinitionRegistry);
+        } catch (final Exception e) {
+            throw new IllegalArgumentException("Error while inspection read", e);
+        }
+    }
+
+    private static void addFields(final String typeName, final Map<String, Object> typeDefinition, final Map<String, Map<String, Object>> targetTypeMap) {
+
+        final String typeDefinitionName = getName(typeDefinition);
+
+        if (!typeDefinitionName.equals(typeName)) {
+            return;
+        }
+
+        final var targetQueryTypeDefinition = targetTypeMap.get(typeDefinitionName);
+        final var fields                    = getList(targetQueryTypeDefinition, "fields");
+        final var targetFields              = fields.stream().collect(Collectors.toMap(f -> f.get("name").toString(), f -> f));
+
+        getList(typeDefinition, "fields").forEach(f -> {
+            if (!targetFields.containsKey(getName(f))) {
+                fields.add(f);
+            }
+        });
+    }
+
+    private void assignDataFetchers(final Map<String, TypeRuntimeWiring.Builder> typeRuntimeWiringBuilders, final TypeDefinitionRegistry typeDefinitionRegistry, final SchemaSource schemaSource, final String typeName) {
+
+        if (typeName == null) {
+            return;
+        }
+
+        if (!typeRuntimeWiringBuilders.containsKey(typeName)) {
+            typeRuntimeWiringBuilders.put(typeName, newTypeWiring(typeName));
+        }
+
+        final TypeRuntimeWiring.Builder typeWiringBuilder = typeRuntimeWiringBuilders.get(typeName);
+
+        final Optional<TypeDefinition> typeDefinitionOptional = typeDefinitionRegistry.getType(typeName);
+        final TypeDefinition           typeDefinition         = typeDefinitionOptional.get();
+        final List<FieldDefinition>    children               = typeDefinition.getChildren();
+
+        for (final FieldDefinition field : children) {
+            typeWiringBuilder.dataFetcher(field.getName(), e -> {
+                final String queryResult = schemaSource.getQueryRetriever().get(this, e);
+                final Map<String, Object> queryResultMap = OBJECT_MAPPER.readValue(queryResult, new TypeReference<>() {
+                });
+                final Map<String, Object> queryResultData = getMap(queryResultMap, "data");
+
+                return queryResultData.get(field.getName());
+            });
+        }
     }
 
     private static GraphQL combine(final Map<String, TypeRuntimeWiring.Builder> typeRuntimeWiringBuilders, final Map<String, Object> combinedSchemaMap, final Map<String, ScalarTypeDefinition> scalars) {
@@ -111,57 +177,6 @@ public class LiloContext {
         final GraphQLSchema   graphQLSchema   = schemaGenerator.makeExecutableSchema(typeRegistry, runtimeWiring);
 
         return GraphQL.newGraphQL(graphQLSchema).build();
-    }
-
-    private static void assignDataFetchers(final Map<String, TypeRuntimeWiring.Builder> typeRuntimeWiringBuilders, final TypeDefinitionRegistry typeDefinitionRegistry, final SchemaSource schemaSource, final String typeName) {
-
-        if (typeName == null) {
-            return;
-        }
-
-        if (!typeRuntimeWiringBuilders.containsKey(typeName)) {
-            typeRuntimeWiringBuilders.put(typeName, newTypeWiring(typeName));
-        }
-
-        final TypeRuntimeWiring.Builder typeWiringBuilder = typeRuntimeWiringBuilders.get(typeName);
-
-        final Optional<TypeDefinition> typeDefinitionOptional = typeDefinitionRegistry.getType(typeName);
-        final TypeDefinition           typeDefinition         = typeDefinitionOptional.get();
-        final List<FieldDefinition>    children               = typeDefinition.getChildren();
-
-        for (final FieldDefinition field : children) {
-            typeWiringBuilder.dataFetcher(field.getName(), e -> {
-                final String queryResult = schemaSource.getQueryRetriever().get(e);
-                final Map<String, Object> queryResultMap = OBJECT_MAPPER.readValue(queryResult, new TypeReference<>() {
-                });
-                final Map<String, Object> queryResultData = getMap(queryResultMap, "data");
-
-                return queryResultData.get(field.getName());
-            });
-        }
-    }
-
-    public GraphQL getGraphQL() {
-        return this.graphQL;
-    }
-
-    public static ProcessedSchemaSource processSource(final SchemaSource schemaSource) {
-
-        try {
-            final String introspectionResponse = schemaSource.getIntrospectionRetriever().get();
-            final Map<String, Object> introspectionResult = OBJECT_MAPPER.readValue(introspectionResponse, new TypeReference<>() {
-            });
-
-            final var data                   = getMap(introspectionResult, "data");
-            final var schema                 = getMap(data, "__schema");
-            final var parser                 = new SchemaParser();
-            final var schemaDoc              = new IntrospectionResultToSchema().createSchemaDefinition(data);
-            final var typeDefinitionRegistry = parser.buildRegistry(schemaDoc);
-
-            return new ProcessedSchemaSource(schemaSource, schema, typeDefinitionRegistry);
-        } catch (final Exception e) {
-            throw new IllegalArgumentException("Error while inspection read", e);
-        }
     }
 
     private static ObjectMapper createMapper() {
@@ -274,22 +289,7 @@ public class LiloContext {
         }
     }
 
-    private static void addFields(final String typeName, final Map<String, Object> typeDefinition, final Map<String, Map<String, Object>> targetTypeMap) {
-
-        final String typeDefinitionName = getName(typeDefinition);
-
-        if (!typeDefinitionName.equals(typeName)) {
-            return;
-        }
-
-        final var targetQueryTypeDefinition = targetTypeMap.get(typeDefinitionName);
-        final var fields                    = getList(targetQueryTypeDefinition, "fields");
-        final var targetFields              = fields.stream().collect(Collectors.toMap(f -> f.get("name").toString(), f -> f));
-
-        getList(typeDefinition, "fields").forEach(f -> {
-            if (!targetFields.containsKey(getName(f))) {
-                fields.add(f);
-            }
-        });
+    public GraphQL getGraphQL() {
+        return this.graphQL;
     }
 }
