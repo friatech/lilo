@@ -39,7 +39,7 @@ public class LiloContext {
 
     private static final ObjectMapper                       OBJECT_MAPPER           = createMapper();
     private static final TypeResolver                       INTERFACE_TYPE_RESOLVER = env -> null;
-    private static final String                             INTROSPECTION_REQUEST   = createIntrospectionRequest();
+    private static final String                             INTROSPECTION_REQUEST   = createRequest(IntrospectionQuery.INTROSPECTION_QUERY, "IntrospectionQuery");
     private static final TypeResolver                       UNION_TYPE_RESOLVER     = env -> {
         final Map<String, Object> result = env.getObject();
 
@@ -117,23 +117,27 @@ public class LiloContext {
         return GraphQL.newGraphQL(graphQLSchema).build();
     }
 
-    private static String createIntrospectionRequest() {
-        try {
-            final Map<String, Object> bodyMap = new HashMap<>() {{
-                this.put("query", IntrospectionQuery.INTROSPECTION_QUERY);
-                this.put("operationName", "IntrospectionQuery");
-            }};
-
-            return OBJECT_MAPPER.writeValueAsString(bodyMap);
-        } catch (final IOException e) {
-            throw new IllegalArgumentException("Could not create introspection request");
-        }
-    }
-
     private static ObjectMapper createMapper() {
         final ObjectMapper mapper = new ObjectMapper();
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         return mapper;
+    }
+
+    private static String createRequest(final String query, final String operationName) {
+
+        try {
+
+            final HashMap<Object, Object> requestMap = new HashMap<>();
+            requestMap.put("query", query);
+
+            if (operationName != null) {
+                requestMap.put("operationName", operationName);
+            }
+
+            return OBJECT_MAPPER.writeValueAsString(requestMap);
+        } catch (final IOException e) {
+            throw new IllegalArgumentException("Could not create introspection request");
+        }
     }
 
     private static List<Map<String, Object>> getList(final Map<String, Object> map, final String key) {
@@ -325,7 +329,8 @@ public class LiloContext {
                     throw new IllegalArgumentException("Unsupported operation type");
                 }
 
-                final String queryResult = schemaSource.getQueryRetriever().get(this, query, e.getLocalContext());
+                final String requestQuery = createRequest(query, null);
+                final String queryResult  = schemaSource.getQueryRetriever().get(this, requestQuery, e.getLocalContext());
                 final Map<String, Object> queryResultMap = OBJECT_MAPPER.readValue(queryResult, new TypeReference<>() {
                 });
                 final Map<String, Object> queryResultData = getMap(queryResultMap, "data");
