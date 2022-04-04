@@ -1,4 +1,4 @@
-package io.firat.lilo;
+package io.fria.lilo;
 
 import graphql.schema.Coercing;
 import graphql.schema.CoercingParseLiteralException;

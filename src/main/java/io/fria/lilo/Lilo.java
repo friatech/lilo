@@ -1,4 +1,4 @@
-package io.firat.lilo;
+package io.fria.lilo;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;

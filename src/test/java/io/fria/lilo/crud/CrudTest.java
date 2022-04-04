@@ -1,33 +1,23 @@
-package io.firat.lilo.crud;
+package io.fria.lilo.crud;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
-import graphql.TypeResolutionEnvironment;
 import graphql.introspection.IntrospectionQuery;
-import graphql.schema.Coercing;
-import graphql.schema.CoercingParseLiteralException;
-import graphql.schema.CoercingParseValueException;
-import graphql.schema.CoercingSerializeException;
-import graphql.schema.GraphQLFieldDefinition;
-import graphql.schema.GraphQLNonNull;
-import graphql.schema.GraphQLObjectType;
 import graphql.schema.GraphQLScalarType;
-import graphql.schema.TypeResolver;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
-import io.firat.lilo.DummyCoercing;
-import io.firat.lilo.IntrospectionRetriever;
-import io.firat.lilo.Lilo;
-import io.firat.lilo.QueryRetriever;
-import io.firat.lilo.SchemaSource;
+import io.fria.lilo.DummyCoercing;
+import io.fria.lilo.IntrospectionRetriever;
+import io.fria.lilo.Lilo;
+import io.fria.lilo.QueryRetriever;
+import io.fria.lilo.SchemaSource;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Assertions;
@@ -36,8 +26,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-import static graphql.Scalars.GraphQLString;
-import static graphql.schema.GraphQLNonNull.nonNull;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 
 @ExtendWith(MockitoExtension.class)

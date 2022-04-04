@@ -1,4 +1,4 @@
-package io.firat.lilo.greetings;
+package io.fria.lilo.math;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -9,10 +9,10 @@ import graphql.introspection.IntrospectionQuery;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
-import io.firat.lilo.IntrospectionRetriever;
-import io.firat.lilo.Lilo;
-import io.firat.lilo.QueryRetriever;
-import io.firat.lilo.SchemaSource;
+import io.fria.lilo.IntrospectionRetriever;
+import io.fria.lilo.Lilo;
+import io.fria.lilo.QueryRetriever;
+import io.fria.lilo.SchemaSource;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
@@ -25,7 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 
 @ExtendWith(MockitoExtension.class)
-class GreetingsTest {
+class MathTest {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String       SCHEMA1_NAME  = "project1";
@@ -48,15 +48,15 @@ class GreetingsTest {
         return RuntimeWiring.newRuntimeWiring()
             .type(
                 newTypeWiring("Query")
-                    .dataFetcher("greeting1", env -> "Hello greeting1")
-                    .dataFetcher("greeting2", env -> "Hello greeting2")
+                    .dataFetcher("add", env -> env.<Integer>getArgument("a") + env.<Integer>getArgument("b"))
+                    .dataFetcher("subtract", env -> env.<Integer>getArgument("a") - env.<Integer>getArgument("b"))
             )
             .build();
     }
 
     private static GraphQL createGraphQL(final String schemaDefinitionPath, final RuntimeWiring runtimeWiring) throws IOException {
 
-        final InputStream resourceAsStream = GreetingsTest.class.getResourceAsStream(schemaDefinitionPath);
+        final InputStream resourceAsStream = MathTest.class.getResourceAsStream(schemaDefinitionPath);
         Assertions.assertNotNull(resourceAsStream);
 
         final var schemaDefinitionText = new String(resourceAsStream.readAllBytes());
@@ -72,7 +72,7 @@ class GreetingsTest {
         return RuntimeWiring.newRuntimeWiring()
             .type(
                 newTypeWiring("Query")
-                    .dataFetcher("greeting1", env -> "Hello greeting1")
+                    .dataFetcher("add", env -> env.<Integer>getArgument("a") + env.<Integer>getArgument("b"))
             )
             .build();
     }
@@ -82,7 +82,7 @@ class GreetingsTest {
         return RuntimeWiring.newRuntimeWiring()
             .type(
                 newTypeWiring("Query")
-                    .dataFetcher("greeting2", env -> "Hello greeting2")
+                    .dataFetcher("subtract", env -> env.<Integer>getArgument("a") - env.<Integer>getArgument("b"))
             )
             .build();
     }
@@ -113,20 +113,20 @@ class GreetingsTest {
     void stitchingTest() throws IOException {
 
         // Combined result -----------------------------------------------------
-        final Map<String, Object> expected = Map.of("greeting1", "Hello greeting1", "greeting2", "Hello greeting2");
+        final Map<String, Object> expected = Map.of("add", 3, "subtract", 10);
 
         final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
-            .query("{greeting1\ngreeting2}")
+            .query("{add(a: 1, b: 2)\nsubtract(a: 20, b: 10)}")
             .build();
 
-        final GraphQL combinedGraphQL = createGraphQL("/greetings//combined.graphqls", createCombinedWiring());
+        final GraphQL combinedGraphQL = createGraphQL("/math//combined.graphqls", createCombinedWiring());
 
         final ExecutionResult result = combinedGraphQL.execute(executionInput);
         Assertions.assertEquals(expected, result.getData());
 
         // Stitching result ----------------------------------------------------
-        final GraphQL project1GraphQL = createGraphQL("/greetings/greeting1.graphqls", createProject1Wiring());
-        final GraphQL project2GraphQL = createGraphQL("/greetings/greeting2.graphqls", createProject2Wiring());
+        final GraphQL project1GraphQL = createGraphQL("/math/add.graphqls", createProject1Wiring());
+        final GraphQL project2GraphQL = createGraphQL("/math/subtract.graphqls", createProject2Wiring());
 
         Mockito.when(this.introspection1Retriever.get())
             .thenReturn(runQuery(project1GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
@@ -135,10 +135,10 @@ class GreetingsTest {
             .thenReturn(runQuery(project2GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
 
         Mockito.when(this.query1Retriever.get(Mockito.any()))
-            .thenReturn(runQuery(project1GraphQL, "{greeting1}"));
+            .thenReturn(runQuery(project1GraphQL, "{add(a: 1, b: 2)}"));
 
         Mockito.when(this.query2Retriever.get(Mockito.any()))
-            .thenReturn(runQuery(project2GraphQL, "{greeting2}"));
+            .thenReturn(runQuery(project2GraphQL, "{subtract(a: 20, b: 10)}"));
 
         final Lilo lilo = Lilo.builder()
             .addSource(createSchemaSource(SCHEMA1_NAME, this.introspection1Retriever, this.query1Retriever))

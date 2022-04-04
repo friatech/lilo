@@ -1,4 +1,4 @@
-package io.firat.lilo;
+package io.fria.lilo;
 
 import lombok.Builder;
 import lombok.Getter;
