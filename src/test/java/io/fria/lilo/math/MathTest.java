@@ -1,47 +1,25 @@
 package io.fria.lilo.math;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
-import graphql.introspection.IntrospectionQuery;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
-import io.fria.lilo.IntrospectionRetriever;
 import io.fria.lilo.Lilo;
-import io.fria.lilo.QueryRetriever;
-import io.fria.lilo.SchemaSource;
+import io.fria.lilo.TestUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.junit.jupiter.MockitoExtension;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
+import static io.fria.lilo.TestUtils.createSchemaSource;
 
-@ExtendWith(MockitoExtension.class)
 class MathTest {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final String       SCHEMA1_NAME  = "project1";
-    private static final String       SCHEMA2_NAME  = "project2";
-
-    @Mock
-    private IntrospectionRetriever introspection1Retriever;
-
-    @Mock
-    private IntrospectionRetriever introspection2Retriever;
-
-    @Mock
-    private QueryRetriever query1Retriever;
-
-    @Mock
-    private QueryRetriever query2Retriever;
+    private static final String SCHEMA1_NAME = "project1";
+    private static final String SCHEMA2_NAME = "project2";
 
     private static RuntimeWiring createCombinedWiring() {
 
@@ -87,28 +65,6 @@ class MathTest {
             .build();
     }
 
-    private static SchemaSource createSchemaSource(
-        final String schemaName,
-        final IntrospectionRetriever introspectionRetriever,
-        final QueryRetriever queryRetriever
-    ) {
-
-        return SchemaSource.builder()
-            .name(schemaName)
-            .introspectionRetriever(introspectionRetriever)
-            .queryRetriever(queryRetriever)
-            .build();
-    }
-
-    private static String runQuery(final GraphQL graphQL, final String query) throws JsonProcessingException {
-
-        final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
-            .query(query)
-            .build();
-
-        return OBJECT_MAPPER.writeValueAsString(graphQL.execute(executionInput));
-    }
-
     @Test
     void stitchingTest() throws IOException {
 
@@ -125,24 +81,55 @@ class MathTest {
         Assertions.assertEquals(expected, result.getData());
 
         // Stitching result ----------------------------------------------------
-        final GraphQL project1GraphQL = createGraphQL("/math/add.graphqls", createProject1Wiring());
-        final GraphQL project2GraphQL = createGraphQL("/math/subtract.graphqls", createProject2Wiring());
-
-        Mockito.when(this.introspection1Retriever.get(Mockito.any(), Mockito.any()))
-            .thenReturn(runQuery(project1GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
-
-        Mockito.when(this.introspection2Retriever.get(Mockito.any(), Mockito.any()))
-            .thenReturn(runQuery(project2GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
-
-        Mockito.when(this.query1Retriever.get(Mockito.any(), Mockito.any(), Mockito.any()))
-            .thenReturn(runQuery(project1GraphQL, "{add(a: 1, b: 2)}"));
-
-        Mockito.when(this.query2Retriever.get(Mockito.any(), Mockito.any(), Mockito.any()))
-            .thenReturn(runQuery(project2GraphQL, "{subtract(a: 20, b: 10)}"));
+        final var project1GraphQL         = createGraphQL("/math/add.graphqls", createProject1Wiring());
+        final var project2GraphQL         = createGraphQL("/math/subtract.graphqls", createProject2Wiring());
+        final var introspection1Retriever = new TestUtils.TestIntrospectionRetriever(project1GraphQL);
+        final var introspection2Retriever = new TestUtils.TestIntrospectionRetriever(project2GraphQL);
+        final var query1Retriever         = new TestUtils.TestQueryRetriever(project1GraphQL);
+        final var query2Retriever         = new TestUtils.TestQueryRetriever(project2GraphQL);
 
         final Lilo lilo = Lilo.builder()
-            .addSource(createSchemaSource(SCHEMA1_NAME, this.introspection1Retriever, this.query1Retriever))
-            .addSource(createSchemaSource(SCHEMA2_NAME, this.introspection2Retriever, this.query2Retriever))
+            .addSource(createSchemaSource(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
+            .addSource(createSchemaSource(SCHEMA2_NAME, introspection2Retriever, query2Retriever))
+            .build();
+
+        final ExecutionResult stitchResult = lilo.stitch(executionInput);
+        Assertions.assertEquals(expected, stitchResult.getData());
+    }
+
+    @Test
+    void variablesTest() throws IOException {
+
+        // Combined result -----------------------------------------------------
+        final Map<String, Object> expected = Map.of("add", 30, "subtract", 10);
+
+        final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
+            .query("""
+                query someMath($paramA: Int!, $paramB: Int!) {
+                    add(a: $paramA, b: $paramB)
+                    subtract(a: $paramA, b: $paramB)
+                }
+                """)
+            .operationName("someMath")
+            .variables(Map.of("paramA", 20, "paramB", 10))
+            .build();
+
+        final GraphQL combinedGraphQL = createGraphQL("/math//combined.graphqls", createCombinedWiring());
+
+        final ExecutionResult result = combinedGraphQL.execute(executionInput);
+        Assertions.assertEquals(expected, result.getData());
+
+        // Stitching result ----------------------------------------------------
+        final var project1GraphQL         = createGraphQL("/math/add.graphqls", createProject1Wiring());
+        final var project2GraphQL         = createGraphQL("/math/subtract.graphqls", createProject2Wiring());
+        final var introspection1Retriever = new TestUtils.TestIntrospectionRetriever(project1GraphQL);
+        final var introspection2Retriever = new TestUtils.TestIntrospectionRetriever(project2GraphQL);
+        final var query1Retriever         = new TestUtils.TestQueryRetriever(project1GraphQL);
+        final var query2Retriever         = new TestUtils.TestQueryRetriever(project2GraphQL);
+
+        final Lilo lilo = Lilo.builder()
+            .addSource(createSchemaSource(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
+            .addSource(createSchemaSource(SCHEMA2_NAME, introspection2Retriever, query2Retriever))
             .build();
 
         final ExecutionResult stitchResult = lilo.stitch(executionInput);

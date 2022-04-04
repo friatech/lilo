@@ -39,7 +39,7 @@ public class LiloContext {
 
     private static final ObjectMapper                       OBJECT_MAPPER           = createMapper();
     private static final TypeResolver                       INTERFACE_TYPE_RESOLVER = env -> null;
-    private static final String                             INTROSPECTION_REQUEST   = createRequest(IntrospectionQuery.INTROSPECTION_QUERY, "IntrospectionQuery");
+    private static final String                             INTROSPECTION_REQUEST   = createRequest(IntrospectionQuery.INTROSPECTION_QUERY, null, "IntrospectionQuery");
     private static final TypeResolver                       UNION_TYPE_RESOLVER     = env -> {
         final Map<String, Object> result = env.getObject();
 
@@ -123,12 +123,16 @@ public class LiloContext {
         return mapper;
     }
 
-    private static String createRequest(final String query, final String operationName) {
+    private static String createRequest(final String query, final Map<String, Object> variables, final String operationName) {
 
         try {
 
             final HashMap<Object, Object> requestMap = new HashMap<>();
             requestMap.put("query", query);
+
+            if (variables != null) {
+                requestMap.put("variables", variables);
+            }
 
             if (operationName != null) {
                 requestMap.put("operationName", operationName);
@@ -329,7 +333,7 @@ public class LiloContext {
                     throw new IllegalArgumentException("Unsupported operation type");
                 }
 
-                final String requestQuery = createRequest(query, null);
+                final String requestQuery = createRequest(query, e.getVariables(), null);
                 final String queryResult  = schemaSource.getQueryRetriever().get(this, requestQuery, e.getLocalContext());
                 final Map<String, Object> queryResultMap = OBJECT_MAPPER.readValue(queryResult, new TypeReference<>() {
                 });

@@ -1,7 +1,5 @@
 package io.fria.lilo.dynamicloading;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
@@ -9,50 +7,21 @@ import graphql.introspection.IntrospectionQuery;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
-import io.fria.lilo.IntrospectionRetriever;
+import io.fria.lilo.GraphQLRequest;
 import io.fria.lilo.Lilo;
-import io.fria.lilo.QueryRetriever;
-import io.fria.lilo.SchemaSource;
+import io.fria.lilo.TestUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.junit.jupiter.MockitoExtension;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
+import static io.fria.lilo.TestUtils.createSchemaSource;
 
-@ExtendWith(MockitoExtension.class)
 class ReloadSchemaTest {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final String       SCHEMA1_NAME  = "project1";
-    private static final String       SCHEMA2_NAME  = "project2";
-
-    @Mock
-    private IntrospectionRetriever introspection1Retriever;
-
-    @Mock
-    private IntrospectionRetriever introspection2Retriever;
-
-    @Mock
-    private QueryRetriever query1Retriever;
-
-    @Mock
-    private QueryRetriever query2Retriever;
-
-    private static RuntimeWiring createCombinedWiring() {
-
-        return RuntimeWiring.newRuntimeWiring()
-            .type(
-                newTypeWiring("Query")
-                    .dataFetcher("greeting1", env -> "Hello greeting1")
-                    .dataFetcher("greeting2", env -> "Hello greeting2")
-            )
-            .build();
-    }
+    private static final String SCHEMA1_NAME = "project1";
+    private static final String SCHEMA2_NAME = "project2";
 
     private static GraphQL createGraphQL(final String schemaDefinitionPath, final RuntimeWiring runtimeWiring) throws IOException {
 
@@ -97,28 +66,6 @@ class ReloadSchemaTest {
             .build();
     }
 
-    private static SchemaSource createSchemaSource(
-        final String schemaName,
-        final IntrospectionRetriever introspectionRetriever,
-        final QueryRetriever queryRetriever
-    ) {
-
-        return SchemaSource.builder()
-            .name(schemaName)
-            .introspectionRetriever(introspectionRetriever)
-            .queryRetriever(queryRetriever)
-            .build();
-    }
-
-    private static String runQuery(final GraphQL graphQL, final String query) throws JsonProcessingException {
-
-        final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
-            .query(query)
-            .build();
-
-        return OBJECT_MAPPER.writeValueAsString(graphQL.execute(executionInput));
-    }
-
     @Test
     void stitchingTest() throws IOException {
 
@@ -129,33 +76,29 @@ class ReloadSchemaTest {
             .build();
 
         // Stitching result ----------------------------------------------------
-        final GraphQL project1GraphQL = createGraphQL("/greetings/greeting1.graphqls", createProject1Wiring());
-        final GraphQL project2GraphQL = createGraphQL("/greetings/greeting2.graphqls", createProject2Wiring());
-        final GraphQL project3GraphQL = createGraphQL("/dynamicloading/greeting3.graphqls", createProject3Wiring());
+        final var project1GraphQL         = createGraphQL("/greetings/greeting1.graphqls", createProject1Wiring());
+        final var project2GraphQL         = createGraphQL("/greetings/greeting2.graphqls", createProject2Wiring());
+        final var introspection1Retriever = new TestUtils.TestIntrospectionRetriever(project1GraphQL);
+        final var introspection2Retriever = new TestUtils.TestIntrospectionRetriever(project2GraphQL);
+        final var query1Retriever         = new TestUtils.TestQueryRetriever(project1GraphQL);
+        final var query2Retriever         = new TestUtils.TestQueryRetriever(project2GraphQL);
 
-        Mockito.when(this.introspection1Retriever.get(Mockito.any(), Mockito.any()))
-            .thenReturn(runQuery(project1GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
-
-        Mockito.when(this.introspection2Retriever.get(Mockito.any(), Mockito.any()))
-            .thenReturn(runQuery(project2GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
-
-        Mockito.when(this.query1Retriever.get(Mockito.any(), Mockito.any(), Mockito.any()))
-            .thenReturn(runQuery(project1GraphQL, "{greeting1}"));
-
-        Mockito.when(this.query2Retriever.get(Mockito.any(), Mockito.any(), Mockito.any()))
-            .thenReturn(runQuery(project2GraphQL, "{greeting2}"));
+        final GraphQLRequest introspectionRequest = new GraphQLRequest();
+        introspectionRequest.setQuery(IntrospectionQuery.INTROSPECTION_QUERY);
 
         final Lilo lilo = Lilo.builder()
-            .addSource(createSchemaSource(SCHEMA1_NAME, this.introspection1Retriever, this.query1Retriever))
-            .addSource(createSchemaSource(SCHEMA2_NAME, this.introspection2Retriever, this.query2Retriever))
+            .addSource(createSchemaSource(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
+            .addSource(createSchemaSource(SCHEMA2_NAME, introspection2Retriever, query2Retriever))
             .build();
 
         ExecutionResult stitchResult = lilo.stitch(executionInput);
         Assertions.assertEquals(expected, stitchResult.getData());
 
         // After reloading context old expected result won't work.
-        Mockito.when(this.introspection2Retriever.get(Mockito.any(), Mockito.any()))
-            .thenReturn(runQuery(project3GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
+        final var project3GraphQL = createGraphQL("/dynamicloading/greeting3.graphqls", createProject3Wiring());
+
+        query2Retriever.setGraphQL(project3GraphQL);
+        introspection2Retriever.setGraphQL(project3GraphQL);
 
         lilo.getContext().reload(SCHEMA2_NAME);
 
@@ -163,9 +106,6 @@ class ReloadSchemaTest {
         Assertions.assertNotEquals(expected, stitchResult.getData());
 
         // But new query should work
-        Mockito.when(this.query2Retriever.get(Mockito.any(), Mockito.any(), Mockito.any()))
-            .thenReturn(runQuery(project3GraphQL, "{greeting3}"));
-
         executionInput = ExecutionInput.newExecutionInput()
             .query("{greeting1\ngreeting3}")
             .build();
