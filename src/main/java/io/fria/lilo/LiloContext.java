@@ -10,8 +10,9 @@ import graphql.language.InterfaceTypeDefinition;
 import graphql.language.OperationDefinition;
 import graphql.language.ScalarTypeDefinition;
 import graphql.language.SelectionSet;
-import graphql.language.TypeDefinition;
 import graphql.language.UnionTypeDefinition;
+import graphql.language.VariableDefinition;
+import graphql.language.VariableReference;
 import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.GraphQLScalarType;
 import graphql.schema.GraphQLSchema;
@@ -27,7 +28,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 import static io.fria.lilo.JsonUtils.getList;
@@ -123,6 +124,49 @@ public class LiloContext {
         final GraphQLSchema   graphQLSchema   = schemaGenerator.makeExecutableSchema(typeRegistry, runtimeWiring);
 
         return GraphQL.newGraphQL(graphQLSchema).build();
+    }
+
+    private static String createRequest(final DataFetchingEnvironment environment, final String fieldName) {
+
+        final var definitions = environment.getDocument().getDefinitions();
+
+        if (definitions.isEmpty()) {
+            throw new IllegalArgumentException("query is not in appropriate format");
+        }
+
+        final var definition = (OperationDefinition) definitions.get(0);
+
+        final var newSelections = definition
+            .getSelectionSet()
+            .getSelections()
+            .stream()
+            .filter(f -> fieldName.equals(((Field) f).getName()))
+            .toList();
+
+        final Field queryNode = (Field) newSelections.get(0);
+
+        final Set<String> usedReferences = queryNode.getArguments()
+            .stream()
+            .filter(a -> a.getValue() != null)
+            .filter(a -> a.getValue() instanceof VariableReference)
+            .map(a -> ((VariableReference) a.getValue()).getName())
+            .collect(Collectors.toSet());
+
+        final List<VariableDefinition> newVariables = definition
+            .getVariableDefinitions()
+            .stream()
+            .filter(v -> usedReferences.contains(v.getName()))
+            .toList();
+
+        final var newDefinition = definition.transform(builder -> {
+            builder
+                .selectionSet(new SelectionSet(newSelections))
+                .variableDefinitions(newVariables);
+        });
+
+        final var query = AstPrinter.printAst(newDefinition);
+
+        return toStr(GraphQLRequest.builder().query(query).variables(environment.getVariables()).build());
     }
 
     private static void mergeSchema(final Map<String, Object> targetSchema, final Map<String, Object> sourceSchema) {
@@ -256,11 +300,11 @@ public class LiloContext {
             typeRuntimeWiringBuilders.put(typeName, newTypeWiring(typeName));
         }
 
-        final TypeRuntimeWiring.Builder typeWiringBuilder = typeRuntimeWiringBuilders.get(typeName);
+        final var typeWiringBuilder      = typeRuntimeWiringBuilders.get(typeName);
+        final var typeDefinitionOptional = typeDefinitionRegistry.getType(typeName);
+        final var typeDefinition         = typeDefinitionOptional.get();
 
-        final Optional<TypeDefinition> typeDefinitionOptional = typeDefinitionRegistry.getType(typeName);
-        final TypeDefinition           typeDefinition         = typeDefinitionOptional.get();
-        final List<FieldDefinition>    children               = typeDefinition.getChildren();
+        final List<FieldDefinition> children = typeDefinition.getChildren();
 
         for (final FieldDefinition field : children) {
 
@@ -296,30 +340,6 @@ public class LiloContext {
         final var queryResultData = getMap(queryResultMap, "data");
 
         return queryResultData.get(fieldName);
-    }
-
-    private static String createRequest(final DataFetchingEnvironment environment, final String fieldName) {
-
-        final var definitions = environment.getDocument().getDefinitions();
-
-        if (definitions.isEmpty()) {
-            throw new IllegalArgumentException("query is not in appropriate format");
-        }
-
-        final var definition = (OperationDefinition) definitions.get(0);
-
-        final var newSelections = definition
-            .getSelectionSet()
-            .getSelections()
-            .stream()
-            .filter(f -> fieldName.equals(((Field) f).getName()))
-            .toList();
-
-
-        final var newDefinition = definition.transform(builder -> builder.selectionSet(new SelectionSet(newSelections)));
-        final var query         = AstPrinter.printAst(newDefinition);
-
-        return toStr(GraphQLRequest.builder().query(query).variables(environment.getVariables()).build());
     }
 
     private GraphQL createGraphQL(final Map<String, ProcessedSchemaSource> sourceMap) {

@@ -75,7 +75,7 @@ class MathTest {
             .query("{add(a: 1, b: 2)\nsubtract(a: 20, b: 10)}")
             .build();
 
-        final GraphQL combinedGraphQL = createGraphQL("/math//combined.graphqls", createCombinedWiring());
+        final GraphQL combinedGraphQL = createGraphQL("/math/combined.graphqls", createCombinedWiring());
 
         final ExecutionResult result = combinedGraphQL.execute(executionInput);
         Assertions.assertEquals(expected, result.getData());
@@ -101,20 +101,20 @@ class MathTest {
     void variablesTest() throws IOException {
 
         // Combined result -----------------------------------------------------
-        final Map<String, Object> expected = Map.of("add", 30, "subtract", 10);
+        final Map<String, Object> expected = Map.of("add", 3, "subtract", 10);
 
         final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
             .query("""
-                query someMath($paramA: Int!, $paramB: Int!) {
+                query someMath($paramA: Int!, $paramB: Int!, $paramC: Int!, $paramD: Int!) {
                     add(a: $paramA, b: $paramB)
-                    subtract(a: $paramA, b: $paramB)
+                    subtract(a: $paramC, b: $paramD)
                 }
                 """)
             .operationName("someMath")
-            .variables(Map.of("paramA", 20, "paramB", 10))
+            .variables(Map.of("paramA", 1, "paramB", 2, "paramC", 20, "paramD", 10))
             .build();
 
-        final GraphQL combinedGraphQL = createGraphQL("/math//combined.graphqls", createCombinedWiring());
+        final GraphQL combinedGraphQL = createGraphQL("/math/combined.graphqls", createCombinedWiring());
 
         final ExecutionResult result = combinedGraphQL.execute(executionInput);
         Assertions.assertEquals(expected, result.getData());
