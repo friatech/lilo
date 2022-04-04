@@ -7,7 +7,7 @@ import lombok.Getter;
 @Builder
 public class SchemaSource {
 
-    private String name;
+    private final String                 name;
     private final IntrospectionRetriever introspectionRetriever;
-    private final QueryRetriever queryRetriever;
+    private final QueryRetriever         queryRetriever;
 }
