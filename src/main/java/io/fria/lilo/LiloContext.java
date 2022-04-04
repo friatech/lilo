@@ -5,10 +5,14 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import graphql.GraphQL;
 import graphql.introspection.IntrospectionResultToSchema;
+import graphql.language.AstPrinter;
+import graphql.language.Definition;
+import graphql.language.Field;
 import graphql.language.FieldDefinition;
 import graphql.language.InterfaceTypeDefinition;
 import graphql.language.OperationDefinition;
 import graphql.language.ScalarTypeDefinition;
+import graphql.language.Selection;
 import graphql.language.TypeDefinition;
 import graphql.language.UnionTypeDefinition;
 import graphql.schema.GraphQLScalarType;
@@ -273,15 +277,45 @@ public class LiloContext {
         final List<FieldDefinition>    children               = typeDefinition.getChildren();
 
         for (final FieldDefinition field : children) {
-            typeWiringBuilder.dataFetcher(field.getName(), e -> {
-                final OperationDefinition operationDefinition = e.getOperationDefinition();
-                final Object              localContext        = e.getLocalContext();
-                final String queryResult = schemaSource.getQueryRetriever().get(this, e, e.getLocalContext());
+
+            final String fieldName = field.getName();
+
+            typeWiringBuilder.dataFetcher(fieldName, e -> {
+                final List<Definition> definitions = e.getDocument().getDefinitions();
+
+                if (definitions.isEmpty()) {
+                    throw new IllegalArgumentException("query is not in appropriate format");
+                }
+
+                final OperationDefinition definition = (OperationDefinition) definitions.get(0);
+                final Optional<Selection> queryNodeOptional = definition.getSelectionSet().getSelections()
+                    .stream().filter(f -> fieldName.equals(((Field) f).getName()))
+                    .findFirst();
+
+                if (queryNodeOptional.isEmpty()) {
+                    throw new IllegalArgumentException("query is not in appropriate format");
+                }
+
+                final Field  subField     = (Field) queryNodeOptional.get();
+                final String subFieldText = AstPrinter.printAst(subField);
+
+                final OperationDefinition.Operation operation = definition.getOperation();
+                final String query;
+
+                if (operation.equals(OperationDefinition.Operation.MUTATION)) {
+                    query = "mutation {\n" + subFieldText + "\n}";
+                } else if (operation.equals(OperationDefinition.Operation.QUERY)) {
+                    query = "query {\n" + subFieldText + "\n}";
+                } else {
+                    throw new IllegalArgumentException("Unsupported operation type");
+                }
+
+                final String queryResult = schemaSource.getQueryRetriever().get(this, query, e.getLocalContext());
                 final Map<String, Object> queryResultMap = OBJECT_MAPPER.readValue(queryResult, new TypeReference<>() {
                 });
                 final Map<String, Object> queryResultData = getMap(queryResultMap, "data");
 
-                return queryResultData.get(field.getName());
+                return queryResultData.get(fieldName);
             });
         }
     }
