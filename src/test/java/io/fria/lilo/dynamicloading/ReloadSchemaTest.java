@@ -1,4 +1,4 @@
-package io.fria.lilo.greetings;
+package io.fria.lilo.dynamicloading;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,7 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 
 @ExtendWith(MockitoExtension.class)
-class GreetingsTest {
+class ReloadSchemaTest {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String       SCHEMA1_NAME  = "project1";
@@ -56,7 +56,7 @@ class GreetingsTest {
 
     private static GraphQL createGraphQL(final String schemaDefinitionPath, final RuntimeWiring runtimeWiring) throws IOException {
 
-        final InputStream resourceAsStream = GreetingsTest.class.getResourceAsStream(schemaDefinitionPath);
+        final InputStream resourceAsStream = ReloadSchemaTest.class.getResourceAsStream(schemaDefinitionPath);
         Assertions.assertNotNull(resourceAsStream);
 
         final var schemaDefinitionText = new String(resourceAsStream.readAllBytes());
@@ -87,6 +87,16 @@ class GreetingsTest {
             .build();
     }
 
+    private static RuntimeWiring createProject3Wiring() {
+
+        return RuntimeWiring.newRuntimeWiring()
+            .type(
+                newTypeWiring("Query")
+                    .dataFetcher("greeting3", env -> "Hello greeting3")
+            )
+            .build();
+    }
+
     private static SchemaSource createSchemaSource(
         final String schemaName,
         final IntrospectionRetriever introspectionRetriever,
@@ -112,21 +122,16 @@ class GreetingsTest {
     @Test
     void stitchingTest() throws IOException {
 
-        // Combined result -----------------------------------------------------
-        final Map<String, Object> expected = Map.of("greeting1", "Hello greeting1", "greeting2", "Hello greeting2");
+        Map<String, Object> expected = Map.of("greeting1", "Hello greeting1", "greeting2", "Hello greeting2");
 
-        final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
+        ExecutionInput executionInput = ExecutionInput.newExecutionInput()
             .query("{greeting1\ngreeting2}")
             .build();
-
-        final GraphQL combinedGraphQL = createGraphQL("/greetings/combined.graphqls", createCombinedWiring());
-
-        final ExecutionResult result = combinedGraphQL.execute(executionInput);
-        Assertions.assertEquals(expected, result.getData());
 
         // Stitching result ----------------------------------------------------
         final GraphQL project1GraphQL = createGraphQL("/greetings/greeting1.graphqls", createProject1Wiring());
         final GraphQL project2GraphQL = createGraphQL("/greetings/greeting2.graphqls", createProject2Wiring());
+        final GraphQL project3GraphQL = createGraphQL("/dynamicloading/greeting3.graphqls", createProject3Wiring());
 
         Mockito.when(this.introspection1Retriever.get())
             .thenReturn(runQuery(project1GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
@@ -145,7 +150,29 @@ class GreetingsTest {
             .addSource(createSchemaSource(SCHEMA2_NAME, this.introspection2Retriever, this.query2Retriever))
             .build();
 
-        final ExecutionResult stitchResult = lilo.stitch(executionInput);
+        ExecutionResult stitchResult = lilo.stitch(executionInput);
+        Assertions.assertEquals(expected, stitchResult.getData());
+
+        // After reloading context old expected result won't work.
+        Mockito.when(this.introspection2Retriever.get())
+            .thenReturn(runQuery(project3GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
+
+        lilo.getContext().reload(SCHEMA2_NAME);
+
+        stitchResult = lilo.stitch(executionInput);
+        Assertions.assertNotEquals(expected, stitchResult.getData());
+
+        // But new query should work
+        Mockito.when(this.query2Retriever.get(Mockito.any(), Mockito.any()))
+            .thenReturn(runQuery(project3GraphQL, "{greeting3}"));
+
+        executionInput = ExecutionInput.newExecutionInput()
+            .query("{greeting1\ngreeting3}")
+            .build();
+
+        expected = Map.of("greeting1", "Hello greeting1", "greeting3", "Hello greeting3");
+
+        stitchResult = lilo.stitch(executionInput);
         Assertions.assertEquals(expected, stitchResult.getData());
     }
 }
