@@ -4,13 +4,12 @@ import graphql.GraphQL;
 import graphql.introspection.IntrospectionQuery;
 import graphql.introspection.IntrospectionResultToSchema;
 import graphql.language.AstPrinter;
-import graphql.language.Definition;
 import graphql.language.Field;
 import graphql.language.FieldDefinition;
 import graphql.language.InterfaceTypeDefinition;
 import graphql.language.OperationDefinition;
 import graphql.language.ScalarTypeDefinition;
-import graphql.language.Selection;
+import graphql.language.SelectionSet;
 import graphql.language.TypeDefinition;
 import graphql.language.UnionTypeDefinition;
 import graphql.schema.DataFetchingEnvironment;
@@ -291,40 +290,36 @@ public class LiloContext {
 
     private Object createDataFetcher(final DataFetchingEnvironment environment, final SchemaSource schemaSource, final String fieldName) {
 
-        final List<Definition> definitions = environment.getDocument().getDefinitions();
-
-        if (definitions.isEmpty()) {
-            throw new IllegalArgumentException("query is not in appropriate format");
-        }
-
-        final OperationDefinition definition = (OperationDefinition) definitions.get(0);
-        final Optional<Selection> queryNodeOptional = definition.getSelectionSet().getSelections()
-            .stream().filter(f -> fieldName.equals(((Field) f).getName()))
-            .findFirst();
-
-        if (queryNodeOptional.isEmpty()) {
-            throw new IllegalArgumentException("query is not in appropriate format");
-        }
-
-        final Field                         subField     = (Field) queryNodeOptional.get();
-        final String                        subFieldText = AstPrinter.printAst(subField);
-        final OperationDefinition.Operation operation    = definition.getOperation();
-        final String                        query;
-
-        if (operation.equals(OperationDefinition.Operation.MUTATION)) {
-            query = "mutation {\n" + subFieldText + "\n}";
-        } else if (operation.equals(OperationDefinition.Operation.QUERY)) {
-            query = "query {\n" + subFieldText + "\n}";
-        } else {
-            throw new IllegalArgumentException("Unsupported operation type");
-        }
-
-        final var requestQuery    = toStr(GraphQLRequest.builder().query(query).variables(environment.getVariables()).build());
+        final var requestQuery    = createRequest(environment, fieldName);
         final var queryResult     = schemaSource.getQueryRetriever().get(this, requestQuery, environment.getLocalContext());
         final var queryResultMap  = toMap(queryResult);
         final var queryResultData = getMap(queryResultMap, "data");
 
         return queryResultData.get(fieldName);
+    }
+
+    private static String createRequest(final DataFetchingEnvironment environment, final String fieldName) {
+
+        final var definitions = environment.getDocument().getDefinitions();
+
+        if (definitions.isEmpty()) {
+            throw new IllegalArgumentException("query is not in appropriate format");
+        }
+
+        final var definition = (OperationDefinition) definitions.get(0);
+
+        final var newSelections = definition
+            .getSelectionSet()
+            .getSelections()
+            .stream()
+            .filter(f -> fieldName.equals(((Field) f).getName()))
+            .toList();
+
+
+        final var newDefinition = definition.transform(builder -> builder.selectionSet(new SelectionSet(newSelections)));
+        final var query         = AstPrinter.printAst(newDefinition);
+
+        return toStr(GraphQLRequest.builder().query(query).variables(environment.getVariables()).build());
     }
 
     private GraphQL createGraphQL(final Map<String, ProcessedSchemaSource> sourceMap) {
