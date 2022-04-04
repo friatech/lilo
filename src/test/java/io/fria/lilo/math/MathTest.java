@@ -134,10 +134,10 @@ class MathTest {
         Mockito.when(this.introspection2Retriever.get())
             .thenReturn(runQuery(project2GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
 
-        Mockito.when(this.query1Retriever.get(Mockito.any(), Mockito.any()))
+        Mockito.when(this.query1Retriever.get(Mockito.any(), Mockito.any(), Mockito.any()))
             .thenReturn(runQuery(project1GraphQL, "{add(a: 1, b: 2)}"));
 
-        Mockito.when(this.query2Retriever.get(Mockito.any(), Mockito.any()))
+        Mockito.when(this.query2Retriever.get(Mockito.any(), Mockito.any(), Mockito.any()))
             .thenReturn(runQuery(project2GraphQL, "{subtract(a: 20, b: 10)}"));
 
         final Lilo lilo = Lilo.builder()

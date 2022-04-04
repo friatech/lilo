@@ -114,9 +114,11 @@ class GreetingsTest {
 
         // Combined result -----------------------------------------------------
         final Map<String, Object> expected = Map.of("greeting1", "Hello greeting1", "greeting2", "Hello greeting2");
+        final String              param    = "test context value";
 
         final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
             .query("{greeting1\ngreeting2}")
+            .localContext(param)
             .build();
 
         final GraphQL combinedGraphQL = createGraphQL("/greetings/combined.graphqls", createCombinedWiring());
@@ -134,10 +136,10 @@ class GreetingsTest {
         Mockito.when(this.introspection2Retriever.get())
             .thenReturn(runQuery(project2GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
 
-        Mockito.when(this.query1Retriever.get(Mockito.any(), Mockito.any()))
+        Mockito.when(this.query1Retriever.get(Mockito.any(), Mockito.any(), Mockito.eq(param)))
             .thenReturn(runQuery(project1GraphQL, "{greeting1}"));
 
-        Mockito.when(this.query2Retriever.get(Mockito.any(), Mockito.any()))
+        Mockito.when(this.query2Retriever.get(Mockito.any(), Mockito.any(), Mockito.eq(param)))
             .thenReturn(runQuery(project2GraphQL, "{greeting2}"));
 
         final Lilo lilo = Lilo.builder()

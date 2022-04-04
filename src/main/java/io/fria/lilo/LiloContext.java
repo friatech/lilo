@@ -7,6 +7,7 @@ import graphql.GraphQL;
 import graphql.introspection.IntrospectionResultToSchema;
 import graphql.language.FieldDefinition;
 import graphql.language.InterfaceTypeDefinition;
+import graphql.language.OperationDefinition;
 import graphql.language.ScalarTypeDefinition;
 import graphql.language.TypeDefinition;
 import graphql.language.UnionTypeDefinition;
@@ -273,7 +274,9 @@ public class LiloContext {
 
         for (final FieldDefinition field : children) {
             typeWiringBuilder.dataFetcher(field.getName(), e -> {
-                final String queryResult = schemaSource.getQueryRetriever().get(this, e);
+                final OperationDefinition operationDefinition = e.getOperationDefinition();
+                final Object              localContext        = e.getLocalContext();
+                final String queryResult = schemaSource.getQueryRetriever().get(this, e, e.getLocalContext());
                 final Map<String, Object> queryResultMap = OBJECT_MAPPER.readValue(queryResult, new TypeReference<>() {
                 });
                 final Map<String, Object> queryResultData = getMap(queryResultMap, "data");

@@ -139,10 +139,10 @@ class ReloadSchemaTest {
         Mockito.when(this.introspection2Retriever.get())
             .thenReturn(runQuery(project2GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
 
-        Mockito.when(this.query1Retriever.get(Mockito.any(), Mockito.any()))
+        Mockito.when(this.query1Retriever.get(Mockito.any(), Mockito.any(), Mockito.any()))
             .thenReturn(runQuery(project1GraphQL, "{greeting1}"));
 
-        Mockito.when(this.query2Retriever.get(Mockito.any(), Mockito.any()))
+        Mockito.when(this.query2Retriever.get(Mockito.any(), Mockito.any(), Mockito.any()))
             .thenReturn(runQuery(project2GraphQL, "{greeting2}"));
 
         final Lilo lilo = Lilo.builder()
@@ -163,7 +163,7 @@ class ReloadSchemaTest {
         Assertions.assertNotEquals(expected, stitchResult.getData());
 
         // But new query should work
-        Mockito.when(this.query2Retriever.get(Mockito.any(), Mockito.any()))
+        Mockito.when(this.query2Retriever.get(Mockito.any(), Mockito.any(), Mockito.any()))
             .thenReturn(runQuery(project3GraphQL, "{greeting3}"));
 
         executionInput = ExecutionInput.newExecutionInput()

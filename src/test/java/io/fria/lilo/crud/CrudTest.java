@@ -201,7 +201,7 @@ class CrudTest {
             }
             """;
 
-        Mockito.when(this.query1Retriever.get(Mockito.any(), Mockito.any()))
+        Mockito.when(this.query1Retriever.get(Mockito.any(), Mockito.any(), Mockito.any()))
             .thenReturn(runQuery(project1GraphQL, project1Query));
 
         final String project2Query = """
@@ -220,7 +220,7 @@ class CrudTest {
             }
             """;
 
-        Mockito.when(this.query2Retriever.get(Mockito.any(), Mockito.any()))
+        Mockito.when(this.query2Retriever.get(Mockito.any(), Mockito.any(), Mockito.any()))
             .thenReturn(runQuery(project2GraphQL, project2Query));
 
         final Lilo lilo = Lilo.builder()
@@ -291,7 +291,7 @@ class CrudTest {
             }
             """;
 
-        Mockito.when(this.query1Retriever.get(Mockito.any(), Mockito.any()))
+        Mockito.when(this.query1Retriever.get(Mockito.any(), Mockito.any(), Mockito.any()))
             .thenReturn(runQuery(project1GraphQL, project1Query));
 
         final String project2Query = """
@@ -300,7 +300,7 @@ class CrudTest {
             }
             """;
 
-        Mockito.when(this.query2Retriever.get(Mockito.any(), Mockito.any()))
+        Mockito.when(this.query2Retriever.get(Mockito.any(), Mockito.any(), Mockito.any()))
             .thenReturn(runQuery(project2GraphQL, project2Query));
 
         final Lilo lilo = Lilo.builder()
