@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import graphql.GraphQL;
+import graphql.introspection.IntrospectionQuery;
 import graphql.introspection.IntrospectionResultToSchema;
 import graphql.language.AstPrinter;
 import graphql.language.Definition;
@@ -53,17 +54,17 @@ public class LiloContext {
     LiloContext(final SchemaSource... schemaSources) {
 
         final Map<String, ProcessedSchemaSource> sourceMap = Arrays.stream(schemaSources)
-            .map(LiloContext::processSource)
+            .map(this::processSource)
             .collect(Collectors.toMap(ss -> ss.getSchemaSource().getName(), ss -> ss));
 
         this.graphQL = this.createGraphQL(sourceMap);
         this.sourceMap = sourceMap;
     }
 
-    public static ProcessedSchemaSource processSource(final SchemaSource schemaSource) {
+    public ProcessedSchemaSource processSource(final SchemaSource schemaSource) {
 
         try {
-            final String introspectionResponse = schemaSource.getIntrospectionRetriever().get();
+            final String introspectionResponse = schemaSource.getIntrospectionRetriever().get(this, IntrospectionQuery.INTROSPECTION_QUERY);
             final Map<String, Object> introspectionResult = OBJECT_MAPPER.readValue(introspectionResponse, new TypeReference<>() {
             });
 

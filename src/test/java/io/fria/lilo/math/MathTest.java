@@ -128,10 +128,10 @@ class MathTest {
         final GraphQL project1GraphQL = createGraphQL("/math/add.graphqls", createProject1Wiring());
         final GraphQL project2GraphQL = createGraphQL("/math/subtract.graphqls", createProject2Wiring());
 
-        Mockito.when(this.introspection1Retriever.get())
+        Mockito.when(this.introspection1Retriever.get(Mockito.any(), Mockito.any()))
             .thenReturn(runQuery(project1GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
 
-        Mockito.when(this.introspection2Retriever.get())
+        Mockito.when(this.introspection2Retriever.get(Mockito.any(), Mockito.any()))
             .thenReturn(runQuery(project2GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
 
         Mockito.when(this.query1Retriever.get(Mockito.any(), Mockito.any(), Mockito.any()))

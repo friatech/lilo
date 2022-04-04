@@ -179,10 +179,10 @@ class CrudTest {
         final GraphQL project1GraphQL = createGraphQL("/crud/project1.graphqls", createProject1Wiring());
         final GraphQL project2GraphQL = createGraphQL("/crud/project2.graphqls", createProject2Wiring());
 
-        Mockito.when(this.introspection1Retriever.get())
+        Mockito.when(this.introspection1Retriever.get(Mockito.any(), Mockito.any()))
             .thenReturn(runQuery(project1GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
 
-        Mockito.when(this.introspection2Retriever.get())
+        Mockito.when(this.introspection2Retriever.get(Mockito.any(), Mockito.any()))
             .thenReturn(runQuery(project2GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
 
         final String project1Query = """
@@ -269,10 +269,10 @@ class CrudTest {
         final GraphQL project1GraphQL = createGraphQL("/crud/project1.graphqls", createProject1Wiring());
         final GraphQL project2GraphQL = createGraphQL("/crud/project2.graphqls", createProject2Wiring());
 
-        Mockito.when(this.introspection1Retriever.get())
+        Mockito.when(this.introspection1Retriever.get(Mockito.any(), Mockito.any()))
             .thenReturn(runQuery(project1GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
 
-        Mockito.when(this.introspection2Retriever.get())
+        Mockito.when(this.introspection2Retriever.get(Mockito.any(), Mockito.any()))
             .thenReturn(runQuery(project2GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
 
         final String project1Query = """

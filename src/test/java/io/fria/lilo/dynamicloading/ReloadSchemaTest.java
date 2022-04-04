@@ -133,10 +133,10 @@ class ReloadSchemaTest {
         final GraphQL project2GraphQL = createGraphQL("/greetings/greeting2.graphqls", createProject2Wiring());
         final GraphQL project3GraphQL = createGraphQL("/dynamicloading/greeting3.graphqls", createProject3Wiring());
 
-        Mockito.when(this.introspection1Retriever.get())
+        Mockito.when(this.introspection1Retriever.get(Mockito.any(), Mockito.any()))
             .thenReturn(runQuery(project1GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
 
-        Mockito.when(this.introspection2Retriever.get())
+        Mockito.when(this.introspection2Retriever.get(Mockito.any(), Mockito.any()))
             .thenReturn(runQuery(project2GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
 
         Mockito.when(this.query1Retriever.get(Mockito.any(), Mockito.any(), Mockito.any()))
@@ -154,7 +154,7 @@ class ReloadSchemaTest {
         Assertions.assertEquals(expected, stitchResult.getData());
 
         // After reloading context old expected result won't work.
-        Mockito.when(this.introspection2Retriever.get())
+        Mockito.when(this.introspection2Retriever.get(Mockito.any(), Mockito.any()))
             .thenReturn(runQuery(project3GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
 
         lilo.getContext().reload(SCHEMA2_NAME);

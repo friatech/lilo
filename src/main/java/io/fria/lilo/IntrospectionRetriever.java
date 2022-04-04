@@ -1,5 +1,5 @@
 package io.fria.lilo;
 
 public interface IntrospectionRetriever {
-    String get();
+    String get(LiloContext liloContext, String query);
 }

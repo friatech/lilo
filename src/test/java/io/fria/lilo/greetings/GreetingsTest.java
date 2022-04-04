@@ -130,10 +130,10 @@ class GreetingsTest {
         final GraphQL project1GraphQL = createGraphQL("/greetings/greeting1.graphqls", createProject1Wiring());
         final GraphQL project2GraphQL = createGraphQL("/greetings/greeting2.graphqls", createProject2Wiring());
 
-        Mockito.when(this.introspection1Retriever.get())
+        Mockito.when(this.introspection1Retriever.get(Mockito.any(), Mockito.any()))
             .thenReturn(runQuery(project1GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
 
-        Mockito.when(this.introspection2Retriever.get())
+        Mockito.when(this.introspection2Retriever.get(Mockito.any(), Mockito.any()))
             .thenReturn(runQuery(project2GraphQL, IntrospectionQuery.INTROSPECTION_QUERY));
 
         Mockito.when(this.query1Retriever.get(Mockito.any(), Mockito.any(), Mockito.eq(param)))
