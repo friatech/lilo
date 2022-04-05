@@ -6,7 +6,7 @@
 
   <groupId>io.fria</groupId>
   <artifactId>lilo</artifactId>
-  <version>1.0-SNAPSHOT</version>
+  <version>99.7</version>
 
   <properties>
     <maven.compiler.source>11</maven.compiler.source>
@@ -18,7 +18,7 @@
     <dependency>
       <groupId>com.graphql-java</groupId>
       <artifactId>graphql-java</artifactId>
-      <version>16.0</version>
+      <version>18.0</version>
       <exclusions>
         <exclusion>
           <groupId>org.slf4j</groupId>

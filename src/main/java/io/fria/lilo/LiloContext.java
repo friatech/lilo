@@ -2,12 +2,16 @@ package io.fria.lilo;
 
 import graphql.ExecutionInput;
 import graphql.GraphQL;
-import graphql.introspection.IntrospectionQuery;
 import graphql.introspection.IntrospectionResultToSchema;
 import graphql.language.AstPrinter;
+import graphql.language.Definition;
+import graphql.language.Document;
 import graphql.language.Field;
 import graphql.language.FieldDefinition;
+import graphql.language.FragmentDefinition;
+import graphql.language.FragmentSpread;
 import graphql.language.InterfaceTypeDefinition;
+import graphql.language.Node;
 import graphql.language.OperationDefinition;
 import graphql.language.ScalarTypeDefinition;
 import graphql.language.SelectionSet;
@@ -28,6 +32,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
@@ -44,7 +49,7 @@ public class LiloContext {
     private static final String       INTROSPECTION_REQUEST   = toStr(
         GraphQLRequest
             .builder()
-            .query(IntrospectionQuery.INTROSPECTION_QUERY)
+            .query(GraphQLRequest.INTROSPECTION_QUERY)
             .operationName("IntrospectionQuery")
             .build()
     );
@@ -123,22 +128,38 @@ public class LiloContext {
 
     private static String createRequest(final DataFetchingEnvironment environment, final String fieldName) {
 
-        final var definitions = environment.getDocument().getDefinitions();
+        final var document    = environment.getDocument();
+        final var definitions = document.getDefinitions();
 
         if (definitions.isEmpty()) {
             throw new IllegalArgumentException("query is not in appropriate format");
         }
 
-        final var definition = (OperationDefinition) definitions.get(0);
+        final var operationDefinitionOptional = definitions
+            .stream()
+            .filter(d -> d instanceof OperationDefinition)
+            .findFirst();
 
-        final var newSelections = definition
-            .getSelectionSet()
-            .getSelections()
+        if (operationDefinitionOptional.isEmpty()) {
+            throw new IllegalArgumentException("GraphQL query should contain either query or mutation");
+        }
+
+        final var operationDefinition = (OperationDefinition) operationDefinitionOptional.get();
+
+        final var selections = Optional
+            .ofNullable(operationDefinition.getSelectionSet().getSelections())
+            .orElse(List.of());
+
+        final var queryNodeOptional = selections
             .stream()
             .filter(f -> fieldName.equals(((Field) f).getName()))
-            .collect(Collectors.toList());
+            .findFirst();
 
-        final Field queryNode = (Field) newSelections.get(0);
+        if (queryNodeOptional.isEmpty()) {
+            throw new IllegalArgumentException("found query does not match with name");
+        }
+
+        final Field queryNode = (Field) queryNodeOptional.get();
 
         final Set<String> usedReferences = queryNode.getArguments()
             .stream()
@@ -147,21 +168,59 @@ public class LiloContext {
             .map(a -> ((VariableReference) a.getValue()).getName())
             .collect(Collectors.toSet());
 
-        final List<VariableDefinition> newVariables = definition
+        final List<VariableDefinition> newVariables = operationDefinition
             .getVariableDefinitions()
             .stream()
             .filter(v -> usedReferences.contains(v.getName()))
             .collect(Collectors.toList());
 
-        final var newDefinition = definition.transform(builder -> {
+        final Set<String> usedFragments = findUsedFragments(queryNode)
+            .stream()
+            .map(FragmentSpread::getName)
+            .collect(Collectors.toSet());
+
+        final List<Definition> fragmentDefinitions = definitions.stream()
+            .filter(d -> d instanceof FragmentDefinition && usedFragments.contains(((FragmentDefinition) d).getName()))
+            .collect(Collectors.toList());
+
+        final var newOperationDefinition = operationDefinition.transform(builder -> {
             builder
-                .selectionSet(new SelectionSet(newSelections))
+                .selectionSet(new SelectionSet(List.of(queryNode)))
                 .variableDefinitions(newVariables);
         });
 
-        final var query = AstPrinter.printAst(newDefinition);
+        final ArrayList<Definition> newDefinitions = new ArrayList<>();
+        newDefinitions.add(newOperationDefinition);
+        newDefinitions.addAll(fragmentDefinitions);
+
+        final Document newDocument = document.transform(builder -> {
+            builder.definitions(newDefinitions);
+        });
+
+        final var query = AstPrinter.printAst(newDocument);
 
         return toStr(GraphQLRequest.builder().query(query).variables(environment.getVariables()).build());
+    }
+
+    private static List<FragmentSpread> findUsedFragments(final Node queryNode) {
+
+        final List<FragmentSpread> usedFragments = new ArrayList<>();
+
+        queryNode.getChildren()
+            .stream()
+            .filter(n -> n instanceof SelectionSet)
+            .flatMap(s -> ((SelectionSet) s).getSelections().stream())
+            .forEach(s -> {
+                final Node node = (Node) s;
+
+                if (s instanceof FragmentSpread) {
+                    usedFragments.add((FragmentSpread) node);
+                } else {
+                    usedFragments.addAll(findUsedFragments(node));
+                }
+            });
+
+        return usedFragments;
     }
 
     private static void mergeSchema(final Map<String, Object> targetSchema, final Map<String, Object> sourceSchema) {

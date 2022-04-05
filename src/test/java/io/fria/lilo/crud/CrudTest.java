@@ -143,4 +143,36 @@ class CrudTest {
         final ExecutionResult stitchResult = lilo.stitch(executionInput);
         Assertions.assertEquals(expected, stitchResult.getData());
     }
+
+    @Test
+    void stitchingFragmentedQueryTest() throws IOException {
+
+        // Combined result -----------------------------------------------------
+        final Map<String, Object> expected = Map.of("get", RESULT_MAP, "list", List.of(RESULT_MAP));
+
+        final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
+            .query(loadResource("/crud/fragmented-query.graphql"))
+            .build();
+
+        final GraphQL combinedGraphQL = createGraphQL("/crud/combined.graphqls", createCombinedWiring());
+
+        final ExecutionResult result = combinedGraphQL.execute(executionInput);
+        Assertions.assertEquals(expected, result.getData());
+
+        // Stitching result ----------------------------------------------------
+        final var project1GraphQL         = createGraphQL("/crud/project1.graphqls", createProject1Wiring());
+        final var project2GraphQL         = createGraphQL("/crud/project2.graphqls", createProject2Wiring());
+        final var introspection1Retriever = new TestUtils.TestIntrospectionRetriever(project1GraphQL);
+        final var introspection2Retriever = new TestUtils.TestIntrospectionRetriever(project2GraphQL);
+        final var query1Retriever         = new TestUtils.TestQueryRetriever(project1GraphQL);
+        final var query2Retriever         = new TestUtils.TestQueryRetriever(project2GraphQL);
+
+        final Lilo lilo = Lilo.builder()
+            .addSource(createSchemaSource(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
+            .addSource(createSchemaSource(SCHEMA2_NAME, introspection2Retriever, query2Retriever))
+            .build();
+
+        final ExecutionResult stitchResult = lilo.stitch(executionInput);
+        Assertions.assertEquals(expected, stitchResult.getData());
+    }
 }
