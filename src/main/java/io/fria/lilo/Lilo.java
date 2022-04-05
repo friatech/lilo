@@ -23,7 +23,7 @@ public final class Lilo {
 
     public ExecutionResult stitch(final ExecutionInput executionInput) {
 
-        return this.context.getGraphQL().execute(executionInput);
+        return this.context.getGraphQL(executionInput).execute(executionInput);
     }
 
     public static class LiloBuilder {

@@ -5,20 +5,19 @@ import graphql.ExecutionResult;
 import graphql.GraphQL;
 import graphql.schema.GraphQLScalarType;
 import graphql.schema.idl.RuntimeWiring;
-import graphql.schema.idl.SchemaGenerator;
-import graphql.schema.idl.SchemaParser;
 import io.fria.lilo.DummyCoercing;
 import io.fria.lilo.Lilo;
 import io.fria.lilo.TestUtils;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
+import static io.fria.lilo.TestUtils.createGraphQL;
 import static io.fria.lilo.TestUtils.createSchemaSource;
+import static io.fria.lilo.TestUtils.loadResource;
 
 class CrudTest {
 
@@ -43,19 +42,6 @@ class CrudTest {
             .type(newTypeWiring("SystemUser").typeResolver(env -> env.getSchema().getObjectType("WebUser")))
             .scalar(GraphQLScalarType.newScalar().name("Void").coercing(new DummyCoercing()).build())
             .build();
-    }
-
-    private static GraphQL createGraphQL(final String schemaDefinitionPath, final RuntimeWiring runtimeWiring) throws IOException {
-
-        final InputStream resourceAsStream = CrudTest.class.getResourceAsStream(schemaDefinitionPath);
-        Assertions.assertNotNull(resourceAsStream);
-
-        final var schemaDefinitionText = new String(resourceAsStream.readAllBytes());
-        final var typeRegistry         = new SchemaParser().parse(schemaDefinitionText);
-        final var schemaGenerator      = new SchemaGenerator();
-        final var graphQLSchema        = schemaGenerator.makeExecutableSchema(typeRegistry, runtimeWiring);
-
-        return GraphQL.newGraphQL(graphQLSchema).build();
     }
 
     private static RuntimeWiring createProject1Wiring() {
@@ -98,32 +84,7 @@ class CrudTest {
         final Map<String, Object> expected = Map.of("get", RESULT_MAP, "list", List.of(RESULT_MAP));
 
         final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
-            .query("""
-                query {
-                    get(id: 1) {
-                        __typename
-                        ... on WebUser {
-                            id
-                            name
-                            age
-                            enabled
-                            role
-                            username
-                        }
-                    }
-                    list {
-                        __typename
-                        ... on WebUser {
-                            id
-                            name
-                            age
-                            enabled
-                            role
-                            username
-                        }
-                    }
-                }
-                """)
+            .query(loadResource("/crud/query.graphql"))
             .build();
 
         final GraphQL combinedGraphQL = createGraphQL("/crud/combined.graphqls", createCombinedWiring());
@@ -158,22 +119,7 @@ class CrudTest {
         expected.put("delete", null);
 
         final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
-            .query("""
-                mutation {
-                    create(user: {name: "John", age: 34, enabled: true, role: ADMIN}) {
-                        __typename
-                        ... on WebUser {
-                            id
-                            name
-                            age
-                            enabled
-                            role
-                            username
-                        }
-                    }
-                    delete(id: 1)
-                }
-                """)
+            .query(loadResource("/crud/mutation.graphql"))
             .build();
 
         final GraphQL combinedGraphQL = createGraphQL("/crud/combined.graphqls", createCombinedWiring());

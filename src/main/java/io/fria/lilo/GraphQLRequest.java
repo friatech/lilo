@@ -19,7 +19,7 @@ public class GraphQLRequest {
     private String              operationName;
     private Map<String, Object> variables;
 
-    public ExecutionInput toExecutionInput() {
+    public ExecutionInput toExecutionInput(final Object localContext) {
 
         final ExecutionInput.Builder builder = ExecutionInput.newExecutionInput()
             .query(this.query);
@@ -28,10 +28,19 @@ public class GraphQLRequest {
             builder.operationName(this.operationName);
         }
 
-        if (this.variables != null) {
+        if (this.variables != null || !this.variables.isEmpty()) {
             builder.variables(this.variables);
         }
 
+        if (localContext != null) {
+            builder.localContext(localContext);
+        }
+
         return builder.build();
+    }
+
+    public ExecutionInput toExecutionInput() {
+
+        return this.toExecutionInput(null);
     }
 }

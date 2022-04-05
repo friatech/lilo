@@ -4,17 +4,16 @@ import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
 import graphql.schema.idl.RuntimeWiring;
-import graphql.schema.idl.SchemaGenerator;
-import graphql.schema.idl.SchemaParser;
 import io.fria.lilo.Lilo;
 import io.fria.lilo.TestUtils;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
+import static io.fria.lilo.TestUtils.createGraphQL;
 import static io.fria.lilo.TestUtils.createSchemaSource;
+import static io.fria.lilo.TestUtils.loadResource;
 
 class MathTest {
 
@@ -30,19 +29,6 @@ class MathTest {
                     .dataFetcher("subtract", env -> env.<Integer>getArgument("a") - env.<Integer>getArgument("b"))
             )
             .build();
-    }
-
-    private static GraphQL createGraphQL(final String schemaDefinitionPath, final RuntimeWiring runtimeWiring) throws IOException {
-
-        final InputStream resourceAsStream = MathTest.class.getResourceAsStream(schemaDefinitionPath);
-        Assertions.assertNotNull(resourceAsStream);
-
-        final var schemaDefinitionText = new String(resourceAsStream.readAllBytes());
-        final var typeRegistry         = new SchemaParser().parse(schemaDefinitionText);
-        final var schemaGenerator      = new SchemaGenerator();
-        final var graphQLSchema        = schemaGenerator.makeExecutableSchema(typeRegistry, runtimeWiring);
-
-        return GraphQL.newGraphQL(graphQLSchema).build();
     }
 
     private static RuntimeWiring createProject1Wiring() {
@@ -104,12 +90,7 @@ class MathTest {
         final Map<String, Object> expected = Map.of("add", 3, "subtract", 10);
 
         final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
-            .query("""
-                query someMath($paramA: Int!, $paramB: Int!, $paramC: Int!, $paramD: Int!) {
-                    add(a: $paramA, b: $paramB)
-                    subtract(a: $paramC, b: $paramD)
-                }
-                """)
+            .query(loadResource("/math/query.graphql"))
             .operationName("someMath")
             .variables(Map.of("paramA", 1, "paramB", 2, "paramC", 20, "paramD", 10))
             .build();

@@ -14,6 +14,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
+import static io.fria.lilo.TestUtils.createGraphQL;
 import static io.fria.lilo.TestUtils.createSchemaSource;
 
 class GreetingsTest {
@@ -30,19 +31,6 @@ class GreetingsTest {
                     .dataFetcher("greeting2", env -> "Hello greeting2")
             )
             .build();
-    }
-
-    private static GraphQL createGraphQL(final String schemaDefinitionPath, final RuntimeWiring runtimeWiring) throws IOException {
-
-        final InputStream resourceAsStream = GreetingsTest.class.getResourceAsStream(schemaDefinitionPath);
-        Assertions.assertNotNull(resourceAsStream);
-
-        final var schemaDefinitionText = new String(resourceAsStream.readAllBytes());
-        final var typeRegistry         = new SchemaParser().parse(schemaDefinitionText);
-        final var schemaGenerator      = new SchemaGenerator();
-        final var graphQLSchema        = schemaGenerator.makeExecutableSchema(typeRegistry, runtimeWiring);
-
-        return GraphQL.newGraphQL(graphQLSchema).build();
     }
 
     private static RuntimeWiring createProject1Wiring() {

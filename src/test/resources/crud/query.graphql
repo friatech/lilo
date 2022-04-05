@@ -1,0 +1,24 @@
+query {
+    get(id: 1) {
+        __typename
+        ... on WebUser {
+            id
+            name
+            age
+            enabled
+            role
+            username
+        }
+    }
+    list {
+        __typename
+        ... on WebUser {
+            id
+            name
+            age
+            enabled
+            role
+            username
+        }
+    }
+}

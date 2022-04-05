@@ -16,25 +16,13 @@ import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
+import static io.fria.lilo.TestUtils.createGraphQL;
 import static io.fria.lilo.TestUtils.createSchemaSource;
 
 class ReloadSchemaTest {
 
     private static final String SCHEMA1_NAME = "project1";
     private static final String SCHEMA2_NAME = "project2";
-
-    private static GraphQL createGraphQL(final String schemaDefinitionPath, final RuntimeWiring runtimeWiring) throws IOException {
-
-        final InputStream resourceAsStream = ReloadSchemaTest.class.getResourceAsStream(schemaDefinitionPath);
-        Assertions.assertNotNull(resourceAsStream);
-
-        final var schemaDefinitionText = new String(resourceAsStream.readAllBytes());
-        final var typeRegistry         = new SchemaParser().parse(schemaDefinitionText);
-        final var schemaGenerator      = new SchemaGenerator();
-        final var graphQLSchema        = schemaGenerator.makeExecutableSchema(typeRegistry, runtimeWiring);
-
-        return GraphQL.newGraphQL(graphQLSchema).build();
-    }
 
     private static RuntimeWiring createProject1Wiring() {
 
