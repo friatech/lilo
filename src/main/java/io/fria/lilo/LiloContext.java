@@ -199,7 +199,13 @@ public class LiloContext {
 
         final var query = AstPrinter.printAst(newDocument);
 
-        return toStr(GraphQLRequest.builder().query(query).variables(environment.getVariables()).build());
+        return toStr(
+            GraphQLRequest.builder()
+                .query(query)
+                .variables(environment.getVariables())
+                .operationName(operationDefinition.getName())
+                .build()
+        );
     }
 
     private static List<FragmentSpread> findUsedFragments(final Node queryNode) {

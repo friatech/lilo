@@ -6,7 +6,7 @@
 
   <groupId>io.fria</groupId>
   <artifactId>lilo</artifactId>
-  <version>99.7</version>
+  <version>99.9</version>
 
   <properties>
     <maven.compiler.source>11</maven.compiler.source>

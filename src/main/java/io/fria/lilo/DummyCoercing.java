@@ -19,6 +19,6 @@ public class DummyCoercing implements Coercing<Object, Object> {
 
     @Override
     public Object serialize(final Object dataFetcherResult) throws CoercingSerializeException {
-        return null;
+        return dataFetcherResult;
     }
 }
