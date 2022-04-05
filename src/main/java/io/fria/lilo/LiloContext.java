@@ -3,6 +3,7 @@ package io.fria.lilo;
 import graphql.ExecutionInput;
 import graphql.GraphQL;
 import graphql.introspection.IntrospectionResultToSchema;
+import graphql.language.Argument;
 import graphql.language.AstPrinter;
 import graphql.language.Definition;
 import graphql.language.Document;
@@ -16,6 +17,7 @@ import graphql.language.OperationDefinition;
 import graphql.language.ScalarTypeDefinition;
 import graphql.language.SelectionSet;
 import graphql.language.UnionTypeDefinition;
+import graphql.language.Value;
 import graphql.language.VariableDefinition;
 import graphql.language.VariableReference;
 import graphql.schema.DataFetchingEnvironment;
@@ -126,7 +128,7 @@ public class LiloContext {
         return GraphQL.newGraphQL(graphQLSchema).build();
     }
 
-    private static String createRequest(final DataFetchingEnvironment environment, final String fieldName) {
+    private static GeneratedRequest createRequest(final DataFetchingEnvironment environment, final String fieldName) {
 
         final var document    = environment.getDocument();
         final var definitions = document.getDefinitions();
@@ -161,11 +163,9 @@ public class LiloContext {
 
         final Field queryNode = (Field) queryNodeOptional.get();
 
-        final Set<String> usedReferences = queryNode.getArguments()
+        final Set<String> usedReferences = findUsedVariables(queryNode)
             .stream()
-            .filter(a -> a.getValue() != null)
-            .filter(a -> a.getValue() instanceof VariableReference)
-            .map(a -> ((VariableReference) a.getValue()).getName())
+            .map(VariableReference::getName)
             .collect(Collectors.toSet());
 
         final List<VariableDefinition> newVariables = operationDefinition
@@ -199,34 +199,61 @@ public class LiloContext {
 
         final var query = AstPrinter.printAst(newDocument);
 
-        return toStr(
-            GraphQLRequest.builder()
-                .query(query)
-                .variables(environment.getVariables())
-                .operationName(operationDefinition.getName())
-                .build()
+        return new GeneratedRequest(
+            queryNode.getAlias() != null ? queryNode.getAlias() : queryNode.getName(),
+            toStr(
+                GraphQLRequest.builder()
+                    .query(query)
+                    .variables(environment.getVariables())
+                    .operationName(operationDefinition.getName())
+                    .build()
+            )
         );
     }
 
-    private static List<FragmentSpread> findUsedFragments(final Node queryNode) {
+    private static List<FragmentSpread> findUsedFragments(final Node node) {
 
         final List<FragmentSpread> usedFragments = new ArrayList<>();
 
-        queryNode.getChildren()
+        node.getChildren()
             .stream()
             .filter(n -> n instanceof SelectionSet)
             .flatMap(s -> ((SelectionSet) s).getSelections().stream())
             .forEach(s -> {
-                final Node node = (Node) s;
+                final Node childNode = (Node) s;
 
                 if (s instanceof FragmentSpread) {
-                    usedFragments.add((FragmentSpread) node);
+                    usedFragments.add((FragmentSpread) childNode);
                 } else {
-                    usedFragments.addAll(findUsedFragments(node));
+                    usedFragments.addAll(findUsedFragments(childNode));
                 }
             });
 
         return usedFragments;
+    }
+
+    private static List<VariableReference> findUsedVariables(final Node node) {
+
+        final List<VariableReference> usedVariables = new ArrayList<>();
+
+        node.getChildren()
+            .stream()
+            .forEach(n -> {
+                final Node childNode = (Node) n;
+
+                if (childNode instanceof Argument) {
+                    final Argument argument = (Argument) n;
+                    final Value argumentValue = argument.getValue();
+
+                    if (argumentValue instanceof VariableReference) {
+                        usedVariables.add((VariableReference) argumentValue);
+                    }
+                } else {
+                    usedVariables.addAll(findUsedVariables(childNode));
+                }
+            });
+
+         return usedVariables;
     }
 
     private static void mergeSchema(final Map<String, Object> targetSchema, final Map<String, Object> sourceSchema) {
@@ -409,12 +436,12 @@ public class LiloContext {
 
     private Object createDataFetcher(final DataFetchingEnvironment environment, final SchemaSource schemaSource, final String fieldName) {
 
-        final var requestQuery    = createRequest(environment, fieldName);
-        final var queryResult     = schemaSource.getQueryRetriever().get(this, requestQuery, environment.getLocalContext());
+        final var request    = createRequest(environment, fieldName);
+        final var queryResult     = schemaSource.getQueryRetriever().get(this, request.query, environment.getLocalContext());
         final var queryResultMap  = toMap(queryResult);
         final var queryResultData = getMap(queryResultMap, "data");
 
-        return queryResultData.get(fieldName);
+        return queryResultData.get(request.queryName);
     }
 
     private GraphQL createGraphQL(final Map<String, ProcessedSchemaSource> sourceMap, final Object localContext) {
@@ -426,5 +453,16 @@ public class LiloContext {
         sourceMap.values().forEach(ss -> this.assignHandler(ss, typeRuntimeWiringBuilders, combinedSchemaMap, scalars));
 
         return combine(typeRuntimeWiringBuilders, combinedSchemaMap, scalars);
+    }
+
+    private static final class GeneratedRequest {
+
+        private final String queryName;
+        private final String query;
+
+        private GeneratedRequest(final String queryName, final String query) {
+            this.queryName = queryName;
+            this.query = query;
+        }
     }
 }
