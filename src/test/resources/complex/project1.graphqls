@@ -1,0 +1,253 @@
+# Common
+
+enum EnumCommon {
+    ENUM_COMMON_VALUE_A
+    ENUM_COMMON_VALUE_B
+    ENUM_COMMON_VALUE_C
+}
+
+scalar ScalarCommon
+
+type TypeCommon {
+    someString: String
+}
+
+interface InterfaceCommon {
+    someString: String
+}
+
+type TypeImplementedCommon implements InterfaceCommon {
+    someString: String
+}
+
+type TypeExtendedCommon {
+    someString: String
+}
+
+extend type TypeExtendedCommon {
+    someOtherString: String
+}
+
+type TypeUnionCommonString {
+    someString: String
+}
+
+type TypeUnionCommonInt {
+    someInteger: Int
+}
+
+union TypeUnionCommon = TypeUnionCommonString | TypeUnionCommonInt
+
+input InputCommon {
+    someString: String
+}
+
+# Server 1
+
+enum Enum1 {
+    ENUM_1_VALUE_A
+    ENUM_1_VALUE_B
+    ENUM_1_VALUE_C
+}
+
+scalar Scalar1
+
+type Type1 {
+    someString: String
+    children: [TypeChild1]
+}
+
+interface Interface1 {
+    someString: String
+}
+
+type TypeImplemented1 implements Interface1 {
+    someString: String
+}
+
+type TypeExtended1 {
+    someString: String
+}
+
+extend type TypeExtended1 {
+    someOtherString: String
+}
+
+type TypeUnion1String {
+    someString: String
+}
+
+type TypeUnion1Int {
+    someInteger: Int
+}
+
+union TypeUnion1 = TypeUnion1String | TypeUnion1Int
+
+type TypeChild1 {
+    someString: String
+    grandChildren: [TypeGrandChild1]
+}
+
+type TypeGrandChild1 {
+    stringList: [String]
+    intList: [Int]
+    floatList: [Float]
+    booleanList: [Boolean]
+    idList: [ID]
+    enumList: [Enum1]
+    enumCommonList: [EnumCommon]
+    scalarList: [Scalar1]
+    scalarCommonList: [ScalarCommon]
+    typeCommonList: [TypeCommon]
+    typeImplementedList: [TypeImplemented1]
+    typeImplementedCommonList: [TypeImplementedCommon]
+    typeExtendedList: [TypeExtended1]
+    typeExtendedCommonList: [TypeExtendedCommon]
+    typeUnionList: [TypeUnion1]
+    typeUnionCommonList: [TypeUnionCommon]
+}
+
+input Input1 {
+    someString: String
+    children: [InputChild1]
+}
+
+input InputChild1 {
+    someString: String
+    children: [InputGrandChild1]
+}
+
+input InputGrandChild1 {
+    stringList: [String]
+    intList: [Int]
+    floatList: [Float]
+    booleanList: [Boolean]
+    idList: [ID]
+    enumList: [Enum1]
+    enumCommonList: [EnumCommon]
+    scalarList: [Scalar1]
+    scalarCommonList: [ScalarCommon]
+}
+
+# Queries and Mutations
+
+type Queries {
+    server1queryStringA(paramA: String, paramB: String): String
+    server1queryStringB(paramA: String!, paramB: String!): String!
+    server1queryStringC(paramA: [String], paramB: [String]): [String]
+    server1queryStringD(paramA: [String]!, paramB: [String]!): [String]!
+    server1queryStringE(paramA: [String!]!, paramB: [String!]!): [String!]!
+    server1queryStringF: String
+    server1queryIntA(paramA: Int, paramB: Int): Int
+    server1queryIntB(paramA: Int!, paramB: Int!): Int!
+    server1queryIntC(paramA: [Int], paramB: [Int]): [Int]
+    server1queryIntD(paramA: [Int]!, paramB: [Int]!): [Int]!
+    server1queryIntE(paramA: [Int!]!, paramB: [Int!]!): [Int!]!
+    server1queryIntF: Int
+    server1queryFloatA(paramA: Float, paramB: Float): Float
+    server1queryFloatB(paramA: Float!, paramB: Float!): Float!
+    server1queryFloatC(paramA: [Float], paramB: [Float]): [Float]
+    server1queryFloatD(paramA: [Float]!, paramB: [Float]!): [Float]!
+    server1queryFloatE(paramA: [Float!]!, paramB: [Float!]!): [Float!]!
+    server1queryFloatF: Float
+    server1queryBooleanA(paramA: Boolean, paramB: Boolean): Boolean
+    server1queryBooleanB(paramA: Boolean!, paramB: Boolean!): Boolean!
+    server1queryBooleanC(paramA: [Boolean], paramB: [Boolean]): [Boolean]
+    server1queryBooleanD(paramA: [Boolean]!, paramB: [Boolean]!): [Boolean]!
+    server1queryBooleanE(paramA: [Boolean!]!, paramB: [Boolean!]!): [Boolean!]!
+    server1queryBooleanF: Boolean
+    server1queryIdA(paramA: ID, paramB: ID): ID
+    server1queryIdB(paramA: ID!, paramB: ID!): ID!
+    server1queryIdC(paramA: [ID], paramB: [ID]): [ID]
+    server1queryIdD(paramA: [ID]!, paramB: [ID]!): [ID]!
+    server1queryIdE(paramA: [ID!]!, paramB: [ID!]!): [ID!]!
+    server1queryIdF: ID
+    server1queryEnumA(paramA: Enum1, paramB: Enum1): Enum1
+    server1queryEnumB(paramA: Enum1!, paramB: Enum1!): Enum1!
+    server1queryEnumC(paramA: [Enum1], paramB: [Enum1]): [Enum1]
+    server1queryEnumD(paramA: [Enum1]!, paramB: [Enum1]!): [Enum1]!
+    server1queryEnumE(paramA: [Enum1!]!, paramB: [Enum1!]!): [Enum1!]!
+    server1queryEnumF: Enum1
+    server1queryEnumCommonA(paramA: EnumCommon, paramB: EnumCommon): EnumCommon
+    server1queryEnumCommonB(paramA: EnumCommon!, paramB: EnumCommon!): EnumCommon!
+    server1queryEnumCommonC(paramA: [EnumCommon], paramB: [EnumCommon]): [EnumCommon]
+    server1queryEnumCommonD(paramA: [EnumCommon]!, paramB: [EnumCommon]!): [EnumCommon]!
+    server1queryEnumCommonE(paramA: [EnumCommon!]!, paramB: [EnumCommon!]!): [EnumCommon!]!
+    server1queryEnumCommonF: EnumCommon
+    server1queryScalarA(paramA: Scalar1, paramB: Scalar1): Scalar1
+    server1queryScalarB(paramA: Scalar1!, paramB: Scalar1!): Scalar1!
+    server1queryScalarC(paramA: [Scalar1], paramB: [Scalar1]): [Scalar1]
+    server1queryScalarD(paramA: [Scalar1]!, paramB: [Scalar1]!): [Scalar1]!
+    server1queryScalarE(paramA: [Scalar1!]!, paramB: [Scalar1!]!): [Scalar1!]!
+    server1queryScalarF: Scalar1
+    server1queryScalarCommonA(paramA: ScalarCommon, paramB: ScalarCommon): ScalarCommon
+    server1queryScalarCommonB(paramA: ScalarCommon!, paramB: ScalarCommon!): ScalarCommon!
+    server1queryScalarCommonC(paramA: [ScalarCommon], paramB: [ScalarCommon]): [ScalarCommon]
+    server1queryScalarCommonD(paramA: [ScalarCommon]!, paramB: [ScalarCommon]!): [ScalarCommon]!
+    server1queryScalarCommonE(paramA: [ScalarCommon!]!, paramB: [ScalarCommon!]!): [ScalarCommon!]!
+    server1queryScalarCommonF: ScalarCommon
+    server1queryTypeA(paramA: String, paramB: String): Type1
+    server1queryTypeB(paramA: String!, paramB: String!): Type1!
+    server1queryTypeC(paramA: [String], paramB: [String]): [Type1]
+    server1queryTypeD(paramA: [String]!, paramB: [String]!): [Type1]!
+    server1queryTypeE(paramA: [String!]!, paramB: [String!]!): [Type1!]!
+    server1queryTypeF: Type1
+    server1queryTypeCommonA(paramA: String, paramB: String): TypeCommon
+    server1queryTypeCommonB(paramA: String!, paramB: String!): TypeCommon!
+    server1queryTypeCommonC(paramA: [String], paramB: [String]): [TypeCommon]
+    server1queryTypeCommonD(paramA: [String]!, paramB: [String]!): [TypeCommon]!
+    server1queryTypeCommonE(paramA: [String!]!, paramB: [String!]!): [TypeCommon!]!
+    server1queryTypeCommonF: TypeCommon
+    server1queryTypeImplementedA(paramA: String, paramB: String): TypeImplemented1
+    server1queryTypeImplementedB(paramA: String!, paramB: String!): TypeImplemented1!
+    server1queryTypeImplementedC(paramA: [String], paramB: [String]): [TypeImplemented1]
+    server1queryTypeImplementedD(paramA: [String]!, paramB: [String]!): [TypeImplemented1]!
+    server1queryTypeImplementedE(paramA: [String!]!, paramB: [String!]!): [TypeImplemented1!]!
+    server1queryTypeImplementedF: TypeImplemented1
+    server1queryTypeImplementedCommonA(paramA: String, paramB: String): TypeImplementedCommon
+    server1queryTypeImplementedCommonB(paramA: String!, paramB: String!): TypeImplementedCommon!
+    server1queryTypeImplementedCommonC(paramA: [String], paramB: [String]): [TypeImplementedCommon]
+    server1queryTypeImplementedCommonD(paramA: [String]!, paramB: [String]!): [TypeImplementedCommon]!
+    server1queryTypeImplementedCommonE(paramA: [String!]!, paramB: [String!]!): [TypeImplementedCommon!]!
+    server1queryTypeImplementedCommonF: TypeImplementedCommon
+    server1queryTypeExtendedA(paramA: String, paramB: String): TypeExtended1
+    server1queryTypeExtendedB(paramA: String!, paramB: String!): TypeExtended1!
+    server1queryTypeExtendedC(paramA: [String], paramB: [String]): [TypeExtended1]
+    server1queryTypeExtendedD(paramA: [String]!, paramB: [String]!): [TypeExtended1]!
+    server1queryTypeExtendedE(paramA: [String!]!, paramB: [String!]!): [TypeExtended1!]!
+    server1queryTypeExtendedF: TypeExtended1
+    server1queryTypeExtendedCommonA(paramA: String, paramB: String): TypeExtendedCommon
+    server1queryTypeExtendedCommonB(paramA: String!, paramB: String!): TypeExtendedCommon!
+    server1queryTypeExtendedCommonC(paramA: [String], paramB: [String]): [TypeExtendedCommon]
+    server1queryTypeExtendedCommonD(paramA: [String]!, paramB: [String]!): [TypeExtendedCommon]!
+    server1queryTypeExtendedCommonE(paramA: [String!]!, paramB: [String!]!): [TypeExtendedCommon!]!
+    server1queryTypeExtendedCommonF: TypeExtendedCommon
+    server1queryTypeUnionA(paramA: String, paramB: String): TypeUnion1
+    server1queryTypeUnionB(paramA: String!, paramB: String!): TypeUnion1!
+    server1queryTypeUnionC(paramA: [String], paramB: [String]): [TypeUnion1]
+    server1queryTypeUnionD(paramA: [String]!, paramB: [String]!): [TypeUnion1]!
+    server1queryTypeUnionE(paramA: [String!]!, paramB: [String!]!): [TypeUnion1!]!
+    server1queryTypeUnionF: TypeUnion1
+    server1queryTypeUnionCommonA(paramA: String, paramB: String): TypeUnionCommon
+    server1queryTypeUnionCommonB(paramA: String!, paramB: String!): TypeUnionCommon!
+    server1queryTypeUnionCommonC(paramA: [String], paramB: [String]): [TypeUnionCommon]
+    server1queryTypeUnionCommonD(paramA: [String]!, paramB: [String]!): [TypeUnionCommon]!
+    server1queryTypeUnionCommonE(paramA: [String!]!, paramB: [String!]!): [TypeUnionCommon!]!
+    server1queryTypeUnionCommonF: TypeUnionCommon
+    server1queryInputA(paramA: Input1, paramB: Input1): Type1
+    server1queryInputB(paramA: Input1!, paramB: Input1!): Type1!
+    server1queryInputC(paramA: [Input1], paramB: [Input1]): [Type1]
+    server1queryInputD(paramA: [Input1]!, paramB: [Input1]!): [Type1]!
+    server1queryInputE(paramA: [Input1!]!, paramB: [Input1!]!): [Type1!]!
+    server1queryInputF: Type1
+    server1queryInputCommonA(paramA: InputCommon, paramB: InputCommon): TypeCommon
+    server1queryInputCommonB(paramA: InputCommon!, paramB: InputCommon!): TypeCommon!
+    server1queryInputCommonC(paramA: [InputCommon], paramB: [InputCommon]): [TypeCommon]
+    server1queryInputCommonD(paramA: [InputCommon]!, paramB: [InputCommon]!): [TypeCommon]!
+    server1queryInputCommonE(paramA: [InputCommon!]!, paramB: [InputCommon!]!): [TypeCommon!]!
+    server1queryInputCommonF: TypeCommon
+}
+
+schema {
+    query: Queries
+}

@@ -1,0 +1,14 @@
+mutation {
+    create(user: {name: "John", age: 34, enabled: true, role: ADMIN}) {
+        __typename
+        ... on WebUser {
+            id
+            name
+            age
+            enabled
+            role
+            username
+        }
+    }
+    delete(id: 1)
+}
