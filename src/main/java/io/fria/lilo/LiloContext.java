@@ -67,13 +67,12 @@ public class LiloContext {
 
         return env.getSchema().getObjectType(result.get("__typename").toString());
     };
-    private final        Map<String, SchemaSource>          schemaSources;
     private              Map<String, ProcessedSchemaSource> sourceMap;
     private              GraphQL                            graphQL;
 
     LiloContext(final SchemaSource... schemaSources) {
-        this.schemaSources = Arrays.stream(schemaSources).
-            collect(Collectors.toMap(SchemaSource::getName, ss -> ss));
+        this.sourceMap = Arrays.stream(schemaSources).
+            collect(Collectors.toMap(SchemaSource::getName, ProcessedSchemaSource::new));
     }
 
     private static void addFields(final String typeName, final Map<String, Object> typeDefinition, final Map<String, Map<String, Object>> targetTypeMap) {
@@ -420,35 +419,24 @@ public class LiloContext {
     }
 
     public Map<String, SchemaSource> getSchemaSources() {
-        return ImmutableMap.copyOf(this.schemaSources);
+
+        return ImmutableMap.copyOf(
+            this.sourceMap.entrySet()
+                .stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().schemaSource))
+        );
     }
 
-    public ProcessedSchemaSource processSource(final SchemaSource schemaSource, final Object context) {
+    public synchronized void invalidate(final String schemaName) {
 
-        final var introspectionResponse = schemaSource
-            .getIntrospectionRetriever()
-            .get(this, schemaSource, INTROSPECTION_REQUEST, context);
-
-        final var introspectionResult    = toMap(introspectionResponse);
-        final var data                   = getMap(introspectionResult, "data");
-        final var schema                 = getMap(data, "__schema");
-        final var parser                 = new SchemaParser();
-        final var schemaDoc              = new IntrospectionResultToSchema().createSchemaDefinition(data);
-        final var typeDefinitionRegistry = parser.buildRegistry(schemaDoc);
-
-        return new ProcessedSchemaSource(schemaSource, schema, typeDefinitionRegistry);
-    }
-
-    public void reload(final String schemaName) {
+        if (!this.sourceMap.containsKey(schemaName)) {
+            return;
+        }
 
         final ProcessedSchemaSource processedSource = this.sourceMap.get(schemaName);
-        final ProcessedSchemaSource updatedSource   = this.processSource(processedSource.getSchemaSource(), null);
+        processedSource.invalidate();
 
-        final HashMap<String, ProcessedSchemaSource> sourceMapClone = new HashMap<>(this.sourceMap);
-        sourceMapClone.put(schemaName, updatedSource);
-
-        this.graphQL = this.createGraphQL(sourceMapClone);
-        this.sourceMap = sourceMapClone;
+        this.graphQL = null;
     }
 
     synchronized GraphQL getGraphQL(final ExecutionInput executionInput) {
@@ -456,11 +444,19 @@ public class LiloContext {
         final Object localContext = executionInput == null ? null : executionInput.getLocalContext();
 
         if (this.graphQL == null) {
-            this.sourceMap = this.schemaSources.values().stream()
-                .map(ss -> this.processSource(ss, localContext))
-                .collect(Collectors.toMap(ss -> ss.getSchemaSource().getName(), ss -> ss));
+            final Map<String, ProcessedSchemaSource> sourceMapClone = this.sourceMap.values()
+                .stream()
+                .map(ps -> {
+                    if (ps.schema == null) {
+                        return this.processSource(ps.schemaSource, localContext);
+                    }
 
-            this.graphQL = this.createGraphQL(this.sourceMap);
+                    return ps;
+                })
+                .collect(Collectors.toMap(ps -> ps.schemaSource.getName(), ps -> ps));
+
+            this.graphQL = this.createGraphQL(sourceMapClone);
+            this.sourceMap = sourceMapClone;
         }
 
         return this.graphQL;
@@ -492,20 +488,17 @@ public class LiloContext {
 
     private void assignHandler(final ProcessedSchemaSource ss, final Map<String, TypeRuntimeWiring.Builder> typeRuntimeWiringBuilders, final Map<String, Object> combinedSchemaMap, final Map<String, ScalarTypeDefinition> scalars) {
 
-        final var schema                 = ss.getSchema();
-        final var schemaSource           = ss.getSchemaSource();
-        final var typeDefinitionRegistry = ss.getTypeDefinitionRegistry();
-        final var queryType              = getMap(schema, "queryType");
-        final var queryTypeName          = queryType == null ? null : getName(queryType);
-        final var mutationType           = getMap(schema, "mutationType");
-        final var mutationTypeName       = mutationType == null ? null : getName(mutationType);
+        final var queryType        = getMap(ss.schema, "queryType");
+        final var queryTypeName    = queryType == null ? null : getName(queryType);
+        final var mutationType     = getMap(ss.schema, "mutationType");
+        final var mutationTypeName = mutationType == null ? null : getName(mutationType);
 
-        this.assignDataFetchers(typeRuntimeWiringBuilders, typeDefinitionRegistry, schemaSource, queryTypeName);
-        this.assignDataFetchers(typeRuntimeWiringBuilders, typeDefinitionRegistry, schemaSource, mutationTypeName);
+        this.assignDataFetchers(typeRuntimeWiringBuilders, ss.typeDefinitionRegistry, ss.schemaSource, queryTypeName);
+        this.assignDataFetchers(typeRuntimeWiringBuilders, ss.typeDefinitionRegistry, ss.schemaSource, mutationTypeName);
 
-        scalars.putAll(typeDefinitionRegistry.scalars());
+        scalars.putAll(ss.typeDefinitionRegistry.scalars());
 
-        mergeSchema(combinedSchemaMap, schema);
+        mergeSchema(combinedSchemaMap, ss.schema);
     }
 
     private Object createDataFetcher(final DataFetchingEnvironment environment, final SchemaSource schemaSource, final String fieldName) {
@@ -527,5 +520,47 @@ public class LiloContext {
         sourceMap.values().forEach(ss -> this.assignHandler(ss, typeRuntimeWiringBuilders, combinedSchemaMap, scalars));
 
         return combine(typeRuntimeWiringBuilders, combinedSchemaMap, scalars);
+    }
+
+    private ProcessedSchemaSource processSource(final SchemaSource schemaSource, final Object context) {
+
+        final var introspectionResponse = schemaSource
+            .getIntrospectionRetriever()
+            .get(this, schemaSource, INTROSPECTION_REQUEST, context);
+
+        final var introspectionResult    = toMap(introspectionResponse);
+        final var data                   = getMap(introspectionResult, "data");
+        final var schema                 = getMap(data, "__schema");
+        final var parser                 = new SchemaParser();
+        final var schemaDoc              = new IntrospectionResultToSchema().createSchemaDefinition(data);
+        final var typeDefinitionRegistry = parser.buildRegistry(schemaDoc);
+
+        return new ProcessedSchemaSource(schemaSource, schema, typeDefinitionRegistry);
+    }
+
+    private static class ProcessedSchemaSource {
+
+        private final SchemaSource           schemaSource;
+        private       Map<String, Object>    schema;
+        private       TypeDefinitionRegistry typeDefinitionRegistry;
+
+        ProcessedSchemaSource(final SchemaSource schemaSource) {
+            this.schemaSource = schemaSource;
+        }
+
+        ProcessedSchemaSource(
+            final SchemaSource schemaSource,
+            final Map<String, Object> schema,
+            final TypeDefinitionRegistry typeDefinitionRegistry
+        ) {
+
+            this.schemaSource = schemaSource;
+            this.schema = schema;
+            this.typeDefinitionRegistry = typeDefinitionRegistry;
+        }
+
+        void invalidate() {
+            this.schema = null;
+        }
     }
 }

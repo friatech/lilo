@@ -6,7 +6,6 @@ import graphql.introspection.IntrospectionQuery;
 import graphql.schema.idl.RuntimeWiring;
 import io.fria.lilo.GraphQLRequest;
 import io.fria.lilo.Lilo;
-import io.fria.lilo.LiloContext;
 import io.fria.lilo.TestUtils;
 import java.io.IOException;
 import java.util.Map;
@@ -85,7 +84,7 @@ class ReloadSchemaTest {
         query2Retriever.setGraphQL(project3GraphQL);
         introspection2Retriever.setGraphQL(project3GraphQL);
 
-        lilo.getContext().reload(SCHEMA2_NAME);
+        lilo.getContext().invalidate(SCHEMA2_NAME);
 
         stitchResult = lilo.stitch(executionInput);
         Assertions.assertNotEquals(expected, stitchResult.getData());
