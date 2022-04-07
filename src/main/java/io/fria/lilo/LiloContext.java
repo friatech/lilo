@@ -15,6 +15,7 @@ import graphql.language.InterfaceTypeDefinition;
 import graphql.language.Node;
 import graphql.language.OperationDefinition;
 import graphql.language.ScalarTypeDefinition;
+import graphql.language.Selection;
 import graphql.language.SelectionSet;
 import graphql.language.UnionTypeDefinition;
 import graphql.language.Value;
@@ -161,9 +162,11 @@ public class LiloContext {
             throw new IllegalArgumentException("found query does not match with name");
         }
 
-        final Field queryNode = (Field) queryNodeOptional.get();
+        final Field  queryNode     = (Field) queryNodeOptional.get();
+        final String queryNodeName = queryNode.getAlias() != null ? queryNode.getAlias() : queryNode.getName();
+        final Field  newQueryNode  = removeAlias(queryNode);
 
-        final Set<String> usedReferences = findUsedVariables(queryNode)
+        final Set<String> usedReferences = findUsedVariables(newQueryNode)
             .stream()
             .map(VariableReference::getName)
             .collect(Collectors.toSet());
@@ -174,18 +177,19 @@ public class LiloContext {
             .filter(v -> usedReferences.contains(v.getName()))
             .collect(Collectors.toList());
 
-        final Set<String> usedFragments = findUsedFragments(queryNode)
+        final Set<String> usedFragments = findUsedFragments(newQueryNode)
             .stream()
             .map(FragmentSpread::getName)
             .collect(Collectors.toSet());
 
         final List<Definition> fragmentDefinitions = definitions.stream()
             .filter(d -> d instanceof FragmentDefinition && usedFragments.contains(((FragmentDefinition) d).getName()))
+            .map(fd -> removeAlias((FragmentDefinition) fd))
             .collect(Collectors.toList());
 
         final var newOperationDefinition = operationDefinition.transform(builder -> {
             builder
-                .selectionSet(new SelectionSet(List.of(queryNode)))
+                .selectionSet(new SelectionSet(List.of(newQueryNode)))
                 .variableDefinitions(newVariables);
         });
 
@@ -199,12 +203,20 @@ public class LiloContext {
 
         final var query = AstPrinter.printAst(newDocument);
 
+        final Map<String, Object> filteredVariables = new HashMap<>();
+
+        environment.getVariables()
+            .entrySet()
+            .stream()
+            .filter(e -> usedReferences.contains(e.getKey()))
+            .forEach(e -> filteredVariables.put(e.getKey(), e.getValue()));
+
         return new GeneratedRequest(
-            queryNode.getAlias() != null ? queryNode.getAlias() : queryNode.getName(),
+            newQueryNode.getName(),
             toStr(
                 GraphQLRequest.builder()
                     .query(query)
-                    .variables(environment.getVariables())
+                    .variables(filteredVariables)
                     .operationName(operationDefinition.getName())
                     .build()
             )
@@ -242,8 +254,8 @@ public class LiloContext {
                 final Node childNode = (Node) n;
 
                 if (childNode instanceof Argument) {
-                    final Argument argument = (Argument) n;
-                    final Value argumentValue = argument.getValue();
+                    final Argument argument      = (Argument) n;
+                    final Value    argumentValue = argument.getValue();
 
                     if (argumentValue instanceof VariableReference) {
                         usedVariables.add((VariableReference) argumentValue);
@@ -253,7 +265,7 @@ public class LiloContext {
                 }
             });
 
-         return usedVariables;
+        return usedVariables;
     }
 
     private static void mergeSchema(final Map<String, Object> targetSchema, final Map<String, Object> sourceSchema) {
@@ -348,6 +360,63 @@ public class LiloContext {
         }
     }
 
+    private static FragmentDefinition removeAlias(final FragmentDefinition fragment) {
+
+        final SelectionSet selectionSet = fragment.getSelectionSet();
+
+        if (selectionSet == null) {
+            return fragment;
+        }
+
+        final List<Selection> newSelections = selectionSet.getSelections()
+            .stream().map(s -> {
+                if (s instanceof Field) {
+                    return removeAlias((Field) s);
+                }
+
+                return s;
+            })
+            .collect(Collectors.toList());
+
+        return fragment.transform(builder -> {
+            builder
+                .selectionSet(SelectionSet.newSelectionSet(newSelections).build())
+                .build();
+        });
+    }
+
+    private static Field removeAlias(final Field field) {
+
+        final SelectionSet selectionSet = field.getSelectionSet();
+
+        List<Selection> newSelections = null;
+
+        if (selectionSet != null) {
+            newSelections = selectionSet.getSelections()
+                .stream().map(s -> {
+                    if (s instanceof Field) {
+                        return removeAlias((Field) s);
+                    }
+
+                    return s;
+                })
+                .collect(Collectors.toList());
+        }
+
+        final List<Selection> finalNewSelections = newSelections;
+
+        return field.transform(builder -> {
+
+            if (finalNewSelections != null) {
+                builder.alias(null)
+                    .selectionSet(SelectionSet.newSelectionSet(finalNewSelections).build())
+                    .build();
+            } else {
+                builder.alias(null).build();
+            }
+        });
+    }
+
     public GraphQL getGraphQL() {
         return this.getGraphQL(null);
     }
@@ -436,7 +505,7 @@ public class LiloContext {
 
     private Object createDataFetcher(final DataFetchingEnvironment environment, final SchemaSource schemaSource, final String fieldName) {
 
-        final var request    = createRequest(environment, fieldName);
+        final var request         = createRequest(environment, fieldName);
         final var queryResult     = schemaSource.getQueryRetriever().get(this, request.query, environment.getLocalContext());
         final var queryResultMap  = toMap(queryResult);
         final var queryResultData = getMap(queryResultMap, "data");
