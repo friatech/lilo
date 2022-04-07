@@ -70,7 +70,7 @@ public final class TestUtils {
         }
 
         @Override
-        public String get(final LiloContext liloContext, final String query, final Object context) {
+        public String get(final LiloContext liloContext, final SchemaSource schemaSource, final String query, final Object context) {
             return runQuery(this.graphQL, query);
         }
 
@@ -88,7 +88,12 @@ public final class TestUtils {
         }
 
         @Override
-        public String get(final LiloContext liloContext, final String query, final Object context) {
+        public String get(
+            final LiloContext liloContext,
+            final SchemaSource schemaSource,
+            final String query,
+            final Object context
+        ) {
             return runQuery(this.graphQL, query);
         }
 

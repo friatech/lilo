@@ -78,13 +78,13 @@ class CrudTest {
     }
 
     @Test
-    void stitchingQueryTest() throws IOException {
+    void stitchingFragmentedQueryTest() throws IOException {
 
         // Combined result -----------------------------------------------------
         final Map<String, Object> expected = Map.of("get", RESULT_MAP, "list", List.of(RESULT_MAP));
 
         final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
-            .query(loadResource("/crud/query.graphql"))
+            .query(loadResource("/crud/fragmented-query.graphql"))
             .build();
 
         final GraphQL combinedGraphQL = createGraphQL("/crud/combined.graphqls", createCombinedWiring());
@@ -145,13 +145,13 @@ class CrudTest {
     }
 
     @Test
-    void stitchingFragmentedQueryTest() throws IOException {
+    void stitchingQueryTest() throws IOException {
 
         // Combined result -----------------------------------------------------
         final Map<String, Object> expected = Map.of("get", RESULT_MAP, "list", List.of(RESULT_MAP));
 
         final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
-            .query(loadResource("/crud/fragmented-query.graphql"))
+            .query(loadResource("/crud/query.graphql"))
             .build();
 
         final GraphQL combinedGraphQL = createGraphQL("/crud/combined.graphqls", createCombinedWiring());

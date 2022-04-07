@@ -129,7 +129,7 @@ public class LiloContext {
         return GraphQL.newGraphQL(graphQLSchema).build();
     }
 
-    private static GeneratedRequest createRequest(final DataFetchingEnvironment environment, final String fieldName) {
+    private static String createRequest(final DataFetchingEnvironment environment, final String fieldName) {
 
         final var document    = environment.getDocument();
         final var definitions = document.getDefinitions();
@@ -162,9 +162,8 @@ public class LiloContext {
             throw new IllegalArgumentException("found query does not match with name");
         }
 
-        final Field  queryNode     = (Field) queryNodeOptional.get();
-        final String queryNodeName = queryNode.getAlias() != null ? queryNode.getAlias() : queryNode.getName();
-        final Field  newQueryNode  = removeAlias(queryNode);
+        final Field queryNode    = (Field) queryNodeOptional.get();
+        final Field newQueryNode = removeAlias(queryNode);
 
         final Set<String> usedReferences = findUsedVariables(newQueryNode)
             .stream()
@@ -211,15 +210,12 @@ public class LiloContext {
             .filter(e -> usedReferences.contains(e.getKey()))
             .forEach(e -> filteredVariables.put(e.getKey(), e.getValue()));
 
-        return new GeneratedRequest(
-            newQueryNode.getName(),
-            toStr(
-                GraphQLRequest.builder()
-                    .query(query)
-                    .variables(filteredVariables)
-                    .operationName(operationDefinition.getName())
-                    .build()
-            )
+        return toStr(
+            GraphQLRequest.builder()
+                .query(query)
+                .variables(filteredVariables)
+                .operationName(operationDefinition.getName())
+                .build()
         );
     }
 
@@ -423,7 +419,10 @@ public class LiloContext {
 
     public ProcessedSchemaSource processSource(final SchemaSource schemaSource, final Object context) {
 
-        final var introspectionResponse  = schemaSource.getIntrospectionRetriever().get(this, INTROSPECTION_REQUEST, context);
+        final var introspectionResponse = schemaSource
+            .getIntrospectionRetriever()
+            .get(this, schemaSource, INTROSPECTION_REQUEST, context);
+
         final var introspectionResult    = toMap(introspectionResponse);
         final var data                   = getMap(introspectionResult, "data");
         final var schema                 = getMap(data, "__schema");
@@ -442,7 +441,7 @@ public class LiloContext {
         final HashMap<String, ProcessedSchemaSource> sourceMapClone = new HashMap<>(this.sourceMap);
         sourceMapClone.put(schemaName, updatedSource);
 
-        this.graphQL = this.createGraphQL(sourceMapClone, null);
+        this.graphQL = this.createGraphQL(sourceMapClone);
         this.sourceMap = sourceMapClone;
     }
 
@@ -455,7 +454,7 @@ public class LiloContext {
                 .map(ss -> this.processSource(ss, localContext))
                 .collect(Collectors.toMap(ss -> ss.getSchemaSource().getName(), ss -> ss));
 
-            this.graphQL = this.createGraphQL(this.sourceMap, localContext);
+            this.graphQL = this.createGraphQL(this.sourceMap);
         }
 
         return this.graphQL;
@@ -506,14 +505,14 @@ public class LiloContext {
     private Object createDataFetcher(final DataFetchingEnvironment environment, final SchemaSource schemaSource, final String fieldName) {
 
         final var request         = createRequest(environment, fieldName);
-        final var queryResult     = schemaSource.getQueryRetriever().get(this, request.query, environment.getLocalContext());
+        final var queryResult     = schemaSource.getQueryRetriever().get(this, schemaSource, request, environment.getLocalContext());
         final var queryResultMap  = toMap(queryResult);
         final var queryResultData = getMap(queryResultMap, "data");
 
-        return queryResultData.get(request.queryName);
+        return queryResultData.get(fieldName);
     }
 
-    private GraphQL createGraphQL(final Map<String, ProcessedSchemaSource> sourceMap, final Object localContext) {
+    private GraphQL createGraphQL(final Map<String, ProcessedSchemaSource> sourceMap) {
 
         final Map<String, Object>                    combinedSchemaMap         = new HashMap<>();
         final Map<String, TypeRuntimeWiring.Builder> typeRuntimeWiringBuilders = new HashMap<>();
@@ -522,16 +521,5 @@ public class LiloContext {
         sourceMap.values().forEach(ss -> this.assignHandler(ss, typeRuntimeWiringBuilders, combinedSchemaMap, scalars));
 
         return combine(typeRuntimeWiringBuilders, combinedSchemaMap, scalars);
-    }
-
-    private static final class GeneratedRequest {
-
-        private final String queryName;
-        private final String query;
-
-        private GeneratedRequest(final String queryName, final String query) {
-            this.queryName = queryName;
-            this.query = query;
-        }
     }
 }

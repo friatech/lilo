@@ -6,7 +6,34 @@
 
   <groupId>io.fria</groupId>
   <artifactId>lilo</artifactId>
-  <version>99.13</version>
+  <version>22.4.1</version>
+
+  <name>lilo-graphql</name>
+  <description>Lilo GraphQL stitching library</description>
+  <url>https://github.com/friatech/lilo</url>
+
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <scm>
+    <connection>scm:git:git://github.com/friatech/lilo.git</connection>
+    <developerConnection>scm:git:ssh://github.com:friatech/lilo.git</developerConnection>
+    <url>https://github.com/friatech/lilo/tree/main</url>
+  </scm>
+
+  <developers>
+    <developer>
+      <name>Fırat KÜÇÜK</name>
+      <email>firat@fria.io</email>
+      <organization>Fria Tech</organization>
+      <organizationUrl>https://fria.io</organizationUrl>
+    </developer>
+  </developers>
 
   <properties>
     <maven.compiler.source>11</maven.compiler.source>
