@@ -6,6 +6,7 @@ import graphql.introspection.IntrospectionQuery;
 import graphql.schema.idl.RuntimeWiring;
 import io.fria.lilo.GraphQLRequest;
 import io.fria.lilo.Lilo;
+import io.fria.lilo.LiloContext;
 import io.fria.lilo.TestUtils;
 import java.io.IOException;
 import java.util.Map;

@@ -2,6 +2,7 @@ package io.fria.lilo;
 
 import graphql.ExecutionInput;
 import graphql.GraphQL;
+import graphql.com.google.common.collect.ImmutableMap;
 import graphql.introspection.IntrospectionResultToSchema;
 import graphql.language.Argument;
 import graphql.language.AstPrinter;
@@ -66,12 +67,13 @@ public class LiloContext {
 
         return env.getSchema().getObjectType(result.get("__typename").toString());
     };
-    private final        SchemaSource[]                     schemaSources;
+    private final        Map<String, SchemaSource>          schemaSources;
     private              Map<String, ProcessedSchemaSource> sourceMap;
     private              GraphQL                            graphQL;
 
     LiloContext(final SchemaSource... schemaSources) {
-        this.schemaSources = schemaSources;
+        this.schemaSources = Arrays.stream(schemaSources).
+            collect(Collectors.toMap(SchemaSource::getName, ss -> ss));
     }
 
     private static void addFields(final String typeName, final Map<String, Object> typeDefinition, final Map<String, Map<String, Object>> targetTypeMap) {
@@ -417,6 +419,10 @@ public class LiloContext {
         return this.getGraphQL(null);
     }
 
+    public Map<String, SchemaSource> getSchemaSources() {
+        return ImmutableMap.copyOf(this.schemaSources);
+    }
+
     public ProcessedSchemaSource processSource(final SchemaSource schemaSource, final Object context) {
 
         final var introspectionResponse = schemaSource
@@ -450,7 +456,7 @@ public class LiloContext {
         final Object localContext = executionInput == null ? null : executionInput.getLocalContext();
 
         if (this.graphQL == null) {
-            this.sourceMap = Arrays.stream(this.schemaSources)
+            this.sourceMap = this.schemaSources.values().stream()
                 .map(ss -> this.processSource(ss, localContext))
                 .collect(Collectors.toMap(ss -> ss.getSchemaSource().getName(), ss -> ss));
 
