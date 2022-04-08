@@ -1,21 +1,22 @@
-package io.fria.lilo.dynamicloading;
+package io.fria.lilo.error;
 
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
-import graphql.introspection.IntrospectionQuery;
+import graphql.GraphQL;
+import graphql.GraphQLError;
+import graphql.GraphQLException;
 import graphql.schema.idl.RuntimeWiring;
-import io.fria.lilo.GraphQLRequest;
 import io.fria.lilo.Lilo;
 import io.fria.lilo.TestUtils;
 import java.io.IOException;
-import java.util.Map;
+import java.util.List;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 import static io.fria.lilo.TestUtils.createGraphQL;
 import static io.fria.lilo.TestUtils.createSchemaSource;
 
-class ReloadSchemaTest {
+class ErrorTest {
 
     private static final String SCHEMA1_NAME = "project1";
     private static final String SCHEMA2_NAME = "project2";
@@ -25,9 +26,10 @@ class ReloadSchemaTest {
         return RuntimeWiring.newRuntimeWiring()
             .type(
                 newTypeWiring("Query")
-                    .dataFetcher("greeting1", env -> "Hello greeting1")
+                    .dataFetcher("greeting1", env -> {
+                        throw new GraphQLException("An error occurred for greeting1");
+                    })
                     .dataFetcher("greeting2", env -> "Hello greeting2")
-                    .dataFetcher("greeting3", env -> "Hello greeting3")
             )
             .build();
     }
@@ -35,11 +37,18 @@ class ReloadSchemaTest {
     @Test
     void stitchingTest() throws IOException {
 
-        Map<String, Object> expected = Map.of("greeting1", "Hello greeting1", "greeting2", "Hello greeting2");
-
-        ExecutionInput executionInput = ExecutionInput.newExecutionInput()
+        // Combined result -----------------------------------------------------
+        final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
             .query("{greeting1\ngreeting2}")
             .build();
+
+        final GraphQL            combinedGraphQL = createGraphQL("/greetings/combined.graphqls", createWiring());
+        final ExecutionResult    result          = combinedGraphQL.execute(executionInput);
+        final List<GraphQLError> combinedErrors  = result.getErrors();
+        Assertions.assertNotNull(combinedErrors);
+        Assertions.assertEquals(1, combinedErrors.size());
+        final GraphQLError expected = combinedErrors.get(0);
+
 
         // Stitching result ----------------------------------------------------
         final var project1GraphQL         = createGraphQL("/greetings/greeting1.graphqls", createWiring());
@@ -49,36 +58,15 @@ class ReloadSchemaTest {
         final var query1Retriever         = new TestUtils.TestQueryRetriever(project1GraphQL);
         final var query2Retriever         = new TestUtils.TestQueryRetriever(project2GraphQL);
 
-        final GraphQLRequest introspectionRequest = new GraphQLRequest();
-        introspectionRequest.setQuery(IntrospectionQuery.INTROSPECTION_QUERY);
-
         final Lilo lilo = Lilo.builder()
             .addSource(createSchemaSource(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
             .addSource(createSchemaSource(SCHEMA2_NAME, introspection2Retriever, query2Retriever))
             .build();
 
-        ExecutionResult stitchResult = lilo.stitch(executionInput);
-        Assertions.assertEquals(expected, stitchResult.getData());
-
-        // After reloading context old expected result won't work.
-        final var project3GraphQL = createGraphQL("/dynamicloading/greeting3.graphqls", createWiring());
-
-        query2Retriever.setGraphQL(project3GraphQL);
-        introspection2Retriever.setGraphQL(project3GraphQL);
-
-        lilo.getContext().invalidate(SCHEMA2_NAME);
-
-        stitchResult = lilo.stitch(executionInput);
-        Assertions.assertNotEquals(expected, stitchResult.getData());
-
-        // But new query should work
-        executionInput = ExecutionInput.newExecutionInput()
-            .query("{greeting1\ngreeting3}")
-            .build();
-
-        expected = Map.of("greeting1", "Hello greeting1", "greeting3", "Hello greeting3");
-
-        stitchResult = lilo.stitch(executionInput);
-        Assertions.assertEquals(expected, stitchResult.getData());
+        final ExecutionResult stitchResult = lilo.stitch(executionInput);
+        final List<GraphQLError> stitchedErrors    = stitchResult.getErrors();
+        Assertions.assertNotNull(stitchedErrors);
+        Assertions.assertEquals(1, stitchedErrors.size());
+        Assertions.assertEquals(expected.getMessage(), stitchedErrors.get(0).getMessage());
     }
 }

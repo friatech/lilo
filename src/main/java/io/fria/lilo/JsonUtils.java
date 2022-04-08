@@ -26,6 +26,10 @@ final class JsonUtils {
         return (String) map.get("name");
     }
 
+    public static String getStr(final Map<String, Object> map, final String key) {
+        return (String) map.get(key);
+    }
+
     public static Map<String, Object> toMap(final String text) {
 
         try {

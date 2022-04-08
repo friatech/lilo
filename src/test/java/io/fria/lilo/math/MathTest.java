@@ -20,32 +20,12 @@ class MathTest {
     private static final String SCHEMA1_NAME = "project1";
     private static final String SCHEMA2_NAME = "project2";
 
-    private static RuntimeWiring createCombinedWiring() {
+    private static RuntimeWiring createWiring() {
 
         return RuntimeWiring.newRuntimeWiring()
             .type(
                 newTypeWiring("Query")
                     .dataFetcher("add", env -> env.<Integer>getArgument("a") + env.<Integer>getArgument("b"))
-                    .dataFetcher("subtract", env -> env.<Integer>getArgument("a") - env.<Integer>getArgument("b"))
-            )
-            .build();
-    }
-
-    private static RuntimeWiring createProject1Wiring() {
-
-        return RuntimeWiring.newRuntimeWiring()
-            .type(
-                newTypeWiring("Query")
-                    .dataFetcher("add", env -> env.<Integer>getArgument("a") + env.<Integer>getArgument("b"))
-            )
-            .build();
-    }
-
-    private static RuntimeWiring createProject2Wiring() {
-
-        return RuntimeWiring.newRuntimeWiring()
-            .type(
-                newTypeWiring("Query")
                     .dataFetcher("subtract", env -> env.<Integer>getArgument("a") - env.<Integer>getArgument("b"))
             )
             .build();
@@ -55,20 +35,18 @@ class MathTest {
     void stitchingTest() throws IOException {
 
         // Combined result -----------------------------------------------------
-        final Map<String, Object> expected = Map.of("add", 3, "subtract", 10);
-
         final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
             .query("{add(a: 1, b: 2)\nsubtract(a: 20, b: 10)}")
             .build();
 
-        final GraphQL combinedGraphQL = createGraphQL("/math/combined.graphqls", createCombinedWiring());
-
-        final ExecutionResult result = combinedGraphQL.execute(executionInput);
-        Assertions.assertEquals(expected, result.getData());
+        final GraphQL             combinedGraphQL = createGraphQL("/math/combined.graphqls", createWiring());
+        final ExecutionResult     result          = combinedGraphQL.execute(executionInput);
+        final Map<String, Object> expected        = result.getData();
+        Assertions.assertNotNull(expected);
 
         // Stitching result ----------------------------------------------------
-        final var project1GraphQL         = createGraphQL("/math/add.graphqls", createProject1Wiring());
-        final var project2GraphQL         = createGraphQL("/math/subtract.graphqls", createProject2Wiring());
+        final var project1GraphQL         = createGraphQL("/math/add.graphqls", createWiring());
+        final var project2GraphQL         = createGraphQL("/math/subtract.graphqls", createWiring());
         final var introspection1Retriever = new TestUtils.TestIntrospectionRetriever(project1GraphQL);
         final var introspection2Retriever = new TestUtils.TestIntrospectionRetriever(project2GraphQL);
         final var query1Retriever         = new TestUtils.TestQueryRetriever(project1GraphQL);
@@ -87,22 +65,20 @@ class MathTest {
     void variablesTest() throws IOException {
 
         // Combined result -----------------------------------------------------
-        final Map<String, Object> expected = Map.of("add", 3, "subtract", 10);
-
         final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
             .query(loadResource("/math/query.graphql"))
             .operationName("someMath")
             .variables(Map.of("paramA", 1, "paramB", 2, "paramC", 20, "paramD", 10))
             .build();
 
-        final GraphQL combinedGraphQL = createGraphQL("/math/combined.graphqls", createCombinedWiring());
-
-        final ExecutionResult result = combinedGraphQL.execute(executionInput);
-        Assertions.assertEquals(expected, result.getData());
+        final GraphQL             combinedGraphQL = createGraphQL("/math/combined.graphqls", createWiring());
+        final ExecutionResult     result          = combinedGraphQL.execute(executionInput);
+        final Map<String, Object> expected        = result.getData();
+        Assertions.assertNotNull(expected);
 
         // Stitching result ----------------------------------------------------
-        final var project1GraphQL         = createGraphQL("/math/add.graphqls", createProject1Wiring());
-        final var project2GraphQL         = createGraphQL("/math/subtract.graphqls", createProject2Wiring());
+        final var project1GraphQL         = createGraphQL("/math/add.graphqls", createWiring());
+        final var project2GraphQL         = createGraphQL("/math/subtract.graphqls", createWiring());
         final var introspection1Retriever = new TestUtils.TestIntrospectionRetriever(project1GraphQL);
         final var introspection2Retriever = new TestUtils.TestIntrospectionRetriever(project2GraphQL);
         final var query1Retriever         = new TestUtils.TestQueryRetriever(project1GraphQL);

@@ -2,6 +2,7 @@ package io.fria.lilo;
 
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
+import graphql.execution.DataFetcherExceptionHandler;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -28,7 +29,8 @@ public final class Lilo {
 
     public static class LiloBuilder {
 
-        private final Map<String, SchemaSource> schemaSources = new HashMap<>();
+        private final Map<String, SchemaSource>   schemaSources               = new HashMap<>();
+        private       DataFetcherExceptionHandler dataFetcherExceptionHandler = new SourceDataFetcherExceptionHandler();
 
         private LiloBuilder() {
         }
@@ -38,15 +40,19 @@ public final class Lilo {
             return this;
         }
 
+        public LiloBuilder defaultDataFetcherExceptionHandler(final DataFetcherExceptionHandler dataFetcherExceptionHandler) {
+            this.dataFetcherExceptionHandler = dataFetcherExceptionHandler;
+            return this;
+        }
+
         public Lilo build() {
 
-            try {
-                return new Lilo(new LiloContext(this.schemaSources.values().toArray(new SchemaSource[0])));
-            } catch (final Exception e) {
-                e.printStackTrace();
-            }
-
-            return null;
+            return new Lilo(
+                new LiloContext(
+                    this.dataFetcherExceptionHandler,
+                    this.schemaSources.values().toArray(new SchemaSource[0])
+                )
+            );
         }
     }
 }

@@ -2,7 +2,9 @@ package io.fria.lilo;
 
 import graphql.ExecutionInput;
 import graphql.GraphQL;
+import graphql.GraphQLError;
 import graphql.com.google.common.collect.ImmutableMap;
+import graphql.execution.DataFetcherExceptionHandler;
 import graphql.introspection.IntrospectionResultToSchema;
 import graphql.language.Argument;
 import graphql.language.AstPrinter;
@@ -39,11 +41,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 import static io.fria.lilo.JsonUtils.getList;
 import static io.fria.lilo.JsonUtils.getMap;
 import static io.fria.lilo.JsonUtils.getName;
 import static io.fria.lilo.JsonUtils.toMap;
+import static io.fria.lilo.JsonUtils.toObj;
 import static io.fria.lilo.JsonUtils.toStr;
 
 public class LiloContext {
@@ -58,7 +63,7 @@ public class LiloContext {
             .build()
     );
 
-    private static final TypeResolver                       UNION_TYPE_RESOLVER = env -> {
+    private static final TypeResolver UNION_TYPE_RESOLVER = env -> {
         final Map<String, Object> result = env.getObject();
 
         if (!result.containsKey("__typename")) {
@@ -67,10 +72,13 @@ public class LiloContext {
 
         return env.getSchema().getObjectType(result.get("__typename").toString());
     };
-    private              Map<String, ProcessedSchemaSource> sourceMap;
-    private              GraphQL                            graphQL;
 
-    LiloContext(final SchemaSource... schemaSources) {
+    private final DataFetcherExceptionHandler        dataFetcherExceptionHandler;
+    private       Map<String, ProcessedSchemaSource> sourceMap;
+    private       GraphQL                            graphQL;
+
+    LiloContext(final DataFetcherExceptionHandler dataFetcherExceptionHandler, final SchemaSource... schemaSources) {
+        this.dataFetcherExceptionHandler = dataFetcherExceptionHandler;
         this.sourceMap = Arrays.stream(schemaSources).
             collect(Collectors.toMap(SchemaSource::getName, ProcessedSchemaSource::new));
     }
@@ -94,7 +102,12 @@ public class LiloContext {
         });
     }
 
-    private static GraphQL combine(final Map<String, TypeRuntimeWiring.Builder> typeRuntimeWiringBuilders, final Map<String, Object> combinedSchemaMap, final Map<String, ScalarTypeDefinition> scalars) {
+    private static GraphQL combine(
+        final Map<String, TypeRuntimeWiring.Builder> typeRuntimeWiringBuilders,
+        final Map<String, Object> combinedSchemaMap,
+        final Map<String, ScalarTypeDefinition> scalars,
+        final DataFetcherExceptionHandler dataFetcherExceptionHandler
+    ) {
 
         final var schemaMap            = Map.of("__schema", combinedSchemaMap);
         final var parser               = new SchemaParser();
@@ -127,10 +140,12 @@ public class LiloContext {
         final SchemaGenerator schemaGenerator = new SchemaGenerator();
         final GraphQLSchema   graphQLSchema   = schemaGenerator.makeExecutableSchema(typeRegistry, runtimeWiring);
 
-        return GraphQL.newGraphQL(graphQLSchema).build();
+        return GraphQL.newGraphQL(graphQLSchema)
+            .defaultDataFetcherExceptionHandler(dataFetcherExceptionHandler)
+            .build();
     }
 
-    private static String createRequest(final DataFetchingEnvironment environment, final String fieldName) {
+    private static String createRequest(final DataFetchingEnvironment environment, final String queryName) {
 
         final var document    = environment.getDocument();
         final var definitions = document.getDefinitions();
@@ -156,7 +171,7 @@ public class LiloContext {
 
         final var queryNodeOptional = selections
             .stream()
-            .filter(f -> fieldName.equals(((Field) f).getName()))
+            .filter(f -> queryName.equals(((Field) f).getName()))
             .findFirst();
 
         if (queryNodeOptional.isEmpty()) {
@@ -501,14 +516,19 @@ public class LiloContext {
         mergeSchema(combinedSchemaMap, ss.schema);
     }
 
-    private Object createDataFetcher(final DataFetchingEnvironment environment, final SchemaSource schemaSource, final String fieldName) {
+    private Object createDataFetcher(final DataFetchingEnvironment environment, final SchemaSource schemaSource, final String queryName) {
 
-        final var request         = createRequest(environment, fieldName);
-        final var queryResult     = schemaSource.getQueryRetriever().get(this, schemaSource, request, environment.getLocalContext());
-        final var queryResultMap  = toMap(queryResult);
-        final var queryResultData = getMap(queryResultMap, "data");
+        final var request       = createRequest(environment, queryName);
+        final var queryResult   = schemaSource.getQueryRetriever().get(this, schemaSource, request, environment.getLocalContext());
+        final var graphQLResult = toObj(queryResult, GraphQLResult.class);
 
-        return queryResultData.get(fieldName);
+        final List<? extends GraphQLError> errors = graphQLResult.errors;
+
+        if (errors != null && !errors.isEmpty()) {
+            throw new SourceDataFetcherException(errors);
+        }
+
+        return graphQLResult.data.get(queryName);
     }
 
     private GraphQL createGraphQL(final Map<String, ProcessedSchemaSource> sourceMap) {
@@ -519,7 +539,7 @@ public class LiloContext {
 
         sourceMap.values().forEach(ss -> this.assignHandler(ss, typeRuntimeWiringBuilders, combinedSchemaMap, scalars));
 
-        return combine(typeRuntimeWiringBuilders, combinedSchemaMap, scalars);
+        return combine(typeRuntimeWiringBuilders, combinedSchemaMap, scalars, this.dataFetcherExceptionHandler);
     }
 
     private ProcessedSchemaSource processSource(final SchemaSource schemaSource, final Object context) {
@@ -562,5 +582,12 @@ public class LiloContext {
         void invalidate() {
             this.schema = null;
         }
+    }
+
+    @Getter
+    @NoArgsConstructor
+    private static class GraphQLResult {
+        private Map<String, Object>    data;
+        private List<LiloGraphQLError> errors;
     }
 }

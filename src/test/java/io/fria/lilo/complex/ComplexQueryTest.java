@@ -277,7 +277,7 @@ class ComplexQueryTest {
             .dataFetcher("server2queryInputCommonF", env -> "XXX6");
     }
 
-    private static RuntimeWiring createCombinedWiring() {
+    private static RuntimeWiring createWiring() {
 
         return RuntimeWiring.newRuntimeWiring()
             .type(addServer2Fetchers(addServer1Fetchers(newTypeWiring("Queries"))))
@@ -293,40 +293,6 @@ class ComplexQueryTest {
             .type(newTypeWiring("TypeUnion2").typeResolver(env -> env.getSchema().getObjectType("TypeUnion2Int")))
             .type(newTypeWiring("TypeUnionCommon").typeResolver(env -> env.getSchema().getObjectType("TypeUnionCommonInt")))
             .scalar(GraphQLScalarType.newScalar().name("Scalar1").coercing(new DummyCoercing()).build())
-            .scalar(GraphQLScalarType.newScalar().name("Scalar2").coercing(new DummyCoercing()).build())
-            .scalar(GraphQLScalarType.newScalar().name("ScalarCommon").coercing(new DummyCoercing()).build())
-            .build();
-    }
-
-    private static RuntimeWiring createProject1Wiring() {
-
-        return RuntimeWiring.newRuntimeWiring()
-            .type(addServer1Fetchers(newTypeWiring("Queries")))
-            .type(
-                newTypeWiring("Mutations")
-                    .dataFetcher("create", env -> RESULT_MAP)
-            )
-            .type(newTypeWiring("Interface1").typeResolver(env -> null))
-            .type(newTypeWiring("InterfaceCommon").typeResolver(env -> null))
-            .type(newTypeWiring("TypeUnion1").typeResolver(env -> env.getSchema().getObjectType("TypeUnion1Int")))
-            .type(newTypeWiring("TypeUnionCommon").typeResolver(env -> env.getSchema().getObjectType("TypeUnionCommonInt")))
-            .scalar(GraphQLScalarType.newScalar().name("Scalar1").coercing(new DummyCoercing()).build())
-            .scalar(GraphQLScalarType.newScalar().name("ScalarCommon").coercing(new DummyCoercing()).build())
-            .build();
-    }
-
-    private static RuntimeWiring createProject2Wiring() {
-
-        return RuntimeWiring.newRuntimeWiring()
-            .type(addServer2Fetchers(newTypeWiring("Queries")))
-            .type(
-                newTypeWiring("Mutations")
-                    .dataFetcher("delete", env -> null)
-            )
-            .type(newTypeWiring("Interface2").typeResolver(env -> null))
-            .type(newTypeWiring("InterfaceCommon").typeResolver(env -> null))
-            .type(newTypeWiring("TypeUnion2").typeResolver(env -> env.getSchema().getObjectType("TypeUnion2Int")))
-            .type(newTypeWiring("TypeUnionCommon").typeResolver(env -> env.getSchema().getObjectType("TypeUnionCommonInt")))
             .scalar(GraphQLScalarType.newScalar().name("Scalar2").coercing(new DummyCoercing()).build())
             .scalar(GraphQLScalarType.newScalar().name("ScalarCommon").coercing(new DummyCoercing()).build())
             .build();
@@ -618,15 +584,14 @@ class ComplexQueryTest {
             .variables(variables)
             .build();
 
-        final GraphQL combinedGraphQL = createGraphQL("/complex/combined.graphqls", createCombinedWiring());
-
-        final ExecutionResult     result   = combinedGraphQL.execute(executionInput);
-        final Map<String, Object> expected = result.getData();
-        Assertions.assertNotNull(result.getData());
+        final GraphQL             combinedGraphQL = createGraphQL("/complex/combined.graphqls", createWiring());
+        final ExecutionResult     result          = combinedGraphQL.execute(executionInput);
+        final Map<String, Object> expected        = result.getData();
+        Assertions.assertNotNull(expected);
 
         // Stitching result ----------------------------------------------------
-        final var project1GraphQL         = createGraphQL("/complex/project1.graphqls", createProject1Wiring());
-        final var project2GraphQL         = createGraphQL("/complex/project2.graphqls", createProject2Wiring());
+        final var project1GraphQL         = createGraphQL("/complex/project1.graphqls", createWiring());
+        final var project2GraphQL         = createGraphQL("/complex/project2.graphqls", createWiring());
         final var introspection1Retriever = new TestUtils.TestIntrospectionRetriever(project1GraphQL);
         final var introspection2Retriever = new TestUtils.TestIntrospectionRetriever(project2GraphQL);
         final var query1Retriever         = new TestUtils.TestQueryRetriever(combinedGraphQL);
