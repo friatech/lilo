@@ -17,68 +17,66 @@ import static io.fria.lilo.TestUtils.createSchemaSource;
 
 class ReloadSchemaTest {
 
-    private static final String SCHEMA1_NAME = "project1";
-    private static final String SCHEMA2_NAME = "project2";
+  private static final String SCHEMA1_NAME = "project1";
+  private static final String SCHEMA2_NAME = "project2";
 
-    private static RuntimeWiring createWiring() {
+  private static RuntimeWiring createWiring() {
 
-        return RuntimeWiring.newRuntimeWiring()
-            .type(
-                newTypeWiring("Query")
-                    .dataFetcher("greeting1", env -> "Hello greeting1")
-                    .dataFetcher("greeting2", env -> "Hello greeting2")
-                    .dataFetcher("greeting3", env -> "Hello greeting3")
-            )
-            .build();
-    }
+    return RuntimeWiring.newRuntimeWiring()
+        .type(
+            newTypeWiring("Query")
+                .dataFetcher("greeting1", env -> "Hello greeting1")
+                .dataFetcher("greeting2", env -> "Hello greeting2")
+                .dataFetcher("greeting3", env -> "Hello greeting3"))
+        .build();
+  }
 
-    @Test
-    void stitchingTest() throws IOException {
+  @Test
+  void stitchingTest() throws IOException {
 
-        Map<String, Object> expected = Map.of("greeting1", "Hello greeting1", "greeting2", "Hello greeting2");
+    Map<String, Object> expected =
+        Map.of("greeting1", "Hello greeting1", "greeting2", "Hello greeting2");
 
-        ExecutionInput executionInput = ExecutionInput.newExecutionInput()
-            .query("{greeting1\ngreeting2}")
-            .build();
+    ExecutionInput executionInput =
+        ExecutionInput.newExecutionInput().query("{greeting1\ngreeting2}").build();
 
-        // Stitching result ----------------------------------------------------
-        final var project1GraphQL         = createGraphQL("/greetings/greeting1.graphqls", createWiring());
-        final var project2GraphQL         = createGraphQL("/greetings/greeting2.graphqls", createWiring());
-        final var introspection1Retriever = new TestUtils.TestIntrospectionRetriever(project1GraphQL);
-        final var introspection2Retriever = new TestUtils.TestIntrospectionRetriever(project2GraphQL);
-        final var query1Retriever         = new TestUtils.TestQueryRetriever(project1GraphQL);
-        final var query2Retriever         = new TestUtils.TestQueryRetriever(project2GraphQL);
+    // Stitching result ----------------------------------------------------
+    final var project1GraphQL = createGraphQL("/greetings/greeting1.graphqls", createWiring());
+    final var project2GraphQL = createGraphQL("/greetings/greeting2.graphqls", createWiring());
+    final var introspection1Retriever = new TestUtils.TestIntrospectionRetriever(project1GraphQL);
+    final var introspection2Retriever = new TestUtils.TestIntrospectionRetriever(project2GraphQL);
+    final var query1Retriever = new TestUtils.TestQueryRetriever(project1GraphQL);
+    final var query2Retriever = new TestUtils.TestQueryRetriever(project2GraphQL);
 
-        final GraphQLRequest introspectionRequest = new GraphQLRequest();
-        introspectionRequest.setQuery(IntrospectionQuery.INTROSPECTION_QUERY);
+    final GraphQLRequest introspectionRequest = new GraphQLRequest();
+    introspectionRequest.setQuery(IntrospectionQuery.INTROSPECTION_QUERY);
 
-        final Lilo lilo = Lilo.builder()
+    final Lilo lilo =
+        Lilo.builder()
             .addSource(createSchemaSource(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
             .addSource(createSchemaSource(SCHEMA2_NAME, introspection2Retriever, query2Retriever))
             .build();
 
-        ExecutionResult stitchResult = lilo.stitch(executionInput);
-        Assertions.assertEquals(expected, stitchResult.getData());
+    ExecutionResult stitchResult = lilo.stitch(executionInput);
+    Assertions.assertEquals(expected, stitchResult.getData());
 
-        // After reloading context old expected result won't work.
-        final var project3GraphQL = createGraphQL("/dynamicloading/greeting3.graphqls", createWiring());
+    // After reloading context old expected result won't work.
+    final var project3GraphQL = createGraphQL("/dynamicloading/greeting3.graphqls", createWiring());
 
-        query2Retriever.setGraphQL(project3GraphQL);
-        introspection2Retriever.setGraphQL(project3GraphQL);
+    query2Retriever.setGraphQL(project3GraphQL);
+    introspection2Retriever.setGraphQL(project3GraphQL);
 
-        lilo.getContext().invalidate(SCHEMA2_NAME);
+    lilo.getContext().invalidate(SCHEMA2_NAME);
 
-        stitchResult = lilo.stitch(executionInput);
-        Assertions.assertNotEquals(expected, stitchResult.getData());
+    stitchResult = lilo.stitch(executionInput);
+    Assertions.assertNotEquals(expected, stitchResult.getData());
 
-        // But new query should work
-        executionInput = ExecutionInput.newExecutionInput()
-            .query("{greeting1\ngreeting3}")
-            .build();
+    // But new query should work
+    executionInput = ExecutionInput.newExecutionInput().query("{greeting1\ngreeting3}").build();
 
-        expected = Map.of("greeting1", "Hello greeting1", "greeting3", "Hello greeting3");
+    expected = Map.of("greeting1", "Hello greeting1", "greeting3", "Hello greeting3");
 
-        stitchResult = lilo.stitch(executionInput);
-        Assertions.assertEquals(expected, stitchResult.getData());
-    }
+    stitchResult = lilo.stitch(executionInput);
+    Assertions.assertEquals(expected, stitchResult.getData());
+  }
 }

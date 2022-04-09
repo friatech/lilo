@@ -7,18 +7,18 @@ import graphql.schema.CoercingSerializeException;
 
 public class DummyCoercing implements Coercing<Object, Object> {
 
-    @Override
-    public Object parseLiteral(final Object input) throws CoercingParseLiteralException {
-        return input;
-    }
+  @Override
+  public Object parseLiteral(final Object input) throws CoercingParseLiteralException {
+    return input;
+  }
 
-    @Override
-    public Object parseValue(final Object input) throws CoercingParseValueException {
-        return input;
-    }
+  @Override
+  public Object parseValue(final Object input) throws CoercingParseValueException {
+    return input;
+  }
 
-    @Override
-    public Object serialize(final Object dataFetcherResult) throws CoercingSerializeException {
-        return dataFetcherResult;
-    }
+  @Override
+  public Object serialize(final Object dataFetcherResult) throws CoercingSerializeException {
+    return dataFetcherResult;
+  }
 }

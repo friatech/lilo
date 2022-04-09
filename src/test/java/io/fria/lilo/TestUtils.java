@@ -11,94 +11,96 @@ import static io.fria.lilo.JsonUtils.toStr;
 
 public final class TestUtils {
 
-    private TestUtils() {
+  private TestUtils() {}
+
+  public static GraphQL createGraphQL(
+      final String schemaDefinitionPath, final RuntimeWiring runtimeWiring) throws IOException {
+
+    final var schemaDefinitionText = loadResource(schemaDefinitionPath);
+    final var typeRegistry = new SchemaParser().parse(schemaDefinitionText);
+    final var schemaGenerator = new SchemaGenerator();
+    final var graphQLSchema = schemaGenerator.makeExecutableSchema(typeRegistry, runtimeWiring);
+
+    return GraphQL.newGraphQL(graphQLSchema).build();
+  }
+
+  public static SchemaSource createSchemaSource(
+      final String schemaName,
+      final IntrospectionRetriever introspectionRetriever,
+      final QueryRetriever queryRetriever) {
+
+    return SchemaSource.builder()
+        .name(schemaName)
+        .introspectionRetriever(introspectionRetriever)
+        .queryRetriever(queryRetriever)
+        .build();
+  }
+
+  public static String loadResource(final String path) {
+
+    try {
+      final InputStream stream = TestUtils.class.getResourceAsStream(path);
+
+      if (stream != null) {
+        return new String(stream.readAllBytes());
+      }
+    } catch (final IOException e) {
+      // pass to the exception
     }
 
-    public static GraphQL createGraphQL(final String schemaDefinitionPath, final RuntimeWiring runtimeWiring) throws IOException {
+    throw new IllegalArgumentException(String.format("Resource %s not found", path));
+  }
 
-        final var schemaDefinitionText = loadResource(schemaDefinitionPath);
-        final var typeRegistry         = new SchemaParser().parse(schemaDefinitionText);
-        final var schemaGenerator      = new SchemaGenerator();
-        final var graphQLSchema        = schemaGenerator.makeExecutableSchema(typeRegistry, runtimeWiring);
+  public static String runQuery(final GraphQL graphQL, final String query) {
+    return runQuery(graphQL, toObj(query, GraphQLRequest.class));
+  }
 
-        return GraphQL.newGraphQL(graphQLSchema).build();
+  public static String runQuery(final GraphQL graphQL, final GraphQLRequest graphQLRequest) {
+
+    return toStr(graphQL.execute(graphQLRequest.toExecutionInput()));
+  }
+
+  public static class TestIntrospectionRetriever implements IntrospectionRetriever {
+
+    private GraphQL graphQL;
+
+    public TestIntrospectionRetriever(final GraphQL graphQL) {
+      this.graphQL = graphQL;
     }
 
-    public static SchemaSource createSchemaSource(
-        final String schemaName,
-        final IntrospectionRetriever introspectionRetriever,
-        final QueryRetriever queryRetriever
-    ) {
-
-        return SchemaSource.builder()
-            .name(schemaName)
-            .introspectionRetriever(introspectionRetriever)
-            .queryRetriever(queryRetriever)
-            .build();
+    @Override
+    public String get(
+        final LiloContext liloContext,
+        final SchemaSource schemaSource,
+        final String query,
+        final Object context) {
+      return runQuery(this.graphQL, query);
     }
 
-    public static String loadResource(final String path) {
+    public void setGraphQL(final GraphQL graphQL) {
+      this.graphQL = graphQL;
+    }
+  }
 
-        try {
-            final InputStream stream = TestUtils.class.getResourceAsStream(path);
+  public static class TestQueryRetriever implements QueryRetriever {
 
-            if (stream != null) {
-                return new String(stream.readAllBytes());
-            }
-        } catch (final IOException e) {
-            // pass to the exception
-        }
+    private GraphQL graphQL;
 
-        throw new IllegalArgumentException(String.format("Resource %s not found", path));
+    public TestQueryRetriever(final GraphQL graphQL) {
+      this.graphQL = graphQL;
     }
 
-    public static String runQuery(final GraphQL graphQL, final String query) {
-        return runQuery(graphQL, toObj(query, GraphQLRequest.class));
+    @Override
+    public String get(
+        final LiloContext liloContext,
+        final SchemaSource schemaSource,
+        final String query,
+        final Object context) {
+      return runQuery(this.graphQL, query);
     }
 
-    public static String runQuery(final GraphQL graphQL, final GraphQLRequest graphQLRequest) {
-
-        return toStr(graphQL.execute(graphQLRequest.toExecutionInput()));
+    public void setGraphQL(final GraphQL graphQL) {
+      this.graphQL = graphQL;
     }
-
-    public static class TestIntrospectionRetriever implements IntrospectionRetriever {
-
-        private GraphQL graphQL;
-
-        public TestIntrospectionRetriever(final GraphQL graphQL) {
-            this.graphQL = graphQL;
-        }
-
-        @Override
-        public String get(final LiloContext liloContext, final SchemaSource schemaSource, final String query, final Object context) {
-            return runQuery(this.graphQL, query);
-        }
-
-        public void setGraphQL(final GraphQL graphQL) {
-            this.graphQL = graphQL;
-        }
-    }
-
-    public static class TestQueryRetriever implements QueryRetriever {
-
-        private GraphQL graphQL;
-
-        public TestQueryRetriever(final GraphQL graphQL) {
-            this.graphQL = graphQL;
-        }
-
-        @Override
-        public String get(
-            final LiloContext liloContext,
-            final SchemaSource schemaSource,
-            final String query,
-            final Object context
-        ) {
-            return runQuery(this.graphQL, query);
-        }
-
-        public void setGraphQL(final GraphQL graphQL) {
-            this.graphQL = graphQL;
-        }
-    }
+  }
 }

@@ -1,0 +1,131 @@
+<?xml version="1.0"?>
+
+<!DOCTYPE module PUBLIC
+  "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+  "https://checkstyle.org/dtds/configuration_1_3.dtd">
+
+<module name="Checker">
+  <module name="NewlineAtEndOfFile"/>
+
+  <module name="FileLength"/>
+
+  <module name="FileTabCharacter">
+    <property name="eachLine" value="true"/>
+  </module>
+
+  <module name="SuppressWarningsFilter"/>
+
+  <module name="TreeWalker">
+    <module name="Regexp">
+      <property name="format" value="[ \t]+$"/>
+      <property name="illegalPattern" value="true"/>
+      <property name="message" value="Trailing whitespace"/>
+    </module>
+    <module name="Regexp">
+      <property name="format" value="System\.out\.println"/>
+      <property name="illegalPattern" value="true"/>
+      <property name="ignoreComments" value="true"/>
+    </module>
+    <module name="Regexp">
+      <property name="format" value="org\.junit\.Test"/>
+      <property name="illegalPattern" value="true"/>
+      <property name="ignoreComments" value="true"/>
+    </module>
+    <module name="Regexp">
+      <property name="format" value="org\.junit\.Assert"/>
+      <property name="illegalPattern" value="true"/>
+      <property name="ignoreComments" value="true"/>
+    </module>
+    <module name="CyclomaticComplexity">
+      <property name="max" value="6"/>
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="ConstantName"/>
+    <module name="RequireThis">
+      <property name="validateOnlyOverlapping" value="false"/>
+    </module>
+    <module name="LocalFinalVariableName"/>
+    <module name="LocalVariableName"/>
+    <module name="MemberName"/>
+    <module name="MethodName"/>
+    <module name="MethodCount"/>
+    <module name="PackageName"/>
+    <module name="ParameterName"/>
+    <module name="FinalClass"/>
+    <module name="FinalLocalVariable"/>
+    <module name="StaticVariableName"/>
+    <module name="TypeName"/>
+    <module name="AvoidStarImport"/>
+    <module name="IllegalImport"/> <!-- defaults to sun.* packages -->
+    <module name="RedundantImport"/>
+    <module name="MethodLength"/>
+
+    <module name="UnusedImports">
+      <property name="processJavadoc" value="true"/>
+    </module>
+
+    <module name="ParameterNumber">
+      <property name="max" value="10"/>
+    </module>
+
+    <module name="GenericWhitespace"/>
+    <module name="MethodParamPad"/>
+    <module name="NoWhitespaceAfter"/>
+    <module name="NoWhitespaceBefore"/>
+    <module name="ParenPad"/>
+    <module name="TypecastParenPad"/>
+    <module name="WhitespaceAfter"/>
+    <module name="WhitespaceAround">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="ModifierOrder"/>
+    <module name="RedundantModifier">
+      <property name="tokens" value="METHOD_DEF,VARIABLE_DEF,ANNOTATION_FIELD_DEF,INTERFACE_DEF,CTOR_DEF,CLASS_DEF,ENUM_DEF"/>
+    </module>
+    <module name="AvoidNestedBlocks"/>
+    <module name="EmptyBlock"/>
+    <module name="LeftCurly"/>
+    <module name="NeedBraces"/>
+    <module name="RightCurly"/>
+    <module name="EmptyStatement"/>
+    <module name="EqualsHashCode"/>
+
+    <module name="HiddenField">
+      <property name="ignoreSetter" value="true"/>
+      <property name="ignoreConstructorParameter" value="true"/>
+      <property name="setterCanReturnItsClass" value="true"/>
+      <property name="severity" value="warning"/>
+    </module>
+
+    <module name="IllegalInstantiation"/>
+    <module name="InnerAssignment"/>
+    <module name="OneStatementPerLine"/>
+
+    <module name="MagicNumber">
+      <property name="severity" value="warning"/>
+      <property name="ignoreAnnotation" value="true"/>
+    </module>
+
+    <module name="MissingSwitchDefault">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="SimplifyBooleanExpression"/>
+    <module name="SimplifyBooleanReturn"/>
+
+    <module name="InterfaceIsType"/>
+
+    <module name="ArrayTypeStyle"/>
+    <module name="MissingOverride"/>
+    <module name="FinalParameters"/>
+    <module name="UpperEll"/>
+
+    <module name="SuppressWarningsHolder"/>
+    <module name="StringLiteralEquality"/>
+    <module name="NoArrayTrailingComma"/>
+  </module>
+
+  <module name="LineLength">
+    <property name="max" value="120"/>
+    <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
+  </module>
+</module>

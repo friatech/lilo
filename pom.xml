@@ -6,7 +6,7 @@
 
   <groupId>io.fria</groupId>
   <artifactId>lilo</artifactId>
-  <version>22.4.4</version>
+  <version>22.4.5-SNAPSHOT</version>
 
   <name>lilo-graphql</name>
   <description>Lilo GraphQL stitching library</description>
@@ -15,7 +15,7 @@
   <licenses>
     <license>
       <name>Apache License, Version 2.0</name>
-      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
       <distribution>repo</distribution>
     </license>
   </licenses>
@@ -38,6 +38,8 @@
   <properties>
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
+    <error-prone.version>2.12.1</error-prone.version>
+    <lombok.version>1.18.22</lombok.version>
     <slf4j.version>1.7.36</slf4j.version>
   </properties>
 
@@ -69,7 +71,7 @@
     <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
-      <version>1.18.22</version>
+      <version>${lombok.version}</version>
       <scope>provided</scope>
     </dependency>
 
@@ -98,6 +100,37 @@
   <build>
     <plugins>
       <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.10.1</version>
+        <configuration>
+          <source>${maven.compiler.source}</source>
+          <target>${maven.compiler.target}</target>
+          <encoding>UTF-8</encoding>
+          <compilerArgs>
+            <arg>-XDcompilePolicy=simple</arg>
+            <arg>-Xplugin:ErrorProne</arg>
+          </compilerArgs>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>com.google.errorprone</groupId>
+              <artifactId>error_prone_core</artifactId>
+              <version>${error-prone.version}</version>
+            </path>
+            <path>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+              <version>${lombok.version}</version>
+            </path>
+            <!-- Other annotation processors go here.
+
+            If 'annotationProcessorPaths' is set, processors will no longer be
+            discovered on the regular -classpath; see also 'Using Error Prone
+            together with other annotation processors' below. -->
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+
+      <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>2.22.2</version>
         <dependencies>
@@ -120,6 +153,34 @@
             </goals>
           </execution>
         </executions>
+      </plugin>
+
+      <plugin>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>3.1.2</version>
+        <dependencies>
+          <dependency>
+            <groupId>com.puppycrawl.tools</groupId>
+            <artifactId>checkstyle</artifactId>
+            <version>10.1</version>
+          </dependency>
+        </dependencies>
+        <executions>
+          <execution>
+            <phase>process-sources</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <failsOnError>true</failsOnError>
+          <consoleOutput>true</consoleOutput>
+          <configLocation>config/checkstyle.xml</configLocation>
+          <includeTestSourceDirectory>false</includeTestSourceDirectory>
+          <encoding>UTF-8</encoding>
+          <excludes>**/module-info.java</excludes>
+        </configuration>
       </plugin>
     </plugins>
   </build>

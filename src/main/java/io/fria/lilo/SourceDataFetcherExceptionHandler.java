@@ -8,18 +8,18 @@ import java.util.List;
 
 class SourceDataFetcherExceptionHandler extends SimpleDataFetcherExceptionHandler {
 
-    @Override
-    public DataFetcherExceptionHandlerResult onException(final DataFetcherExceptionHandlerParameters handlerParameters) {
+  @Override
+  public DataFetcherExceptionHandlerResult onException(
+      final DataFetcherExceptionHandlerParameters handlerParameters) {
 
-        final Throwable exception = handlerParameters.getException();
+    final Throwable exception = handlerParameters.getException();
 
-        if (exception instanceof SourceDataFetcherException) {
-            return DataFetcherExceptionHandlerResult
-                .newResult()
-                .errors((List<GraphQLError>) ((SourceDataFetcherException) exception).getErrors())
-                .build();
-        }
-
-        return super.onException(handlerParameters);
+    if (exception instanceof SourceDataFetcherException) {
+      return DataFetcherExceptionHandlerResult.newResult()
+          .errors((List<GraphQLError>) ((SourceDataFetcherException) exception).getErrors())
+          .build();
     }
+
+    return super.onException(handlerParameters);
+  }
 }
