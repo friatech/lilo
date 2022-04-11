@@ -94,9 +94,9 @@ public final class TestUtils {
     public String get(
         final LiloContext liloContext,
         final SchemaSource schemaSource,
-        final String query,
+        final GraphQLQuery query,
         final Object context) {
-      return runQuery(this.graphQL, query);
+      return runQuery(this.graphQL, query.getQuery());
     }
 
     public void setGraphQL(final GraphQL graphQL) {

@@ -157,7 +157,7 @@ public class LiloContext {
         .build();
   }
 
-  private static String createRequest(
+  private static GraphQLQuery createRequest(
       final DataFetchingEnvironment environment, final String queryName) {
 
     final var document = environment.getDocument();
@@ -240,12 +240,14 @@ public class LiloContext {
         .filter(e -> usedReferences.contains(e.getKey()))
         .forEach(e -> filteredVariables.put(e.getKey(), e.getValue()));
 
-    return toStr(
-        GraphQLRequest.builder()
-            .query(query)
-            .variables(filteredVariables)
-            .operationName(operationDefinition.getName())
-            .build());
+    final String queryText = toStr(
+      GraphQLRequest.builder()
+        .query(query)
+        .variables(filteredVariables)
+        .operationName(operationDefinition.getName())
+        .build());
+
+    return new GraphQLQuery(queryText, operationDefinition.getOperation(), queryNode);
   }
 
   private static List<FragmentSpread> findUsedFragments(final Node node) {
@@ -560,6 +562,7 @@ public class LiloContext {
       final String queryName) {
 
     final var request = createRequest(environment, queryName);
+
     final var queryResult =
         schemaSource
             .getQueryRetriever()
