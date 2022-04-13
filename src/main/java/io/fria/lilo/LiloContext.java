@@ -470,7 +470,7 @@ public class LiloContext {
             .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().schemaSource)));
   }
 
-  public synchronized void invalidate(final String schemaName) {
+  public void invalidate(final String schemaName) {
 
     if (!this.sourceMap.containsKey(schemaName)) {
       return;
@@ -482,7 +482,7 @@ public class LiloContext {
     this.graphQL = null;
   }
 
-  synchronized GraphQL getGraphQL(final ExecutionInput executionInput) {
+  GraphQL getGraphQL(final ExecutionInput executionInput) {
 
     final Object localContext = executionInput == null ? null : executionInput.getLocalContext();
 
