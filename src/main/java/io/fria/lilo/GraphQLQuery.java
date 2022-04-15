@@ -18,12 +18,12 @@ public class GraphQLQuery {
     this.queryNode = queryNode;
   }
 
-  public String getQuery() {
-    return this.query;
-  }
-
   public OperationDefinition.Operation getOperationType() {
     return this.operationType;
+  }
+
+  public String getQuery() {
+    return this.query;
   }
 
   public Field getQueryNode() {

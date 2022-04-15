@@ -240,12 +240,13 @@ public class LiloContext {
         .filter(e -> usedReferences.contains(e.getKey()))
         .forEach(e -> filteredVariables.put(e.getKey(), e.getValue()));
 
-    final String queryText = toStr(
-      GraphQLRequest.builder()
-        .query(query)
-        .variables(filteredVariables)
-        .operationName(operationDefinition.getName())
-        .build());
+    final String queryText =
+        toStr(
+            GraphQLRequest.builder()
+                .query(query)
+                .variables(filteredVariables)
+                .operationName(operationDefinition.getName())
+                .build());
 
     return new GraphQLQuery(queryText, operationDefinition.getOperation(), queryNode);
   }

@@ -16,10 +16,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
@@ -349,33 +345,20 @@ class ComplexQueryTest {
                                     List.of(
                                         UUID.fromString("22222222-2222-2222-2222-222222222222"),
                                         UUID.fromString("55555555-5555-5555-5555-555555555555")))
-                                .typeCommonList(
-                                    List.of(TypeCommon.builder().someString("typeCommon1").build()))
+                                .typeCommonList(List.of(new TypeCommon("typeCommon1")))
                                 .typeImplementedList(
-                                    List.of(
-                                        TypeImplemented1.builder()
-                                            .someString("typeImplemented1")
-                                            .build()))
+                                    List.of(new TypeImplemented1("typeImplemented1")))
                                 .typeImplementedCommonList(
-                                    List.of(
-                                        TypeCommon.builder()
-                                            .someString("typeImplementedCommon1")
-                                            .build()))
-                                .typeExtendedList(
-                                    List.of(
-                                        TypeExtended1.builder()
-                                            .someString("typeExtended1")
-                                            .build()))
+                                    List.of(new TypeImplementedCommon("typeImplementedCommon1")))
+                                .typeExtendedList(List.of(new TypeExtended1("typeExtended1")))
                                 .typeExtendedCommonList(
                                     List.of(
-                                        TypeExtendedCommon.builder()
-                                            .someString("typeExtendedCommon1")
-                                            .build()))
+                                        new TypeExtendedCommon(
+                                            "typeExtendedCommon1", "otherTypeExtendedCommon1")))
                                 .typeUnionList(
                                     List.of(
                                         Map.of("someInteger", 1001, "__typename", "TypeUnion1Int")))
-                                .typeUnionCommonList(
-                                    List.of(TypeUnionCommonInt.builder().someInteger(3001).build()))
+                                .typeUnionCommonList(List.of(new TypeUnionCommonInt(3001)))
                                 .build()))
                     .build()))
         .build();
@@ -410,33 +393,20 @@ class ComplexQueryTest {
                                     List.of(
                                         UUID.fromString("22222222-2222-2222-2222-222222222222"),
                                         UUID.fromString("55555555-5555-5555-5555-555555555555")))
-                                .typeCommonList(
-                                    List.of(TypeCommon.builder().someString("typeCommon2").build()))
+                                .typeCommonList(List.of(new TypeCommon("typeCommon2")))
                                 .typeImplementedList(
-                                    List.of(
-                                        TypeImplemented2.builder()
-                                            .someString("typeImplemented2")
-                                            .build()))
+                                    List.of(new TypeImplemented2("typeImplemented2")))
                                 .typeImplementedCommonList(
-                                    List.of(
-                                        TypeCommon.builder()
-                                            .someString("typeImplementedCommon2")
-                                            .build()))
-                                .typeExtendedList(
-                                    List.of(
-                                        TypeExtended2.builder()
-                                            .someString("typeExtended2")
-                                            .build()))
+                                    List.of(new TypeImplementedCommon("typeImplementedCommon2")))
+                                .typeExtendedList(List.of(new TypeExtended2("typeExtended2")))
                                 .typeExtendedCommonList(
                                     List.of(
-                                        TypeExtendedCommon.builder()
-                                            .someString("typeExtendedCommon2")
-                                            .build()))
+                                        new TypeExtendedCommon(
+                                            "typeExtendedCommon2", "otherTypeExtendedCommon2")))
                                 .typeUnionList(
                                     List.of(
                                         Map.of("someInteger", 2002, "__typename", "TypeUnion2Int")))
-                                .typeUnionCommonList(
-                                    List.of(TypeUnionCommonInt.builder().someInteger(3001).build()))
+                                .typeUnionCommonList(List.of(new TypeUnionCommonInt(3001)))
                                 .build()))
                     .build()))
         .build();
@@ -744,128 +714,771 @@ class ComplexQueryTest {
     ENUM_2_VALUE_C
   }
 
-  @Builder
-  @Data
-  @NoArgsConstructor
-  @AllArgsConstructor
-  private static class Type1 {
-    String someString;
-    List<TypeChild1> children;
+  private static final class Type1 {
+    private final String someString;
+    private final List<TypeChild1> children;
+
+    private Type1(final String someString, final List<TypeChild1> children) {
+      this.someString = someString;
+      this.children = children;
+    }
+
+    private static Type1Builder builder() {
+      return new Type1Builder();
+    }
+
+    public List<TypeChild1> getChildren() {
+      return this.children;
+    }
+
+    public String getSomeString() {
+      return this.someString;
+    }
+
+    private static final class Type1Builder {
+      private String someString;
+      private List<TypeChild1> children;
+
+      private Type1 build() {
+        return new Type1(this.someString, this.children);
+      }
+
+      private Type1Builder children(final List<TypeChild1> children) {
+        this.children = children;
+        return this;
+      }
+
+      private Type1Builder someString(final String someString) {
+        this.someString = someString;
+        return this;
+      }
+    }
   }
 
-  @Builder
-  private static class Type2 {
-    String someString;
-    List<TypeChild2> children;
+  private static final class Type2 {
+    private final String someString;
+    private final List<TypeChild2> children;
+
+    private Type2(final String someString, final List<TypeChild2> children) {
+      this.someString = someString;
+      this.children = children;
+    }
+
+    private static Type2Builder builder() {
+      return new Type2Builder();
+    }
+
+    public List<TypeChild2> getChildren() {
+      return this.children;
+    }
+
+    public String getSomeString() {
+      return this.someString;
+    }
+
+    private static final class Type2Builder {
+      private String someString;
+      private List<TypeChild2> children;
+
+      private Type2 build() {
+        return new Type2(this.someString, this.children);
+      }
+
+      private Type2Builder children(final List<TypeChild2> children) {
+        this.children = children;
+        return this;
+      }
+
+      private Type2Builder someString(final String someString) {
+        this.someString = someString;
+        return this;
+      }
+    }
   }
 
-  @Builder
-  @Data
-  @NoArgsConstructor
-  @AllArgsConstructor
-  private static class TypeChild1 {
-    String someString;
-    List<TypeGrandChild1> grandChildren;
+  private static final class TypeChild1 {
+    private final String someString;
+    private final List<TypeGrandChild1> grandChildren;
+
+    private TypeChild1(final String someString, final List<TypeGrandChild1> grandChildren) {
+      this.someString = someString;
+      this.grandChildren = grandChildren;
+    }
+
+    private static TypeChild1Builder builder() {
+      return new TypeChild1Builder();
+    }
+
+    public List<TypeGrandChild1> getGrandChildren() {
+      return this.grandChildren;
+    }
+
+    public String getSomeString() {
+      return this.someString;
+    }
+
+    private static final class TypeChild1Builder {
+      private String someString;
+      private List<TypeGrandChild1> grandChildren;
+
+      private TypeChild1 build() {
+        return new TypeChild1(this.someString, this.grandChildren);
+      }
+
+      private TypeChild1Builder grandChildren(final List<TypeGrandChild1> grandChildren) {
+        this.grandChildren = grandChildren;
+        return this;
+      }
+
+      private TypeChild1Builder someString(final String someString) {
+        this.someString = someString;
+        return this;
+      }
+    }
   }
 
-  @Builder
-  private static class TypeChild2 {
-    String someString;
-    List<TypeGrandChild2> grandChildren;
+  private static final class TypeChild2 {
+    private final String someString;
+    private final List<TypeGrandChild2> grandChildren;
+
+    private TypeChild2(final String someString, final List<TypeGrandChild2> grandChildren) {
+      this.someString = someString;
+      this.grandChildren = grandChildren;
+    }
+
+    private static TypeChild2Builder builder() {
+      return new TypeChild2Builder();
+    }
+
+    public List<TypeGrandChild2> getGrandChildren() {
+      return this.grandChildren;
+    }
+
+    public String getSomeString() {
+      return this.someString;
+    }
+
+    private static final class TypeChild2Builder {
+      private String someString;
+      private List<TypeGrandChild2> grandChildren;
+
+      private TypeChild2 build() {
+        return new TypeChild2(this.someString, this.grandChildren);
+      }
+
+      private TypeChild2Builder grandChildren(final List<TypeGrandChild2> grandChildren) {
+        this.grandChildren = grandChildren;
+        return this;
+      }
+
+      private TypeChild2Builder someString(final String someString) {
+        this.someString = someString;
+        return this;
+      }
+    }
   }
 
-  @Builder
-  @Data
-  @NoArgsConstructor
-  @AllArgsConstructor
-  private static class TypeGrandChild1 {
-    List<String> stringList;
-    List<Integer> intList;
-    List<Float> floatList;
-    List<Boolean> booleanList;
-    List<String> idList;
-    List<Enum1> enumList;
-    List<EnumCommon> enumCommonList;
-    List<UUID> scalarList;
-    List<UUID> scalarCommonList;
-    List<TypeCommon> typeCommonList;
-    List<TypeImplemented1> typeImplementedList;
-    List<TypeCommon> typeImplementedCommonList;
-    List<TypeExtended1> typeExtendedList;
-    List<TypeExtendedCommon> typeExtendedCommonList;
-    List<Object> typeUnionList;
-    List<Object> typeUnionCommonList;
+  private static final class TypeGrandChild1 {
+
+    private final List<String> stringList;
+    private final List<Integer> intList;
+    private final List<Float> floatList;
+    private final List<Boolean> booleanList;
+    private final List<String> idList;
+    private final List<Enum1> enumList;
+    private final List<EnumCommon> enumCommonList;
+    private final List<UUID> scalarList;
+    private final List<UUID> scalarCommonList;
+    private final List<TypeCommon> typeCommonList;
+    private final List<TypeImplemented1> typeImplementedList;
+    private final List<TypeImplementedCommon> typeImplementedCommonList;
+    private final List<TypeExtended1> typeExtendedList;
+    private final List<TypeExtendedCommon> typeExtendedCommonList;
+    private final List<Object> typeUnionList;
+    private final List<Object> typeUnionCommonList;
+
+    private TypeGrandChild1(
+        final List<String> stringList,
+        final List<Integer> intList,
+        final List<Float> floatList,
+        final List<Boolean> booleanList,
+        final List<String> idList,
+        final List<Enum1> enumList,
+        final List<EnumCommon> enumCommonList,
+        final List<UUID> scalarList,
+        final List<UUID> scalarCommonList,
+        final List<TypeCommon> typeCommonList,
+        final List<TypeImplemented1> typeImplementedList,
+        final List<TypeImplementedCommon> typeImplementedCommonList,
+        final List<TypeExtended1> typeExtendedList,
+        final List<TypeExtendedCommon> typeExtendedCommonList,
+        final List<Object> typeUnionList,
+        final List<Object> typeUnionCommonList) {
+      this.stringList = stringList;
+      this.intList = intList;
+      this.floatList = floatList;
+      this.booleanList = booleanList;
+      this.idList = idList;
+      this.enumList = enumList;
+      this.enumCommonList = enumCommonList;
+      this.scalarList = scalarList;
+      this.scalarCommonList = scalarCommonList;
+      this.typeCommonList = typeCommonList;
+      this.typeImplementedList = typeImplementedList;
+      this.typeImplementedCommonList = typeImplementedCommonList;
+      this.typeExtendedList = typeExtendedList;
+      this.typeExtendedCommonList = typeExtendedCommonList;
+      this.typeUnionList = typeUnionList;
+      this.typeUnionCommonList = typeUnionCommonList;
+    }
+
+    private static TypeGrandChild1Builder builder() {
+      return new TypeGrandChild1Builder();
+    }
+
+    public List<Boolean> getBooleanList() {
+      return this.booleanList;
+    }
+
+    public List<EnumCommon> getEnumCommonList() {
+      return this.enumCommonList;
+    }
+
+    public List<Enum1> getEnumList() {
+      return this.enumList;
+    }
+
+    public List<Float> getFloatList() {
+      return this.floatList;
+    }
+
+    public List<String> getIdList() {
+      return this.idList;
+    }
+
+    public List<Integer> getIntList() {
+      return this.intList;
+    }
+
+    public List<UUID> getScalarCommonList() {
+      return this.scalarCommonList;
+    }
+
+    public List<UUID> getScalarList() {
+      return this.scalarList;
+    }
+
+    public List<String> getStringList() {
+      return this.stringList;
+    }
+
+    public List<TypeCommon> getTypeCommonList() {
+      return this.typeCommonList;
+    }
+
+    public List<TypeExtendedCommon> getTypeExtendedCommonList() {
+      return this.typeExtendedCommonList;
+    }
+
+    public List<TypeExtended1> getTypeExtendedList() {
+      return this.typeExtendedList;
+    }
+
+    public List<TypeImplementedCommon> getTypeImplementedCommonList() {
+      return this.typeImplementedCommonList;
+    }
+
+    public List<TypeImplemented1> getTypeImplementedList() {
+      return this.typeImplementedList;
+    }
+
+    public List<Object> getTypeUnionCommonList() {
+      return this.typeUnionCommonList;
+    }
+
+    public List<Object> getTypeUnionList() {
+      return this.typeUnionList;
+    }
+
+    private static final class TypeGrandChild1Builder {
+      private List<String> stringList;
+      private List<Integer> intList;
+      private List<Float> floatList;
+      private List<Boolean> booleanList;
+      private List<String> idList;
+      private List<Enum1> enumList;
+      private List<EnumCommon> enumCommonList;
+      private List<UUID> scalarList;
+      private List<UUID> scalarCommonList;
+      private List<TypeCommon> typeCommonList;
+      private List<TypeImplemented1> typeImplementedList;
+      private List<TypeImplementedCommon> typeImplementedCommonList;
+      private List<TypeExtended1> typeExtendedList;
+      private List<TypeExtendedCommon> typeExtendedCommonList;
+      private List<Object> typeUnionList;
+      private List<Object> typeUnionCommonList;
+
+      private TypeGrandChild1Builder booleanList(final List<Boolean> booleanList) {
+        this.booleanList = booleanList;
+        return this;
+      }
+
+      private TypeGrandChild1 build() {
+        return new TypeGrandChild1(
+            this.stringList,
+            this.intList,
+            this.floatList,
+            this.booleanList,
+            this.idList,
+            this.enumList,
+            this.enumCommonList,
+            this.scalarList,
+            this.scalarCommonList,
+            this.typeCommonList,
+            this.typeImplementedList,
+            this.typeImplementedCommonList,
+            this.typeExtendedList,
+            this.typeExtendedCommonList,
+            this.typeUnionList,
+            this.typeUnionCommonList);
+      }
+
+      private TypeGrandChild1Builder enumCommonList(final List<EnumCommon> enumCommonList) {
+        this.enumCommonList = enumCommonList;
+        return this;
+      }
+
+      private TypeGrandChild1Builder enumList(final List<Enum1> enumList) {
+        this.enumList = enumList;
+        return this;
+      }
+
+      private TypeGrandChild1Builder floatList(final List<Float> floatList) {
+        this.floatList = floatList;
+        return this;
+      }
+
+      private TypeGrandChild1Builder idList(final List<String> idList) {
+        this.idList = idList;
+        return this;
+      }
+
+      private TypeGrandChild1Builder intList(final List<Integer> intList) {
+        this.intList = intList;
+        return this;
+      }
+
+      private TypeGrandChild1Builder scalarCommonList(final List<UUID> scalarCommonList) {
+        this.scalarCommonList = scalarCommonList;
+        return this;
+      }
+
+      private TypeGrandChild1Builder scalarList(final List<UUID> scalarList) {
+        this.scalarList = scalarList;
+        return this;
+      }
+
+      private TypeGrandChild1Builder stringList(final List<String> stringList) {
+        this.stringList = stringList;
+        return this;
+      }
+
+      private TypeGrandChild1Builder typeCommonList(final List<TypeCommon> typeCommonList) {
+        this.typeCommonList = typeCommonList;
+        return this;
+      }
+
+      private TypeGrandChild1Builder typeExtendedCommonList(
+          final List<TypeExtendedCommon> typeExtendedCommonList) {
+        this.typeExtendedCommonList = typeExtendedCommonList;
+        return this;
+      }
+
+      private TypeGrandChild1Builder typeExtendedList(final List<TypeExtended1> typeExtendedList) {
+        this.typeExtendedList = typeExtendedList;
+        return this;
+      }
+
+      private TypeGrandChild1Builder typeImplementedCommonList(
+          final List<TypeImplementedCommon> typeImplementedCommonList) {
+        this.typeImplementedCommonList = typeImplementedCommonList;
+        return this;
+      }
+
+      private TypeGrandChild1Builder typeImplementedList(
+          final List<TypeImplemented1> typeImplementedList) {
+        this.typeImplementedList = typeImplementedList;
+        return this;
+      }
+
+      private TypeGrandChild1Builder typeUnionCommonList(final List<Object> typeUnionCommonList) {
+        this.typeUnionCommonList = typeUnionCommonList;
+        return this;
+      }
+
+      private TypeGrandChild1Builder typeUnionList(final List<Object> typeUnionList) {
+        this.typeUnionList = typeUnionList;
+        return this;
+      }
+    }
   }
 
-  @Builder
-  private static class TypeGrandChild2 {
-    List<String> stringList;
-    List<Integer> intList;
-    List<Float> floatList;
-    List<Boolean> booleanList;
-    List<String> idList;
-    List<Enum2> enumList;
-    List<EnumCommon> enumCommonList;
-    List<UUID> scalarList;
-    List<UUID> scalarCommonList;
-    List<TypeCommon> typeCommonList;
-    List<TypeImplemented2> typeImplementedList;
-    List<TypeCommon> typeImplementedCommonList;
-    List<TypeExtended2> typeExtendedList;
-    List<TypeExtendedCommon> typeExtendedCommonList;
-    List<Object> typeUnionList;
-    List<Object> typeUnionCommonList;
+  private static final class TypeGrandChild2 {
+
+    private final List<String> stringList;
+    private final List<Integer> intList;
+    private final List<Float> floatList;
+    private final List<Boolean> booleanList;
+    private final List<String> idList;
+    private final List<Enum2> enumList;
+    private final List<EnumCommon> enumCommonList;
+    private final List<UUID> scalarList;
+    private final List<UUID> scalarCommonList;
+    private final List<TypeCommon> typeCommonList;
+    private final List<TypeImplemented2> typeImplementedList;
+    private final List<TypeImplementedCommon> typeImplementedCommonList;
+    private final List<TypeExtended2> typeExtendedList;
+    private final List<TypeExtendedCommon> typeExtendedCommonList;
+    private final List<Object> typeUnionList;
+    private final List<Object> typeUnionCommonList;
+
+    private TypeGrandChild2(
+        final List<String> stringList,
+        final List<Integer> intList,
+        final List<Float> floatList,
+        final List<Boolean> booleanList,
+        final List<String> idList,
+        final List<Enum2> enumList,
+        final List<EnumCommon> enumCommonList,
+        final List<UUID> scalarList,
+        final List<UUID> scalarCommonList,
+        final List<TypeCommon> typeCommonList,
+        final List<TypeImplemented2> typeImplementedList,
+        final List<TypeImplementedCommon> typeImplementedCommonList,
+        final List<TypeExtended2> typeExtendedList,
+        final List<TypeExtendedCommon> typeExtendedCommonList,
+        final List<Object> typeUnionList,
+        final List<Object> typeUnionCommonList) {
+      this.stringList = stringList;
+      this.intList = intList;
+      this.floatList = floatList;
+      this.booleanList = booleanList;
+      this.idList = idList;
+      this.enumList = enumList;
+      this.enumCommonList = enumCommonList;
+      this.scalarList = scalarList;
+      this.scalarCommonList = scalarCommonList;
+      this.typeCommonList = typeCommonList;
+      this.typeImplementedList = typeImplementedList;
+      this.typeImplementedCommonList = typeImplementedCommonList;
+      this.typeExtendedList = typeExtendedList;
+      this.typeExtendedCommonList = typeExtendedCommonList;
+      this.typeUnionList = typeUnionList;
+      this.typeUnionCommonList = typeUnionCommonList;
+    }
+
+    private static TypeGrandChild2Builder builder() {
+      return new TypeGrandChild2Builder();
+    }
+
+    public List<Boolean> getBooleanList() {
+      return this.booleanList;
+    }
+
+    public List<EnumCommon> getEnumCommonList() {
+      return this.enumCommonList;
+    }
+
+    public List<Enum2> getEnumList() {
+      return this.enumList;
+    }
+
+    public List<Float> getFloatList() {
+      return this.floatList;
+    }
+
+    public List<String> getIdList() {
+      return this.idList;
+    }
+
+    public List<Integer> getIntList() {
+      return this.intList;
+    }
+
+    public List<UUID> getScalarCommonList() {
+      return this.scalarCommonList;
+    }
+
+    public List<UUID> getScalarList() {
+      return this.scalarList;
+    }
+
+    public List<String> getStringList() {
+      return this.stringList;
+    }
+
+    public List<TypeCommon> getTypeCommonList() {
+      return this.typeCommonList;
+    }
+
+    public List<TypeExtendedCommon> getTypeExtendedCommonList() {
+      return this.typeExtendedCommonList;
+    }
+
+    public List<TypeExtended2> getTypeExtendedList() {
+      return this.typeExtendedList;
+    }
+
+    public List<TypeImplementedCommon> getTypeImplementedCommonList() {
+      return this.typeImplementedCommonList;
+    }
+
+    public List<TypeImplemented2> getTypeImplementedList() {
+      return this.typeImplementedList;
+    }
+
+    public List<Object> getTypeUnionCommonList() {
+      return this.typeUnionCommonList;
+    }
+
+    public List<Object> getTypeUnionList() {
+      return this.typeUnionList;
+    }
+
+    private static final class TypeGrandChild2Builder {
+      private List<String> stringList;
+      private List<Integer> intList;
+      private List<Float> floatList;
+      private List<Boolean> booleanList;
+      private List<String> idList;
+      private List<Enum2> enumList;
+      private List<EnumCommon> enumCommonList;
+      private List<UUID> scalarList;
+      private List<UUID> scalarCommonList;
+      private List<TypeCommon> typeCommonList;
+      private List<TypeImplemented2> typeImplementedList;
+      private List<TypeImplementedCommon> typeImplementedCommonList;
+      private List<TypeExtended2> typeExtendedList;
+      private List<TypeExtendedCommon> typeExtendedCommonList;
+      private List<Object> typeUnionList;
+      private List<Object> typeUnionCommonList;
+
+      private TypeGrandChild2Builder booleanList(final List<Boolean> booleanList) {
+        this.booleanList = booleanList;
+        return this;
+      }
+
+      private TypeGrandChild2 build() {
+        return new TypeGrandChild2(
+            this.stringList,
+            this.intList,
+            this.floatList,
+            this.booleanList,
+            this.idList,
+            this.enumList,
+            this.enumCommonList,
+            this.scalarList,
+            this.scalarCommonList,
+            this.typeCommonList,
+            this.typeImplementedList,
+            this.typeImplementedCommonList,
+            this.typeExtendedList,
+            this.typeExtendedCommonList,
+            this.typeUnionList,
+            this.typeUnionCommonList);
+      }
+
+      private TypeGrandChild2Builder enumCommonList(final List<EnumCommon> enumCommonList) {
+        this.enumCommonList = enumCommonList;
+        return this;
+      }
+
+      private TypeGrandChild2Builder enumList(final List<Enum2> enumList) {
+        this.enumList = enumList;
+        return this;
+      }
+
+      private TypeGrandChild2Builder floatList(final List<Float> floatList) {
+        this.floatList = floatList;
+        return this;
+      }
+
+      private TypeGrandChild2Builder idList(final List<String> idList) {
+        this.idList = idList;
+        return this;
+      }
+
+      private TypeGrandChild2Builder intList(final List<Integer> intList) {
+        this.intList = intList;
+        return this;
+      }
+
+      private TypeGrandChild2Builder scalarCommonList(final List<UUID> scalarCommonList) {
+        this.scalarCommonList = scalarCommonList;
+        return this;
+      }
+
+      private TypeGrandChild2Builder scalarList(final List<UUID> scalarList) {
+        this.scalarList = scalarList;
+        return this;
+      }
+
+      private TypeGrandChild2Builder stringList(final List<String> stringList) {
+        this.stringList = stringList;
+        return this;
+      }
+
+      private TypeGrandChild2Builder typeCommonList(final List<TypeCommon> typeCommonList) {
+        this.typeCommonList = typeCommonList;
+        return this;
+      }
+
+      private TypeGrandChild2Builder typeExtendedCommonList(
+          final List<TypeExtendedCommon> typeExtendedCommonList) {
+        this.typeExtendedCommonList = typeExtendedCommonList;
+        return this;
+      }
+
+      private TypeGrandChild2Builder typeExtendedList(final List<TypeExtended2> typeExtendedList) {
+        this.typeExtendedList = typeExtendedList;
+        return this;
+      }
+
+      private TypeGrandChild2Builder typeImplementedCommonList(
+          final List<TypeImplementedCommon> typeImplementedCommonList) {
+        this.typeImplementedCommonList = typeImplementedCommonList;
+        return this;
+      }
+
+      private TypeGrandChild2Builder typeImplementedList(
+          final List<TypeImplemented2> typeImplementedList) {
+        this.typeImplementedList = typeImplementedList;
+        return this;
+      }
+
+      private TypeGrandChild2Builder typeUnionCommonList(final List<Object> typeUnionCommonList) {
+        this.typeUnionCommonList = typeUnionCommonList;
+        return this;
+      }
+
+      private TypeGrandChild2Builder typeUnionList(final List<Object> typeUnionList) {
+        this.typeUnionList = typeUnionList;
+        return this;
+      }
+    }
   }
 
-  @Builder
-  @Data
-  @NoArgsConstructor
-  @AllArgsConstructor
-  private static class TypeImplemented1 {
-    String someString;
+  private static final class TypeImplemented1 {
+
+    private final String someString;
+
+    private TypeImplemented1(final String someString) {
+      this.someString = someString;
+    }
+
+    public String getSomeString() {
+      return this.someString;
+    }
   }
 
-  @Builder
-  @Data
-  @NoArgsConstructor
-  @AllArgsConstructor
-  private static class TypeExtended1 {
-    String someString;
+  private static final class TypeExtended1 {
+
+    private final String someString;
+
+    private TypeExtended1(final String someString) {
+      this.someString = someString;
+    }
+
+    public String getSomeString() {
+      return this.someString;
+    }
   }
 
-  @Builder
-  private static class TypeImplemented2 {
-    String someString;
+  private static final class TypeImplemented2 {
+
+    private final String someString;
+
+    private TypeImplemented2(final String someString) {
+      this.someString = someString;
+    }
+
+    public String getSomeString() {
+      return this.someString;
+    }
   }
 
-  @Builder
-  private static class TypeExtended2 {
-    String someString;
+  private static final class TypeExtended2 {
+
+    private final String someString;
+
+    private TypeExtended2(final String someString) {
+      this.someString = someString;
+    }
+
+    public String getSomeString() {
+      return this.someString;
+    }
   }
 
-  @Builder
-  @Data
-  @NoArgsConstructor
-  @AllArgsConstructor
-  private static class TypeCommon {
-    String someString;
+  private static final class TypeCommon {
+
+    private final String someString;
+
+    private TypeCommon(final String someString) {
+      this.someString = someString;
+    }
+
+    public String getSomeString() {
+      return this.someString;
+    }
   }
 
-  @Builder
-  @Data
-  @NoArgsConstructor
-  @AllArgsConstructor
-  private static class TypeExtendedCommon {
-    String someString;
-    String someOtherString;
+  private static final class TypeImplementedCommon {
+
+    private final String someString;
+
+    private TypeImplementedCommon(final String someString) {
+      this.someString = someString;
+    }
+
+    public String getSomeString() {
+      return this.someString;
+    }
   }
 
-  @Builder
-  @Data
-  @NoArgsConstructor
-  @AllArgsConstructor
-  private static class TypeUnionCommonInt {
-    String __typename = "TypeUnionCommonInt";
-    Integer someInteger;
+  private static final class TypeExtendedCommon {
+
+    private final String someString;
+    private final String someOtherString;
+
+    private TypeExtendedCommon(final String someString, final String someOtherString) {
+      this.someString = someString;
+      this.someOtherString = someOtherString;
+    }
+
+    public String getSomeString() {
+      return this.someString;
+    }
+
+    public String getSomeOtherString() {
+      return this.someOtherString;
+    }
+  }
+
+  private static final class TypeUnionCommonInt {
+
+    private final Integer someInteger;
+
+    public TypeUnionCommonInt(final Integer someInteger) {
+      this.someInteger = someInteger;
+    }
+
+    public Integer someInteger() {
+      return this.someInteger;
+    }
+
+    public String get__typename() {
+      return "TypeUnionCommonInt";
+    }
   }
 }
