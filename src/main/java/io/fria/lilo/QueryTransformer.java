@@ -41,18 +41,22 @@ final class QueryTransformer {
       final Set<String> usedReferenceNames,
       final Set<String> usedFragmentNames) {
 
-    node.getChildren()
-        .forEach(
-            n -> {
-              if (n instanceof FragmentSpread) {
-                usedFragmentNames.add(((FragmentSpread) n).getName());
-                findUsedItems(n, usedReferenceNames, usedFragmentNames);
-              } else if (n instanceof VariableReference) {
-                usedReferenceNames.add(((VariableReference) n).getName());
-              } else {
-                findUsedItems(n, usedReferenceNames, usedFragmentNames);
-              }
-            });
+    if (node instanceof FragmentSpread) {
+      usedFragmentNames.add(((FragmentSpread) node).getName());
+      findUsedItemsInChildren(node, usedReferenceNames, usedFragmentNames);
+    } else if (node instanceof VariableReference) {
+      usedReferenceNames.add(((VariableReference) node).getName());
+    } else {
+      findUsedItemsInChildren(node, usedReferenceNames, usedFragmentNames);
+    }
+  }
+
+  private static void findUsedItemsInChildren(
+      final Node<?> node,
+      final Set<String> usedReferenceNames,
+      final Set<String> usedFragmentNames) {
+
+    node.getChildren().forEach(n -> findUsedItems(n, usedReferenceNames, usedFragmentNames));
   }
 
   private static FragmentDefinition removeAlias(final FragmentDefinition fragment) {
@@ -82,6 +86,23 @@ final class QueryTransformer {
 
   private static Field removeAlias(final Field field) {
 
+    final List<Selection> newSelections = removeAliasInChildren(field);
+
+    return field.transform(
+        builder -> {
+          if (newSelections != null) {
+            builder
+                .alias(null)
+                .selectionSet(SelectionSet.newSelectionSet(newSelections).build())
+                .build();
+          } else {
+            builder.alias(null).build();
+          }
+        });
+  }
+
+  private static List<Selection> removeAliasInChildren(final Field field) {
+
     final SelectionSet selectionSet = field.getSelectionSet();
 
     List<Selection> newSelections = null;
@@ -100,19 +121,7 @@ final class QueryTransformer {
               .collect(Collectors.toList());
     }
 
-    final List<Selection> finalNewSelections = newSelections;
-
-    return field.transform(
-        builder -> {
-          if (finalNewSelections != null) {
-            builder
-                .alias(null)
-                .selectionSet(SelectionSet.newSelectionSet(finalNewSelections).build())
-                .build();
-          } else {
-            builder.alias(null).build();
-          }
-        });
+    return newSelections;
   }
 
   private static List<Definition> transformDefinitions(
@@ -148,7 +157,7 @@ final class QueryTransformer {
             .collect(Collectors.toList());
 
     usedRootFragmentDefinitions.forEach(
-        fd -> findUsedItems(fd, usedReferenceNames, usedFragmentNames));
+        fd -> findUsedItemsInChildren(fd, usedReferenceNames, usedFragmentNames));
 
     final List<Definition> newDefinitions = new ArrayList<>();
     newDefinitions.add(
