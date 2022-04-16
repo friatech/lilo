@@ -156,88 +156,19 @@ public class LiloContext {
         .build();
   }
 
-  private static GraphQLQuery createRequest(
-      final DataFetchingEnvironment environment, final String queryName) {
+  private static GraphQLQuery extractQuery(
+      final String queryName, final DataFetchingEnvironment environment) {
 
-    final var document = environment.getDocument();
-    final var definitions = document.getDefinitions();
+    final var queryBuilder = GraphQLQuery.builder();
+    transformDocument(environment, queryName, queryBuilder);
 
-    if (definitions.isEmpty()) {
-      throw new IllegalArgumentException("query is not in appropriate format");
-    }
-
-    final var operationDefinitionOptional =
-        definitions.stream().filter(d -> d instanceof OperationDefinition).findFirst();
-
-    if (operationDefinitionOptional.isEmpty()) {
-      throw new IllegalArgumentException("GraphQL query should contain either query or mutation");
-    }
-
-    final var operationDefinition = (OperationDefinition) operationDefinitionOptional.get();
-
-    final var selections =
-        Optional.ofNullable(operationDefinition.getSelectionSet().getSelections())
-            .orElse(List.of());
-
-    final var queryNodeOptional =
-        selections.stream().filter(f -> queryName.equals(((Field) f).getName())).findFirst();
-
-    if (queryNodeOptional.isEmpty()) {
-      throw new IllegalArgumentException("found query does not match with name");
-    }
-
-    final Field queryNode = (Field) queryNodeOptional.get();
-    final Set<String> usedReferenceNames = new HashSet<>();
-    final Set<String> usedFragmentName = new HashSet<>();
-
-    findUsedItems(queryNode, usedReferenceNames, usedFragmentName);
-
-    final List<VariableDefinition> newVariables =
-        operationDefinition.getVariableDefinitions().stream()
-            .filter(v -> usedReferenceNames.contains(v.getName()))
-            .collect(Collectors.toList());
-
-    final List<Definition<?>> newFragmentDefinitions =
-        definitions.stream()
-            .filter(d -> d instanceof FragmentDefinition)
-            .map(d -> (FragmentDefinition) d)
-            .filter(fd -> usedFragmentName.contains(fd.getName()))
-            .map(LiloContext::removeAlias)
-            .collect(Collectors.toList());
-
-    final Field newQueryNode = removeAlias(queryNode);
-
-    final var newOperationDefinition =
-        operationDefinition.transform(
-            builder -> builder
-                .selectionSet(new SelectionSet(List.of(newQueryNode)))
-                .variableDefinitions(newVariables));
-
-    final ArrayList<Definition> newDefinitions = new ArrayList<>();
-    newDefinitions.add(newOperationDefinition);
-    newDefinitions.addAll(newFragmentDefinitions);
-
-    final Document newDocument = document.transform(builder -> builder.definitions(newDefinitions));
-    final var query = AstPrinter.printAst(newDocument);
-    final Map<String, Object> filteredVariables = new HashMap<>();
-
-    environment.getVariables().entrySet().stream()
-        .filter(e -> usedReferenceNames.contains(e.getKey()))
-        .forEach(e -> filteredVariables.put(e.getKey(), e.getValue()));
-
-    final String queryText =
-        toStr(
-            GraphQLRequest.builder()
-                .query(query)
-                .variables(filteredVariables)
-                .operationName(operationDefinition.getName())
-                .build());
-
-    return new GraphQLQuery(queryText, operationDefinition.getOperation(), queryNode);
+    return queryBuilder.build();
   }
 
   private static void findUsedItems(
-      final Node<?> node, final Set<String> usedReferenceNames, final Set<String> usedFragmentNames) {
+      final Node<?> node,
+      final Set<String> usedReferenceNames,
+      final Set<String> usedFragmentNames) {
 
     node.getChildren()
         .forEach(
@@ -376,9 +307,7 @@ public class LiloContext {
             .collect(Collectors.toList());
 
     return fragment.transform(
-        builder -> {
-          builder.selectionSet(SelectionSet.newSelectionSet(newSelections).build()).build();
-        });
+        builder -> builder.selectionSet(SelectionSet.newSelectionSet(newSelections).build()).build());
   }
 
   private static Field removeAlias(final Field field) {
@@ -414,6 +343,116 @@ public class LiloContext {
             builder.alias(null).build();
           }
         });
+  }
+
+  private static List<Definition> transformDefinitions(
+      final DataFetchingEnvironment environment,
+      final List<Definition> originalDefinitions,
+      final String queryName,
+      final GraphQLRequest.GraphQLRequestBuilder requestBuilder,
+      final GraphQLQuery.GraphQLQueryBuilder queryBuilder) {
+
+    final var operationDefinitionOptional =
+        originalDefinitions.stream().filter(d -> d instanceof OperationDefinition).findFirst();
+
+    if (operationDefinitionOptional.isEmpty()) {
+      throw new IllegalArgumentException("GraphQL query should contain either query or mutation");
+    }
+
+    final var operationDefinition = (OperationDefinition) operationDefinitionOptional.get();
+
+    final var selections =
+        Optional.ofNullable(operationDefinition.getSelectionSet().getSelections())
+            .orElse(List.of());
+
+    final var queryNodeOptional =
+        selections.stream().filter(f -> queryName.equals(((Field) f).getName())).findFirst();
+
+    if (queryNodeOptional.isEmpty()) {
+      throw new IllegalArgumentException("found query does not match with name");
+    }
+
+    queryBuilder.operationType(operationDefinition.getOperation());
+    requestBuilder.operationName(operationDefinition.getName());
+
+    final Field queryNode = (Field) queryNodeOptional.get();
+    final Set<String> usedReferenceNames = new HashSet<>();
+    final Set<String> usedFragmentNames = new HashSet<>();
+
+    findUsedItems(queryNode, usedReferenceNames, usedFragmentNames);
+
+    final List<Definition> newDefinitions = new ArrayList<>();
+    newDefinitions.add(
+        transformOperationDefinition(
+            operationDefinition, usedReferenceNames, queryNode, queryBuilder));
+    newDefinitions.addAll(transformFragmentDefinitions(originalDefinitions, usedFragmentNames));
+
+    final Map<String, Object> filteredVariables = new HashMap<>();
+
+    environment.getVariables().entrySet().stream()
+        .filter(e -> usedReferenceNames.contains(e.getKey()))
+        .forEach(e -> filteredVariables.put(e.getKey(), e.getValue()));
+
+    requestBuilder.variables(filteredVariables);
+
+    return newDefinitions;
+  }
+
+  private static Document transformDocument(
+      final DataFetchingEnvironment environment,
+      final String queryName,
+      final GraphQLQuery.GraphQLQueryBuilder queryBuilder) {
+
+    final var originalDocument = environment.getDocument();
+    final var definitions = originalDocument.getDefinitions();
+
+    if (definitions.isEmpty()) {
+      throw new IllegalArgumentException("query is not in appropriate format");
+    }
+
+    final var requestBuilder = GraphQLRequest.builder();
+    final var newDefinitions =
+        transformDefinitions(environment, definitions, queryName, requestBuilder, queryBuilder);
+    final var newDocument =
+        originalDocument.transform(builder -> builder.definitions(newDefinitions));
+    final var queryText = AstPrinter.printAst(newDocument);
+    final var request = toStr(requestBuilder.query(queryText).build());
+
+    queryBuilder.query(request);
+
+    return newDocument;
+  }
+
+  private static List<Definition<?>> transformFragmentDefinitions(
+      final List<Definition> originalDefinitions, final Set<String> usedFragmentNames) {
+
+    return originalDefinitions.stream()
+        .filter(d -> d instanceof FragmentDefinition)
+        .map(d -> (FragmentDefinition) d)
+        .filter(fd -> usedFragmentNames.contains(fd.getName()))
+        .map(LiloContext::removeAlias)
+        .collect(Collectors.toList());
+  }
+
+  private static Definition<?> transformOperationDefinition(
+      final OperationDefinition operationDefinition,
+      final Set<String> usedReferenceNames,
+      final Field queryNode,
+      final GraphQLQuery.GraphQLQueryBuilder queryBuilder) {
+
+    final List<VariableDefinition> newVariables =
+        operationDefinition.getVariableDefinitions().stream()
+            .filter(v -> usedReferenceNames.contains(v.getName()))
+            .collect(Collectors.toList());
+
+    final Field newQueryNode = removeAlias(queryNode);
+    queryBuilder.queryNode(newQueryNode);
+
+    return operationDefinition.transform(
+        builder ->
+            builder
+                .selectionSet(new SelectionSet(List.of(newQueryNode)))
+                .variableDefinitions(newVariables));
   }
 
   public GraphQL getGraphQL() {
@@ -518,7 +557,7 @@ public class LiloContext {
       final SchemaSource schemaSource,
       final String queryName) {
 
-    final var request = createRequest(environment, queryName);
+    final var request = extractQuery(queryName, environment);
 
     final var queryResult =
         schemaSource
