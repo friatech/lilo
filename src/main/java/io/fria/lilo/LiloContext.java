@@ -187,21 +187,21 @@ public class LiloContext {
     }
 
     final Field queryNode = (Field) queryNodeOptional.get();
-    final Set<String> usedReferences = new HashSet<>();
-    final Set<String> usedFragments = new HashSet<>();
+    final Set<String> usedReferenceNames = new HashSet<>();
+    final Set<String> usedFragmentName = new HashSet<>();
 
-    findUsedItems(queryNode, usedReferences, usedFragments);
+    findUsedItems(queryNode, usedReferenceNames, usedFragmentName);
 
     final List<VariableDefinition> newVariables =
         operationDefinition.getVariableDefinitions().stream()
-            .filter(v -> usedReferences.contains(v.getName()))
+            .filter(v -> usedReferenceNames.contains(v.getName()))
             .collect(Collectors.toList());
 
     final List<Definition<?>> newFragmentDefinitions =
         definitions.stream()
             .filter(d -> d instanceof FragmentDefinition)
             .map(d -> (FragmentDefinition) d)
-            .filter(fd -> usedFragments.contains(fd.getName()))
+            .filter(fd -> usedFragmentName.contains(fd.getName()))
             .map(LiloContext::removeAlias)
             .collect(Collectors.toList());
 
@@ -209,11 +209,9 @@ public class LiloContext {
 
     final var newOperationDefinition =
         operationDefinition.transform(
-            builder -> {
-              builder
-                  .selectionSet(new SelectionSet(List.of(newQueryNode)))
-                  .variableDefinitions(newVariables);
-            });
+            builder -> builder
+                .selectionSet(new SelectionSet(List.of(newQueryNode)))
+                .variableDefinitions(newVariables));
 
     final ArrayList<Definition> newDefinitions = new ArrayList<>();
     newDefinitions.add(newOperationDefinition);
@@ -224,7 +222,7 @@ public class LiloContext {
     final Map<String, Object> filteredVariables = new HashMap<>();
 
     environment.getVariables().entrySet().stream()
-        .filter(e -> usedReferences.contains(e.getKey()))
+        .filter(e -> usedReferenceNames.contains(e.getKey()))
         .forEach(e -> filteredVariables.put(e.getKey(), e.getValue()));
 
     final String queryText =
@@ -239,17 +237,17 @@ public class LiloContext {
   }
 
   private static void findUsedItems(
-      final Node<?> node, final Set<String> usedReferences, final Set<String> usedFragments) {
+      final Node<?> node, final Set<String> usedReferenceNames, final Set<String> usedFragmentNames) {
 
     node.getChildren()
         .forEach(
             n -> {
               if (n instanceof FragmentSpread) {
-                usedFragments.add(((FragmentSpread) n).getName());
+                usedFragmentNames.add(((FragmentSpread) n).getName());
               } else if (n instanceof VariableReference) {
-                usedReferences.add(((VariableReference) n).getName());
+                usedReferenceNames.add(((VariableReference) n).getName());
               } else {
-                findUsedItems(n, usedReferences, usedFragments);
+                findUsedItems(n, usedReferenceNames, usedFragmentNames);
               }
             });
   }
