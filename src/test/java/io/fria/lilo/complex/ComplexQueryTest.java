@@ -807,6 +807,7 @@ class ComplexQueryTest {
           UUID.fromString("11111111-1111-1111-1111-111111111111")))));
     variables.put("includeGrandChildren1", true);
     variables.put("includeGrandChildren2", false);
+    variables.put("includeCommonString", true);
 
     final ExecutionInput executionInput =
         ExecutionInput.newExecutionInput()
@@ -818,6 +819,7 @@ class ComplexQueryTest {
     final ExecutionResult result = combinedGraphQL.execute(executionInput);
     final Map<String, Object> expected = result.getData();
     Assertions.assertNotNull(expected);
+    Assertions.assertEquals(0, result.getErrors().size());
 
     // Stitching result ----------------------------------------------------
     final var project1GraphQL = createGraphQL("/complex/project1.graphqls", createWiring());
@@ -839,6 +841,7 @@ class ComplexQueryTest {
     Assertions.assertEquals(
         objectMapper.writeValueAsString(expected),
         objectMapper.writeValueAsString(stitchResult.getData()));
+    Assertions.assertEquals(0, stitchResult.getErrors().size());
   }
 
   private enum EnumCommon {

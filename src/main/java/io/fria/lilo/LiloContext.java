@@ -37,7 +37,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
@@ -156,11 +155,10 @@ public class LiloContext {
         .build();
   }
 
-  private static GraphQLQuery extractQuery(
-      final String queryName, final DataFetchingEnvironment environment) {
+  private static GraphQLQuery extractQuery(final DataFetchingEnvironment environment) {
 
     final var queryBuilder = GraphQLQuery.builder();
-    transformDocument(environment, queryName, queryBuilder);
+    transformDocument(environment, queryBuilder);
 
     return queryBuilder.build();
   }
@@ -175,6 +173,7 @@ public class LiloContext {
             n -> {
               if (n instanceof FragmentSpread) {
                 usedFragmentNames.add(((FragmentSpread) n).getName());
+                findUsedItems(n, usedReferenceNames, usedFragmentNames);
               } else if (n instanceof VariableReference) {
                 usedReferenceNames.add(((VariableReference) n).getName());
               } else {
@@ -307,7 +306,8 @@ public class LiloContext {
             .collect(Collectors.toList());
 
     return fragment.transform(
-        builder -> builder.selectionSet(SelectionSet.newSelectionSet(newSelections).build()).build());
+        builder ->
+            builder.selectionSet(SelectionSet.newSelectionSet(newSelections).build()).build());
   }
 
   private static Field removeAlias(final Field field) {
@@ -348,7 +348,6 @@ public class LiloContext {
   private static List<Definition> transformDefinitions(
       final DataFetchingEnvironment environment,
       final List<Definition> originalDefinitions,
-      final String queryName,
       final GraphQLRequest.GraphQLRequestBuilder requestBuilder,
       final GraphQLQuery.GraphQLQueryBuilder queryBuilder) {
 
@@ -361,25 +360,25 @@ public class LiloContext {
 
     final var operationDefinition = (OperationDefinition) operationDefinitionOptional.get();
 
-    final var selections =
-        Optional.ofNullable(operationDefinition.getSelectionSet().getSelections())
-            .orElse(List.of());
-
-    final var queryNodeOptional =
-        selections.stream().filter(f -> queryName.equals(((Field) f).getName())).findFirst();
-
-    if (queryNodeOptional.isEmpty()) {
-      throw new IllegalArgumentException("found query does not match with name");
-    }
-
     queryBuilder.operationType(operationDefinition.getOperation());
     requestBuilder.operationName(operationDefinition.getName());
 
-    final Field queryNode = (Field) queryNodeOptional.get();
+    final Field queryNode = environment.getField();
     final Set<String> usedReferenceNames = new HashSet<>();
     final Set<String> usedFragmentNames = new HashSet<>();
 
     findUsedItems(queryNode, usedReferenceNames, usedFragmentNames);
+
+    // scan for used reference and variables recursively in used fragments
+    final List<FragmentDefinition> usedRootFragmentDefinitions =
+        originalDefinitions.stream()
+            .filter(d -> d instanceof FragmentDefinition)
+            .map(d -> (FragmentDefinition) d)
+            .filter(fd -> usedFragmentNames.contains(fd.getName()))
+            .collect(Collectors.toList());
+
+    usedRootFragmentDefinitions.forEach(
+        fd -> findUsedItems(fd, usedReferenceNames, usedFragmentNames));
 
     final List<Definition> newDefinitions = new ArrayList<>();
     newDefinitions.add(
@@ -400,7 +399,6 @@ public class LiloContext {
 
   private static Document transformDocument(
       final DataFetchingEnvironment environment,
-      final String queryName,
       final GraphQLQuery.GraphQLQueryBuilder queryBuilder) {
 
     final var originalDocument = environment.getDocument();
@@ -412,7 +410,7 @@ public class LiloContext {
 
     final var requestBuilder = GraphQLRequest.builder();
     final var newDefinitions =
-        transformDefinitions(environment, definitions, queryName, requestBuilder, queryBuilder);
+        transformDefinitions(environment, definitions, requestBuilder, queryBuilder);
     final var newDocument =
         originalDocument.transform(builder -> builder.definitions(newDefinitions));
     final var queryText = AstPrinter.printAst(newDocument);
@@ -526,8 +524,7 @@ public class LiloContext {
 
       final String fieldName = field.getName();
 
-      typeWiringBuilder.dataFetcher(
-          fieldName, e -> this.createDataFetcher(e, schemaSource, fieldName));
+      typeWiringBuilder.dataFetcher(fieldName, e -> this.createDataFetcher(e, schemaSource));
     }
   }
 
@@ -553,11 +550,9 @@ public class LiloContext {
   }
 
   private Object createDataFetcher(
-      final DataFetchingEnvironment environment,
-      final SchemaSource schemaSource,
-      final String queryName) {
+      final DataFetchingEnvironment environment, final SchemaSource schemaSource) {
 
-    final var request = extractQuery(queryName, environment);
+    final var request = extractQuery(environment);
 
     final var queryResult =
         schemaSource
@@ -571,7 +566,7 @@ public class LiloContext {
       throw new SourceDataFetcherException(errors);
     }
 
-    return graphQLResult.data.get(queryName);
+    return graphQLResult.data.values().iterator().next();
   }
 
   private GraphQL createGraphQL(final Map<String, ProcessedSchemaSource> processedSchemaSourceMap) {
