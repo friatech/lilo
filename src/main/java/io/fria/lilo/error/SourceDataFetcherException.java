@@ -1,4 +1,4 @@
-package io.fria.lilo;
+package io.fria.lilo.error;
 
 import graphql.GraphQLError;
 import java.util.List;

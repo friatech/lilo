@@ -23,12 +23,12 @@ public class GraphQLQuery {
     return new GraphQLQuery.GraphQLQueryBuilder();
   }
 
-  public String getQuery() {
-    return this.query;
-  }
-
   public OperationDefinition.Operation getOperationType() {
     return this.operationType;
+  }
+
+  public String getQuery() {
+    return this.query;
   }
 
   public Field getQueryNode() {
@@ -49,13 +49,14 @@ public class GraphQLQuery {
       return new GraphQLQuery(this.query, this.operationType, this.queryNode);
     }
 
-    public GraphQLQuery.GraphQLQueryBuilder query(final String queryParam) {
-      this.query = queryParam;
+    public GraphQLQuery.GraphQLQueryBuilder operationType(
+        final OperationDefinition.Operation operationTypeParam) {
+      this.operationType = operationTypeParam;
       return this;
     }
 
-    public GraphQLQuery.GraphQLQueryBuilder operationType(final OperationDefinition.Operation operationTypeParam) {
-      this.operationType = operationTypeParam;
+    public GraphQLQuery.GraphQLQueryBuilder query(final String queryParam) {
+      this.query = queryParam;
       return this;
     }
 
@@ -66,12 +67,12 @@ public class GraphQLQuery {
 
     public String toString() {
       return "GraphQLQuery.GraphQLQueryBuilder(query="
-        + this.query
-        + ", operationType="
-        + this.operationType
-        + ", queryNode="
-        + this.queryNode
-        + ")";
+          + this.query
+          + ", operationType="
+          + this.operationType
+          + ", queryNode="
+          + this.queryNode
+          + ")";
     }
   }
 }

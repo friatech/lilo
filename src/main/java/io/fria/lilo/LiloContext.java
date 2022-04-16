@@ -31,6 +31,8 @@ import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import graphql.schema.idl.TypeRuntimeWiring;
+import io.fria.lilo.error.LiloGraphQLError;
+import io.fria.lilo.error.SourceDataFetcherException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;

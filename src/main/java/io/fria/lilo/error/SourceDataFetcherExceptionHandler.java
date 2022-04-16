@@ -1,4 +1,4 @@
-package io.fria.lilo;
+package io.fria.lilo.error;
 
 import graphql.GraphQLError;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
@@ -6,7 +6,7 @@ import graphql.execution.DataFetcherExceptionHandlerResult;
 import graphql.execution.SimpleDataFetcherExceptionHandler;
 import java.util.List;
 
-class SourceDataFetcherExceptionHandler extends SimpleDataFetcherExceptionHandler {
+public class SourceDataFetcherExceptionHandler extends SimpleDataFetcherExceptionHandler {
 
   @Override
   public DataFetcherExceptionHandlerResult onException(
