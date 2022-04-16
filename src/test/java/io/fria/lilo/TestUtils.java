@@ -6,6 +6,7 @@ import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import static io.fria.lilo.JsonUtils.toObj;
 import static io.fria.lilo.JsonUtils.toStr;
 
@@ -42,7 +43,7 @@ public final class TestUtils {
       final InputStream stream = TestUtils.class.getResourceAsStream(path);
 
       if (stream != null) {
-        return new String(stream.readAllBytes());
+        return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
       }
     } catch (final IOException e) {
       // pass to the exception

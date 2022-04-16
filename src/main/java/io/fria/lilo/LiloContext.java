@@ -6,7 +6,6 @@ import graphql.GraphQLError;
 import graphql.com.google.common.collect.ImmutableMap;
 import graphql.execution.DataFetcherExceptionHandler;
 import graphql.introspection.IntrospectionResultToSchema;
-import graphql.language.Argument;
 import graphql.language.AstPrinter;
 import graphql.language.Definition;
 import graphql.language.Document;
@@ -21,7 +20,6 @@ import graphql.language.ScalarTypeDefinition;
 import graphql.language.Selection;
 import graphql.language.SelectionSet;
 import graphql.language.UnionTypeDefinition;
-import graphql.language.Value;
 import graphql.language.VariableDefinition;
 import graphql.language.VariableReference;
 import graphql.schema.DataFetchingEnvironment;
@@ -272,24 +270,17 @@ public class LiloContext {
     return usedFragments;
   }
 
-  private static List<VariableReference> findUsedVariables(final Node node) {
+  private static List<VariableReference> findUsedVariables(final Node<?> node) {
 
     final List<VariableReference> usedVariables = new ArrayList<>();
 
-    node.getChildren().stream()
+    node.getChildren()
         .forEach(
             n -> {
-              final Node childNode = (Node) n;
-
-              if (childNode instanceof Argument) {
-                final Argument argument = (Argument) n;
-                final Value argumentValue = argument.getValue();
-
-                if (argumentValue instanceof VariableReference) {
-                  usedVariables.add((VariableReference) argumentValue);
-                }
+              if ((Node<?>) n instanceof VariableReference) {
+                usedVariables.add((VariableReference) (Node<?>) n);
               } else {
-                usedVariables.addAll(findUsedVariables(childNode));
+                usedVariables.addAll(findUsedVariables(n));
               }
             });
 

@@ -93,6 +93,13 @@ query ComplexQuery(
     $s1typeParam02: String,
     $s1typeParam03: String!,
     $s1typeParam04: String!,
+    $s1inputParam01: Input1,
+    $s1inputParam02: Input1,
+    $s1inputParam03: String,
+    $s1inputParam04: [InputChild1],
+    $s1inputParam05: String,
+    $s1inputParam06: String,
+    $s1inputParam07: [InputGrandChild1],
     $s2stringParam01: String,
     $s2stringParam02: String,
     $s2stringParam03: String!,
@@ -187,6 +194,13 @@ query ComplexQuery(
     $s2typeParam02: String,
     $s2typeParam03: String!,
     $s2typeParam04: String!,
+    $s2inputParam01: Input2,
+    $s2inputParam02: Input2,
+    $s2inputParam03: String,
+    $s2inputParam04: [InputChild2],
+    $s2inputParam05: String,
+    $s2inputParam06: String,
+    $s2inputParam07: [InputGrandChild2],
     $includeGrandChildren1: Boolean!,
     $includeGrandChildren2: Boolean!,
 ){
@@ -291,6 +305,24 @@ query ComplexQuery(
             }
         }
     }
+    server1queryInputA(paramA: $s1inputParam01,paramB: $s1inputParam02) {
+        someString
+    }
+    alias7: server1queryInputA(
+            paramA: {
+                someString: $s1inputParam03,
+                children: $s1inputParam04
+            },
+            paramB: {
+                someString: $s1inputParam05,
+                children: {
+                    someString: $s1inputParam06
+                    children: $s1inputParam07
+                }
+            }
+        ) {
+        someString
+    }
     server2queryStringA(paramA: $s2stringParam01, paramB: $s2stringParam02)
     server2queryStringB(paramA: $s2stringParam03, paramB: $s2stringParam04)
     server2queryStringC(paramA: $s2stringParam05, paramB: $s2stringParam06)
@@ -391,6 +423,24 @@ query ComplexQuery(
                 }
             }
         }
+    }
+    server2queryInputA(paramA: $s2inputParam01,paramB: $s2inputParam02) {
+        someString
+    }
+    alias8: server2queryInputA(
+            paramA: {
+                someString: $s2inputParam03,
+                children: $s2inputParam04
+            },
+            paramB: {
+                someString: $s2inputParam05,
+                children: {
+                    someString: $s2inputParam06
+                    children: $s2inputParam07
+                }
+            }
+        ) {
+        someString
     }
 }
 
