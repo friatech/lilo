@@ -36,7 +36,7 @@ final class JsonUtils {
     try {
       return OBJECT_MAPPER.readValue(text, new TypeReference<>() {});
     } catch (final JsonProcessingException e) {
-      throw new IllegalArgumentException("Deserialization exception");
+      throw new IllegalArgumentException("Deserialization exception", e);
     }
   }
 
@@ -45,7 +45,7 @@ final class JsonUtils {
     try {
       return OBJECT_MAPPER.readValue(text, clazz);
     } catch (final JsonProcessingException e) {
-      throw new IllegalArgumentException("Deserialization exception");
+      throw new IllegalArgumentException("Deserialization exception", e);
     }
   }
 
@@ -54,7 +54,7 @@ final class JsonUtils {
     try {
       return OBJECT_MAPPER.writeValueAsString(obj);
     } catch (final JsonProcessingException e) {
-      throw new IllegalArgumentException("Deserialization exception");
+      throw new IllegalArgumentException("Deserialization exception", e);
     }
   }
 

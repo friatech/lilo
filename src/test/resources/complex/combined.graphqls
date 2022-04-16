@@ -125,7 +125,7 @@ input InputGrandChild1 {
     idList: [ID]
     enumList: [Enum1]
     enumCommonList: [EnumCommon]
-    scalar1List: [Scalar1]
+    scalarList: [Scalar1]
     scalarCommonList: [ScalarCommon]
 }
 

@@ -6,7 +6,6 @@ import graphql.GraphQLError;
 import graphql.com.google.common.collect.ImmutableMap;
 import graphql.execution.DataFetcherExceptionHandler;
 import graphql.introspection.IntrospectionResultToSchema;
-import graphql.language.Argument;
 import graphql.language.AstPrinter;
 import graphql.language.Definition;
 import graphql.language.Document;
@@ -21,7 +20,6 @@ import graphql.language.ScalarTypeDefinition;
 import graphql.language.Selection;
 import graphql.language.SelectionSet;
 import graphql.language.UnionTypeDefinition;
-import graphql.language.Value;
 import graphql.language.VariableDefinition;
 import graphql.language.VariableReference;
 import graphql.schema.DataFetchingEnvironment;
@@ -36,6 +34,7 @@ import graphql.schema.idl.TypeRuntimeWiring;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,7 +51,7 @@ import static io.fria.lilo.JsonUtils.toStr;
 public class LiloContext {
 
   private static final Set<String> PREDEFINED_SCALARS =
-      Set.of("Int", "Float", "String", "Boolean", "ID");
+      Set.of("Boolean", "Float", "Int", "ID", "String");
   private static final TypeResolver INTERFACE_TYPE_RESOLVER = env -> null;
   private static final String INTROSPECTION_REQUEST =
       toStr(
@@ -188,56 +187,42 @@ public class LiloContext {
     }
 
     final Field queryNode = (Field) queryNodeOptional.get();
-    final Field newQueryNode = removeAlias(queryNode);
+    final Set<String> usedReferenceNames = new HashSet<>();
+    final Set<String> usedFragmentName = new HashSet<>();
 
-    final Set<String> usedReferences =
-        findUsedVariables(newQueryNode).stream()
-            .map(VariableReference::getName)
-            .collect(Collectors.toSet());
+    findUsedItems(queryNode, usedReferenceNames, usedFragmentName);
 
     final List<VariableDefinition> newVariables =
         operationDefinition.getVariableDefinitions().stream()
-            .filter(v -> usedReferences.contains(v.getName()))
+            .filter(v -> usedReferenceNames.contains(v.getName()))
             .collect(Collectors.toList());
 
-    final Set<String> usedFragments =
-        findUsedFragments(newQueryNode).stream()
-            .map(FragmentSpread::getName)
-            .collect(Collectors.toSet());
-
-    final List<Definition> fragmentDefinitions =
+    final List<Definition<?>> newFragmentDefinitions =
         definitions.stream()
-            .filter(
-                d ->
-                    d instanceof FragmentDefinition
-                        && usedFragments.contains(((FragmentDefinition) d).getName()))
-            .map(fd -> removeAlias((FragmentDefinition) fd))
+            .filter(d -> d instanceof FragmentDefinition)
+            .map(d -> (FragmentDefinition) d)
+            .filter(fd -> usedFragmentName.contains(fd.getName()))
+            .map(LiloContext::removeAlias)
             .collect(Collectors.toList());
+
+    final Field newQueryNode = removeAlias(queryNode);
 
     final var newOperationDefinition =
         operationDefinition.transform(
-            builder -> {
-              builder
-                  .selectionSet(new SelectionSet(List.of(newQueryNode)))
-                  .variableDefinitions(newVariables);
-            });
+            builder -> builder
+                .selectionSet(new SelectionSet(List.of(newQueryNode)))
+                .variableDefinitions(newVariables));
 
     final ArrayList<Definition> newDefinitions = new ArrayList<>();
     newDefinitions.add(newOperationDefinition);
-    newDefinitions.addAll(fragmentDefinitions);
+    newDefinitions.addAll(newFragmentDefinitions);
 
-    final Document newDocument =
-        document.transform(
-            builder -> {
-              builder.definitions(newDefinitions);
-            });
-
+    final Document newDocument = document.transform(builder -> builder.definitions(newDefinitions));
     final var query = AstPrinter.printAst(newDocument);
-
     final Map<String, Object> filteredVariables = new HashMap<>();
 
     environment.getVariables().entrySet().stream()
-        .filter(e -> usedReferences.contains(e.getKey()))
+        .filter(e -> usedReferenceNames.contains(e.getKey()))
         .forEach(e -> filteredVariables.put(e.getKey(), e.getValue()));
 
     final String queryText =
@@ -251,49 +236,20 @@ public class LiloContext {
     return new GraphQLQuery(queryText, operationDefinition.getOperation(), queryNode);
   }
 
-  private static List<FragmentSpread> findUsedFragments(final Node node) {
+  private static void findUsedItems(
+      final Node<?> node, final Set<String> usedReferenceNames, final Set<String> usedFragmentNames) {
 
-    final List<FragmentSpread> usedFragments = new ArrayList<>();
-
-    node.getChildren().stream()
-        .filter(n -> n instanceof SelectionSet)
-        .flatMap(s -> ((SelectionSet) s).getSelections().stream())
-        .forEach(
-            s -> {
-              final Node childNode = (Node) s;
-
-              if (s instanceof FragmentSpread) {
-                usedFragments.add((FragmentSpread) childNode);
-              } else {
-                usedFragments.addAll(findUsedFragments(childNode));
-              }
-            });
-
-    return usedFragments;
-  }
-
-  private static List<VariableReference> findUsedVariables(final Node node) {
-
-    final List<VariableReference> usedVariables = new ArrayList<>();
-
-    node.getChildren().stream()
+    node.getChildren()
         .forEach(
             n -> {
-              final Node childNode = (Node) n;
-
-              if (childNode instanceof Argument) {
-                final Argument argument = (Argument) n;
-                final Value argumentValue = argument.getValue();
-
-                if (argumentValue instanceof VariableReference) {
-                  usedVariables.add((VariableReference) argumentValue);
-                }
+              if (n instanceof FragmentSpread) {
+                usedFragmentNames.add(((FragmentSpread) n).getName());
+              } else if (n instanceof VariableReference) {
+                usedReferenceNames.add(((VariableReference) n).getName());
               } else {
-                usedVariables.addAll(findUsedVariables(childNode));
+                findUsedItems(n, usedReferenceNames, usedFragmentNames);
               }
             });
-
-    return usedVariables;
   }
 
   private static void mergeSchema(
