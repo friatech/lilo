@@ -1,5 +1,14 @@
 package io.fria.lilo;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 public interface IntrospectionRetriever {
-  String get(LiloContext liloContext, SchemaSource schemaSource, String query, Object context);
+
+  @NotNull
+  String get(
+      @NotNull LiloContext liloContext,
+      @NotNull SchemaSource schemaSource,
+      @NotNull String query,
+      @Nullable Object localContext);
 }

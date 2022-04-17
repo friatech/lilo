@@ -7,6 +7,8 @@ import graphql.schema.idl.SchemaParser;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import static io.fria.lilo.JsonUtils.toObj;
 import static io.fria.lilo.JsonUtils.toStr;
 
@@ -70,11 +72,11 @@ public final class TestUtils {
     }
 
     @Override
-    public String get(
-        final LiloContext liloContext,
-        final SchemaSource schemaSource,
-        final String query,
-        final Object context) {
+    public @NotNull String get(
+        final @NotNull LiloContext liloContext,
+        final @NotNull SchemaSource schemaSource,
+        final @NotNull String query,
+        final @Nullable Object localContext) {
       return runQuery(this.graphQL, query);
     }
 
@@ -92,11 +94,11 @@ public final class TestUtils {
     }
 
     @Override
-    public String get(
-        final LiloContext liloContext,
-        final SchemaSource schemaSource,
-        final GraphQLQuery query,
-        final Object context) {
+    public @NotNull String get(
+        final @NotNull LiloContext liloContext,
+        final @NotNull SchemaSource schemaSource,
+        final @NotNull GraphQLQuery query,
+        final @Nullable Object context) {
       return runQuery(this.graphQL, query.getQuery());
     }
 

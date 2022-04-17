@@ -159,21 +159,8 @@ public class LiloContext {
 
   GraphQL getGraphQL(final ExecutionInput executionInput) {
 
-    final Object localContext = executionInput == null ? null : executionInput.getLocalContext();
-
     if (this.graphQL == null) {
-      final Map<String, ProcessedSchemaSource> sourceMapClone =
-          this.sourceMap.values().stream()
-              .map(
-                  ps -> {
-                    if (ps.schema == null) {
-                      return this.processSource(ps.schemaSource, localContext);
-                    }
-
-                    return ps;
-                  })
-              .collect(Collectors.toMap(ps -> ps.schemaSource.getName(), ps -> ps));
-
+      final var sourceMapClone = this.processInvalidatedSources(executionInput);
       this.graphQL = this.createGraphQL(sourceMapClone);
       this.sourceMap = sourceMapClone;
     }
@@ -260,35 +247,46 @@ public class LiloContext {
     return graphQLResult.data.values().iterator().next();
   }
 
-  private ProcessedSchemaSource processSource(
-      final SchemaSource schemaSource, final Object context) {
+  private Map<String, ProcessedSchemaSource> processInvalidatedSources(
+      final ExecutionInput executionInput) {
 
-    final var introspectionResponse =
-        schemaSource
-            .getIntrospectionRetriever()
-            .get(this, schemaSource, INTROSPECTION_REQUEST, context);
+    final Object localContext = executionInput == null ? null : executionInput.getLocalContext();
 
-    final var introspectionResult = toMap(introspectionResponse);
-    final var data = getMap(introspectionResult, "data");
-    final var schema = getMap(data, "__schema");
-    final var parser = new SchemaParser();
-    final var schemaDoc = new IntrospectionResultToSchema().createSchemaDefinition(data);
-    final var typeDefinitionRegistry = parser.buildRegistry(schemaDoc);
-
-    return new ProcessedSchemaSource(schemaSource, schema, typeDefinitionRegistry);
+    return this.sourceMap.values().stream()
+        .peek(
+            ps -> {
+              if (ps.isNotProcessed()) {
+                ps.process(localContext);
+              }
+            })
+        .collect(Collectors.toMap(ps -> ps.schemaSource.getName(), ps -> ps));
   }
 
-  private static class ProcessedSchemaSource {
+  private static final class GraphQLResult {
+
+    private Map<String, Object> data;
+    private List<LiloGraphQLError> errors;
+
+    public Map<String, Object> getData() {
+      return this.data;
+    }
+
+    public List<LiloGraphQLError> getErrors() {
+      return this.errors;
+    }
+  }
+
+  private final class ProcessedSchemaSource {
 
     private final SchemaSource schemaSource;
     private Map<String, Object> schema;
     private TypeDefinitionRegistry typeDefinitionRegistry;
 
-    ProcessedSchemaSource(final SchemaSource schemaSource) {
+    private ProcessedSchemaSource(final SchemaSource schemaSource) {
       this.schemaSource = schemaSource;
     }
 
-    ProcessedSchemaSource(
+    private ProcessedSchemaSource(
         final SchemaSource schemaSource,
         final Map<String, Object> schema,
         final TypeDefinitionRegistry typeDefinitionRegistry) {
@@ -298,25 +296,29 @@ public class LiloContext {
       this.typeDefinitionRegistry = typeDefinitionRegistry;
     }
 
-    void invalidate() {
+    private void invalidate() {
       this.schema = null;
     }
-  }
 
-  private static final class GraphQLResult {
-
-    private Map<String, Object> data;
-    private List<LiloGraphQLError> errors;
-
-    @SuppressWarnings("checkstyle:WhitespaceAround")
-    private GraphQLResult() {}
-
-    public Map<String, Object> getData() {
-      return this.data;
+    private boolean isNotProcessed() {
+      return this.schema == null;
     }
 
-    public List<LiloGraphQLError> getErrors() {
-      return this.errors;
+    private void process(final Object localContext) {
+
+      final var introspectionResponse =
+          this.schemaSource
+              .getIntrospectionRetriever()
+              .get(LiloContext.this, this.schemaSource, INTROSPECTION_REQUEST, localContext);
+
+      final var introspectionResult = toMap(introspectionResponse);
+      final var data = getMap(introspectionResult, "data");
+      final var schema = getMap(data, "__schema");
+      final var parser = new SchemaParser();
+      final var schemaDoc = new IntrospectionResultToSchema().createSchemaDefinition(data);
+
+      this.typeDefinitionRegistry = parser.buildRegistry(schemaDoc);
+      this.schema = schema;
     }
   }
 }

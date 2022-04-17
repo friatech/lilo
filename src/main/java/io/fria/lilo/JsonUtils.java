@@ -6,6 +6,9 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public final class JsonUtils {
 
@@ -14,42 +17,51 @@ public final class JsonUtils {
   @SuppressWarnings("checkstyle:WhitespaceAround")
   private JsonUtils() {}
 
-  public static List<Map<String, Object>> getList(final Map<String, Object> map, final String key) {
-    return (List<Map<String, Object>>) map.get(key);
+  @Nullable
+  public static List<Map<String, Object>> getList(
+      @NotNull final Map<String, Object> map, @NotNull final String key) {
+    return (List<Map<String, Object>>) Objects.requireNonNull(map).get(Objects.requireNonNull(key));
   }
 
-  public static Map<String, Object> getMap(final Map<String, Object> map, final String key) {
-    return (Map<String, Object>) map.get(key);
+  @Nullable
+  public static Map<String, Object> getMap(
+      @NotNull final Map<String, Object> map, @NotNull final String key) {
+    return (Map<String, Object>) Objects.requireNonNull(map).get(Objects.requireNonNull(key));
   }
 
-  public static String getName(final Map<String, Object> map) {
-    return (String) map.get("name");
+  @Nullable
+  public static String getName(@NotNull final Map<String, Object> map) {
+    return getStr(map, "name");
   }
 
-  public static String getStr(final Map<String, Object> map, final String key) {
-    return (String) map.get(key);
+  @Nullable
+  public static String getStr(@NotNull final Map<String, Object> map, @NotNull final String key) {
+    return (String) Objects.requireNonNull(map).get(Objects.requireNonNull(key));
   }
 
+  @Nullable
   @SuppressWarnings("checkstyle:WhitespaceAround")
-  public static Map<String, Object> toMap(final String text) {
+  public static Map<String, Object> toMap(@Nullable final String jsonText) {
 
     try {
-      return OBJECT_MAPPER.readValue(text, new TypeReference<>() {});
+      return OBJECT_MAPPER.readValue(jsonText, new TypeReference<>() {});
     } catch (final JsonProcessingException e) {
       throw new IllegalArgumentException("Deserialization exception", e);
     }
   }
 
-  public static <T> T toObj(final String text, final Class<T> clazz) {
+  @Nullable
+  public static <T> T toObj(@Nullable final String jsonText, final Class<T> clazz) {
 
     try {
-      return OBJECT_MAPPER.readValue(text, clazz);
+      return OBJECT_MAPPER.readValue(jsonText, clazz);
     } catch (final JsonProcessingException e) {
       throw new IllegalArgumentException("Deserialization exception", e);
     }
   }
 
-  public static String toStr(final Object obj) {
+  @NotNull
+  public static String toStr(@Nullable final Object obj) {
 
     try {
       return OBJECT_MAPPER.writeValueAsString(obj);
@@ -58,6 +70,7 @@ public final class JsonUtils {
     }
   }
 
+  @NotNull
   private static ObjectMapper createMapper() {
     final ObjectMapper mapper = new ObjectMapper();
     mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);

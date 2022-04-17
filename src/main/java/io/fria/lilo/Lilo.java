@@ -6,12 +6,14 @@ import graphql.execution.DataFetcherExceptionHandler;
 import io.fria.lilo.error.SourceDataFetcherExceptionHandler;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+import org.jetbrains.annotations.NotNull;
 
 public final class Lilo {
 
   private final LiloContext context;
 
-  private Lilo(final LiloContext context) {
+  private Lilo(@NotNull final LiloContext context) {
     this.context = context;
   }
 
@@ -19,11 +21,13 @@ public final class Lilo {
     return new LiloBuilder();
   }
 
+  @NotNull
   public LiloContext getContext() {
     return this.context;
   }
 
-  public ExecutionResult stitch(final ExecutionInput executionInput) {
+  @NotNull
+  public ExecutionResult stitch(@NotNull final ExecutionInput executionInput) {
 
     if (IntrospectionFetchingMode.FETCH_BEFORE_EVERY_REQUEST
         == this.context.getIntrospectionFetchingMode()) {
@@ -44,11 +48,13 @@ public final class Lilo {
     @SuppressWarnings("checkstyle:WhitespaceAround")
     private LiloBuilder() {}
 
-    public LiloBuilder addSource(final SchemaSource schemaSource) {
-      this.schemaSources.put(schemaSource.getName(), schemaSource);
+    @NotNull
+    public LiloBuilder addSource(@NotNull final SchemaSource schemaSource) {
+      this.schemaSources.put(schemaSource.getName(), Objects.requireNonNull(schemaSource));
       return this;
     }
 
+    @NotNull
     public Lilo build() {
 
       return new Lilo(
@@ -58,14 +64,16 @@ public final class Lilo {
               this.schemaSources.values().toArray(new SchemaSource[0])));
     }
 
+    @NotNull
     public LiloBuilder defaultDataFetcherExceptionHandler(
-        final DataFetcherExceptionHandler defaultDataFetcherExceptionHandler) {
+        @NotNull final DataFetcherExceptionHandler defaultDataFetcherExceptionHandler) {
       this.dataFetcherExceptionHandler = defaultDataFetcherExceptionHandler;
       return this;
     }
 
+    @NotNull
     public LiloBuilder introspectionFetchingMode(
-        final IntrospectionFetchingMode introspectionFetchingMode) {
+        @NotNull final IntrospectionFetchingMode introspectionFetchingMode) {
       this.introspectionFetchingMode = introspectionFetchingMode;
       return this;
     }
