@@ -6,7 +6,6 @@ import graphql.GraphQL;
 import graphql.schema.idl.RuntimeWiring;
 import io.fria.lilo.Lilo;
 import io.fria.lilo.TestUtils;
-import java.io.IOException;
 import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -34,7 +33,7 @@ class MathTest {
   }
 
   @Test
-  void stitchingTest() throws IOException {
+  void stitchingTest() {
 
     // Combined result -----------------------------------------------------
     final ExecutionInput executionInput =
@@ -68,7 +67,7 @@ class MathTest {
   }
 
   @Test
-  void variablesTest() throws IOException {
+  void variablesTest() {
 
     // Combined result -----------------------------------------------------
     final ExecutionInput executionInput =

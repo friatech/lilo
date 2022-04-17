@@ -6,50 +6,75 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-final class JsonUtils {
+public final class JsonUtils {
 
   private static final ObjectMapper OBJECT_MAPPER = createMapper();
 
-  @SuppressWarnings("checkstyle:WhitespaceAround")
-  private JsonUtils() {}
-
-  public static List<Map<String, Object>> getList(final Map<String, Object> map, final String key) {
-    return (List<Map<String, Object>>) map.get(key);
+  private JsonUtils() {
+    // Utility class
   }
 
-  public static Map<String, Object> getMap(final Map<String, Object> map, final String key) {
-    return (Map<String, Object>) map.get(key);
-  }
-
-  public static String getName(final Map<String, Object> map) {
-    return (String) map.get("name");
-  }
-
-  public static String getStr(final Map<String, Object> map, final String key) {
-    return (String) map.get(key);
-  }
-
-  @SuppressWarnings("checkstyle:WhitespaceAround")
-  public static Map<String, Object> toMap(final String text) {
+  public static @NotNull Optional<Map<String, Object>> getMap(
+      @NotNull final Map<String, Object> map, @NotNull final String key) {
 
     try {
-      return OBJECT_MAPPER.readValue(text, new TypeReference<>() {});
+      return Optional.ofNullable((Map<String, Object>) getValue(map, key));
+    } catch (final ClassCastException e) {
+      throw new IllegalArgumentException("Map item is not in map type");
+    }
+  }
+
+  public static @NotNull Optional<List<Map<String, Object>>> getMapList(
+      @NotNull final Map<String, Object> map, @NotNull final String key) {
+
+    try {
+      return Optional.ofNullable((List<Map<String, Object>>) getValue(map, key));
+    } catch (final ClassCastException e) {
+      throw new IllegalArgumentException("Map item is not in list type");
+    }
+  }
+
+  public static @NotNull Optional<String> getName(@NotNull final Map<String, Object> map) {
+    return getStr(map, "name");
+  }
+
+  public static @NotNull Optional<String> getStr(
+      @NotNull final Map<String, Object> map, @NotNull final String key) {
+
+    try {
+      return Optional.ofNullable((String) getValue(map, key));
+    } catch (final ClassCastException e) {
+      throw new IllegalArgumentException("Map item is not in string type");
+    }
+  }
+
+  @SuppressWarnings("checkstyle:WhitespaceAround")
+  public static @NotNull Optional<Map<String, Object>> toMap(@NotNull final String jsonText) {
+
+    try {
+      return Optional.ofNullable(
+          OBJECT_MAPPER.readValue(Objects.requireNonNull(jsonText), new TypeReference<>() {}));
     } catch (final JsonProcessingException e) {
       throw new IllegalArgumentException("Deserialization exception", e);
     }
   }
 
-  public static <T> T toObj(final String text, final Class<T> clazz) {
+  public static <T> @NotNull Optional<T> toObj(
+      @NotNull final String jsonText, final Class<T> clazz) {
 
     try {
-      return OBJECT_MAPPER.readValue(text, clazz);
+      return Optional.ofNullable(OBJECT_MAPPER.readValue(Objects.requireNonNull(jsonText), clazz));
     } catch (final JsonProcessingException e) {
       throw new IllegalArgumentException("Deserialization exception", e);
     }
   }
 
-  public static String toStr(final Object obj) {
+  public static @NotNull String toStr(@Nullable final Object obj) {
 
     try {
       return OBJECT_MAPPER.writeValueAsString(obj);
@@ -58,9 +83,14 @@ final class JsonUtils {
     }
   }
 
-  private static ObjectMapper createMapper() {
+  private static @NotNull ObjectMapper createMapper() {
     final ObjectMapper mapper = new ObjectMapper();
     mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     return mapper;
+  }
+
+  private static @Nullable Object getValue(
+      @NotNull final Map<String, Object> map, @NotNull final String key) {
+    return Objects.requireNonNull(map).get(Objects.requireNonNull(key));
   }
 }

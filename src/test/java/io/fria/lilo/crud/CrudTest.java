@@ -93,7 +93,7 @@ class CrudTest {
   }
 
   @Test
-  void stitchingMutationTest() throws IOException {
+  void stitchingMutationTest() {
 
     // Combined result -----------------------------------------------------
     final ExecutionInput executionInput =
@@ -123,7 +123,7 @@ class CrudTest {
   }
 
   @Test
-  void stitchingQueryTest() throws IOException {
+  void stitchingQueryTest() {
 
     // Combined result -----------------------------------------------------
     final ExecutionInput executionInput =

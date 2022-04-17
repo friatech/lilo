@@ -1,5 +1,8 @@
 package io.fria.lilo;
 
+import java.util.Objects;
+import org.jetbrains.annotations.NotNull;
+
 public class SchemaSource {
 
   private final String name;
@@ -7,28 +10,33 @@ public class SchemaSource {
   private final QueryRetriever queryRetriever;
 
   SchemaSource(
-      final String name,
-      final IntrospectionRetriever introspectionRetriever,
-      final QueryRetriever queryRetriever) {
-    this.name = name;
-    this.introspectionRetriever = introspectionRetriever;
-    this.queryRetriever = queryRetriever;
+      @NotNull final String name,
+      @NotNull final IntrospectionRetriever introspectionRetriever,
+      @NotNull final QueryRetriever queryRetriever) {
+    this.name = Objects.requireNonNull(name);
+    this.introspectionRetriever = Objects.requireNonNull(introspectionRetriever);
+    this.queryRetriever = Objects.requireNonNull(queryRetriever);
   }
 
-  public static SchemaSourceBuilder builder() {
+  public static @NotNull SchemaSourceBuilder builder() {
     return new SchemaSourceBuilder();
   }
 
-  public IntrospectionRetriever getIntrospectionRetriever() {
+  public @NotNull IntrospectionRetriever getIntrospectionRetriever() {
     return this.introspectionRetriever;
   }
 
-  public String getName() {
+  public @NotNull String getName() {
     return this.name;
   }
 
-  public QueryRetriever getQueryRetriever() {
+  public @NotNull QueryRetriever getQueryRetriever() {
     return this.queryRetriever;
+  }
+
+  @Override
+  public @NotNull String toString() {
+    return "SchemaSource{" + "name='" + this.name + '\'' + '}';
   }
 
   public static final class SchemaSourceBuilder {
@@ -36,34 +44,25 @@ public class SchemaSource {
     private IntrospectionRetriever introspectionRetriever;
     private QueryRetriever queryRetriever;
 
-    public SchemaSource build() {
+    public @NotNull SchemaSource build() {
       return new SchemaSource(this.name, this.introspectionRetriever, this.queryRetriever);
     }
 
-    public SchemaSourceBuilder introspectionRetriever(
-        final IntrospectionRetriever introspectionRetrieverParam) {
-      this.introspectionRetriever = introspectionRetrieverParam;
+    public @NotNull SchemaSourceBuilder introspectionRetriever(
+        @NotNull final IntrospectionRetriever introspectionRetrieverParam) {
+      this.introspectionRetriever = Objects.requireNonNull(introspectionRetrieverParam);
       return this;
     }
 
-    public SchemaSourceBuilder name(final String nameParam) {
-      this.name = nameParam;
+    public @NotNull SchemaSourceBuilder name(@NotNull final String nameParam) {
+      this.name = Objects.requireNonNull(nameParam);
       return this;
     }
 
-    public SchemaSourceBuilder queryRetriever(final QueryRetriever queryRetrieverParam) {
-      this.queryRetriever = queryRetrieverParam;
+    public @NotNull SchemaSourceBuilder queryRetriever(
+        @NotNull final QueryRetriever queryRetrieverParam) {
+      this.queryRetriever = Objects.requireNonNull(queryRetrieverParam);
       return this;
-    }
-
-    public String toString() {
-      return "SchemaSource.SchemaSourceBuilder(name="
-          + this.name
-          + ", introspectionRetriever="
-          + this.introspectionRetriever
-          + ", queryRetriever="
-          + this.queryRetriever
-          + ")";
     }
   }
 }

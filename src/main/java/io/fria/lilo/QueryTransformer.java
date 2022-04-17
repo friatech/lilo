@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import static io.fria.lilo.JsonUtils.toStr;
 
 final class QueryTransformer {
@@ -28,7 +30,7 @@ final class QueryTransformer {
     // Utility class
   }
 
-  static GraphQLQuery extractQuery(final DataFetchingEnvironment environment) {
+  static @NotNull GraphQLQuery extractQuery(@NotNull final DataFetchingEnvironment environment) {
 
     final var queryBuilder = GraphQLQuery.builder();
     transformDocument(environment, queryBuilder);
@@ -37,9 +39,9 @@ final class QueryTransformer {
   }
 
   private static void findUsedItems(
-      final Node<?> node,
-      final Set<String> usedReferenceNames,
-      final Set<String> usedFragmentNames) {
+      @NotNull final Node<?> node,
+      @NotNull final Set<String> usedReferenceNames,
+      @NotNull final Set<String> usedFragmentNames) {
 
     if (node instanceof FragmentSpread) {
       usedFragmentNames.add(((FragmentSpread) node).getName());
@@ -52,14 +54,15 @@ final class QueryTransformer {
   }
 
   private static void findUsedItemsInChildren(
-      final Node<?> node,
-      final Set<String> usedReferenceNames,
-      final Set<String> usedFragmentNames) {
+      @NotNull final Node<?> node,
+      @NotNull final Set<String> usedReferenceNames,
+      @NotNull final Set<String> usedFragmentNames) {
 
     node.getChildren().forEach(n -> findUsedItems(n, usedReferenceNames, usedFragmentNames));
   }
 
-  private static FragmentDefinition removeAlias(final FragmentDefinition fragment) {
+  private static @NotNull FragmentDefinition removeAlias(
+      @NotNull final FragmentDefinition fragment) {
 
     final SelectionSet selectionSet = fragment.getSelectionSet();
 
@@ -84,7 +87,7 @@ final class QueryTransformer {
             builder.selectionSet(SelectionSet.newSelectionSet(newSelections).build()).build());
   }
 
-  private static Field removeAlias(final Field field) {
+  private static @NotNull Field removeAlias(@NotNull final Field field) {
 
     final List<Selection> newSelections = removeAliasInChildren(field);
 
@@ -101,7 +104,7 @@ final class QueryTransformer {
         });
   }
 
-  private static List<Selection> removeAliasInChildren(final Field field) {
+  private static @Nullable List<Selection> removeAliasInChildren(@NotNull final Field field) {
 
     final SelectionSet selectionSet = field.getSelectionSet();
 
@@ -124,11 +127,11 @@ final class QueryTransformer {
     return newSelections;
   }
 
-  private static List<Definition> transformDefinitions(
-      final DataFetchingEnvironment environment,
-      final List<Definition> originalDefinitions,
-      final GraphQLRequest.GraphQLRequestBuilder requestBuilder,
-      final GraphQLQuery.GraphQLQueryBuilder queryBuilder) {
+  private static @NotNull List<Definition> transformDefinitions(
+      @NotNull final DataFetchingEnvironment environment,
+      @NotNull final List<Definition> originalDefinitions,
+      @NotNull final GraphQLRequest.GraphQLRequestBuilder requestBuilder,
+      @NotNull final GraphQLQuery.GraphQLQueryBuilder queryBuilder) {
 
     final var operationDefinitionOptional =
         originalDefinitions.stream().filter(d -> d instanceof OperationDefinition).findFirst();
@@ -176,9 +179,9 @@ final class QueryTransformer {
     return newDefinitions;
   }
 
-  private static Document transformDocument(
-      final DataFetchingEnvironment environment,
-      final GraphQLQuery.GraphQLQueryBuilder queryBuilder) {
+  private static @NotNull Document transformDocument(
+      @NotNull final DataFetchingEnvironment environment,
+      @NotNull final GraphQLQuery.GraphQLQueryBuilder queryBuilder) {
 
     final var originalDocument = environment.getDocument();
     final var definitions = originalDocument.getDefinitions();
@@ -200,8 +203,9 @@ final class QueryTransformer {
     return newDocument;
   }
 
-  private static List<Definition<?>> transformFragmentDefinitions(
-      final List<Definition> originalDefinitions, final Set<String> usedFragmentNames) {
+  private static @NotNull List<Definition<?>> transformFragmentDefinitions(
+      @NotNull final List<Definition> originalDefinitions,
+      @NotNull final Set<String> usedFragmentNames) {
 
     return originalDefinitions.stream()
         .filter(d -> d instanceof FragmentDefinition)
@@ -211,11 +215,11 @@ final class QueryTransformer {
         .collect(Collectors.toList());
   }
 
-  private static Definition<?> transformOperationDefinition(
-      final OperationDefinition operationDefinition,
-      final Set<String> usedReferenceNames,
-      final Field queryNode,
-      final GraphQLQuery.GraphQLQueryBuilder queryBuilder) {
+  private static @NotNull Definition<?> transformOperationDefinition(
+      @NotNull final OperationDefinition operationDefinition,
+      @NotNull final Set<String> usedReferenceNames,
+      @NotNull final Field queryNode,
+      @NotNull final GraphQLQuery.GraphQLQueryBuilder queryBuilder) {
 
     final List<VariableDefinition> newVariables =
         operationDefinition.getVariableDefinitions().stream()

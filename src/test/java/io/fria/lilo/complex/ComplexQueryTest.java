@@ -586,47 +586,57 @@ class ComplexQueryTest {
                                 List.of(
                                     UUID.fromString("11111111-1111-1111-1111-111111111111"))))))));
     variables.put("s1inputParam03", null);
-    variables.put("s1inputParam04", List.of(
-      Map.of(
-        "someString",
-        "inputString",
-        "children",
+    variables.put(
+        "s1inputParam04",
         List.of(
-          Map.of(
-            "stringList", List.of("string"),
-            "intList", List.of(1),
-            "floatList", List.of(1f),
-            "booleanList", List.of(true),
-            "idList",
-            List.of(
-              UUID.fromString("11111111-1111-1111-1111-111111111111")
-                .toString()),
-            "enumList", List.of(Enum1.ENUM_1_VALUE_A),
-            "enumCommonList", List.of(EnumCommon.ENUM_COMMON_VALUE_A),
-            "scalarList",
-            List.of(UUID.fromString("11111111-1111-1111-1111-111111111111")),
-            "scalarCommonList",
-            List.of(
-              UUID.fromString("11111111-1111-1111-1111-111111111111")))))));
+            Map.of(
+                "someString",
+                "inputString",
+                "children",
+                List.of(
+                    Map.of(
+                        "stringList",
+                        List.of("string"),
+                        "intList",
+                        List.of(1),
+                        "floatList",
+                        List.of(1f),
+                        "booleanList",
+                        List.of(true),
+                        "idList",
+                        List.of(UUID.fromString("11111111-1111-1111-1111-111111111111").toString()),
+                        "enumList",
+                        List.of(Enum1.ENUM_1_VALUE_A),
+                        "enumCommonList",
+                        List.of(EnumCommon.ENUM_COMMON_VALUE_A),
+                        "scalarList",
+                        List.of(UUID.fromString("11111111-1111-1111-1111-111111111111")),
+                        "scalarCommonList",
+                        List.of(UUID.fromString("11111111-1111-1111-1111-111111111111")))))));
     variables.put("s1inputParam05", "someString");
     variables.put("s1inputParam06", "someOtherString");
-    variables.put("s1inputParam07", List.of(
-      Map.of(
-        "stringList", List.of("string"),
-        "intList", List.of(1),
-        "floatList", List.of(1f),
-        "booleanList", List.of(true),
-        "idList",
+    variables.put(
+        "s1inputParam07",
         List.of(
-          UUID.fromString("11111111-1111-1111-1111-111111111111")
-            .toString()),
-        "enumList", List.of(Enum1.ENUM_1_VALUE_A),
-        "enumCommonList", List.of(EnumCommon.ENUM_COMMON_VALUE_A),
-        "scalarList",
-        List.of(UUID.fromString("11111111-1111-1111-1111-111111111111")),
-        "scalarCommonList",
-        List.of(
-          UUID.fromString("11111111-1111-1111-1111-111111111111")))));
+            Map.of(
+                "stringList",
+                List.of("string"),
+                "intList",
+                List.of(1),
+                "floatList",
+                List.of(1f),
+                "booleanList",
+                List.of(true),
+                "idList",
+                List.of(UUID.fromString("11111111-1111-1111-1111-111111111111").toString()),
+                "enumList",
+                List.of(Enum1.ENUM_1_VALUE_A),
+                "enumCommonList",
+                List.of(EnumCommon.ENUM_COMMON_VALUE_A),
+                "scalarList",
+                List.of(UUID.fromString("11111111-1111-1111-1111-111111111111")),
+                "scalarCommonList",
+                List.of(UUID.fromString("11111111-1111-1111-1111-111111111111")))));
     variables.put("s2stringParam01", "String01");
     variables.put("s2stringParam02", null);
     variables.put("s2stringParam03", "String03");
@@ -764,47 +774,57 @@ class ComplexQueryTest {
                                     UUID.fromString("11111111-1111-1111-1111-111111111111"))))))));
 
     variables.put("s2inputParam03", null);
-    variables.put("s2inputParam04", List.of(
-      Map.of(
-        "someString",
-        "inputString",
-        "children",
+    variables.put(
+        "s2inputParam04",
         List.of(
-          Map.of(
-            "stringList", List.of("string"),
-            "intList", List.of(1),
-            "floatList", List.of(1f),
-            "booleanList", List.of(true),
-            "idList",
-            List.of(
-              UUID.fromString("11111111-1111-1111-1111-111111111111")
-                .toString()),
-            "enumList", List.of(Enum2.ENUM_2_VALUE_A),
-            "enumCommonList", List.of(EnumCommon.ENUM_COMMON_VALUE_A),
-            "scalarList",
-            List.of(UUID.fromString("11111111-1111-1111-1111-111111111111")),
-            "scalarCommonList",
-            List.of(
-              UUID.fromString("11111111-1111-1111-1111-111111111111")))))));
+            Map.of(
+                "someString",
+                "inputString",
+                "children",
+                List.of(
+                    Map.of(
+                        "stringList",
+                        List.of("string"),
+                        "intList",
+                        List.of(1),
+                        "floatList",
+                        List.of(1f),
+                        "booleanList",
+                        List.of(true),
+                        "idList",
+                        List.of(UUID.fromString("11111111-1111-1111-1111-111111111111").toString()),
+                        "enumList",
+                        List.of(Enum2.ENUM_2_VALUE_A),
+                        "enumCommonList",
+                        List.of(EnumCommon.ENUM_COMMON_VALUE_A),
+                        "scalarList",
+                        List.of(UUID.fromString("11111111-1111-1111-1111-111111111111")),
+                        "scalarCommonList",
+                        List.of(UUID.fromString("11111111-1111-1111-1111-111111111111")))))));
     variables.put("s2inputParam05", "someString");
     variables.put("s2inputParam06", "someOtherString");
-    variables.put("s2inputParam07", List.of(
-      Map.of(
-        "stringList", List.of("string"),
-        "intList", List.of(1),
-        "floatList", List.of(1f),
-        "booleanList", List.of(true),
-        "idList",
+    variables.put(
+        "s2inputParam07",
         List.of(
-          UUID.fromString("11111111-1111-1111-1111-111111111111")
-            .toString()),
-        "enumList", List.of(Enum2.ENUM_2_VALUE_A),
-        "enumCommonList", List.of(EnumCommon.ENUM_COMMON_VALUE_A),
-        "scalarList",
-        List.of(UUID.fromString("11111111-1111-1111-1111-111111111111")),
-        "scalarCommonList",
-        List.of(
-          UUID.fromString("11111111-1111-1111-1111-111111111111")))));
+            Map.of(
+                "stringList",
+                List.of("string"),
+                "intList",
+                List.of(1),
+                "floatList",
+                List.of(1f),
+                "booleanList",
+                List.of(true),
+                "idList",
+                List.of(UUID.fromString("11111111-1111-1111-1111-111111111111").toString()),
+                "enumList",
+                List.of(Enum2.ENUM_2_VALUE_A),
+                "enumCommonList",
+                List.of(EnumCommon.ENUM_COMMON_VALUE_A),
+                "scalarList",
+                List.of(UUID.fromString("11111111-1111-1111-1111-111111111111")),
+                "scalarCommonList",
+                List.of(UUID.fromString("11111111-1111-1111-1111-111111111111")))));
     variables.put("includeGrandChildren1", true);
     variables.put("includeGrandChildren2", false);
     variables.put("includeCommonString", true);

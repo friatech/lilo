@@ -6,7 +6,6 @@ import graphql.GraphQL;
 import graphql.schema.idl.RuntimeWiring;
 import io.fria.lilo.Lilo;
 import io.fria.lilo.TestUtils;
-import java.io.IOException;
 import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -30,7 +29,7 @@ class GreetingsTest {
   }
 
   @Test
-  void stitchingTest() throws IOException {
+  void stitchingTest() {
 
     // Combined result -----------------------------------------------------
     final String param = "test context value";

@@ -3,6 +3,8 @@ package io.fria.lilo;
 import graphql.ExecutionInput;
 import java.util.Map;
 import java.util.Objects;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class GraphQLRequest {
 
@@ -114,8 +116,10 @@ public class GraphQLRequest {
   private Map<String, Object> variables;
 
   public GraphQLRequest(
-      final String query, final String operationName, final Map<String, Object> variables) {
-    this.query = query;
+      @NotNull final String query,
+      @Nullable final String operationName,
+      @Nullable final Map<String, Object> variables) {
+    this.query = Objects.requireNonNull(query);
     this.operationName = operationName;
     this.variables = variables;
   }
@@ -124,75 +128,58 @@ public class GraphQLRequest {
     // Default constructor
   }
 
-  public static GraphQLRequestBuilder builder() {
+  public static @NotNull GraphQLRequestBuilder builder() {
     return new GraphQLRequestBuilder();
   }
 
-  public boolean equals(final Object o) {
+  @Override
+  public boolean equals(@Nullable final Object o) {
 
-    if (o == this) {
+    if (this == o) {
       return true;
     }
 
-    if (!(o instanceof GraphQLRequest)) {
+    if (o == null || this.getClass() != o.getClass()) {
       return false;
     }
 
-    final GraphQLRequest other = (GraphQLRequest) o;
+    final GraphQLRequest that = (GraphQLRequest) o;
 
-    if (!other.canEqual(this)) {
-      return false;
-    }
-
-    final Object thisQuery = this.getQuery();
-    final Object otherQuery = other.getQuery();
-
-    if (!Objects.equals(thisQuery, otherQuery)) {
-      return false;
-    }
-
-    final Object thisOperationName = this.getOperationName();
-    final Object otherOperationName = other.getOperationName();
-
-    if (!Objects.equals(thisOperationName, otherOperationName)) {
-      return false;
-    }
-
-    final Object thisVariables = this.getVariables();
-    final Object otherVariables = other.getVariables();
-
-    return Objects.equals(thisVariables, otherVariables);
+    return this.query.equals(that.query)
+        && Objects.equals(this.operationName, that.operationName)
+        && Objects.equals(this.variables, that.variables);
   }
 
-  public String getOperationName() {
+  public @Nullable String getOperationName() {
     return this.operationName;
   }
 
-  public void setOperationName(final String operationName) {
+  public void setOperationName(@Nullable final String operationName) {
     this.operationName = operationName;
   }
 
-  public String getQuery() {
+  public @NotNull String getQuery() {
     return this.query;
   }
 
-  public void setQuery(final String query) {
-    this.query = query;
+  public void setQuery(@NotNull final String query) {
+    this.query = Objects.requireNonNull(query);
   }
 
-  public Map<String, Object> getVariables() {
+  public @Nullable Map<String, Object> getVariables() {
     return this.variables;
   }
 
-  public void setVariables(final Map<String, Object> variables) {
+  public void setVariables(@Nullable final Map<String, Object> variables) {
     this.variables = variables;
   }
 
+  @Override
   public int hashCode() {
     return Objects.hash(this.query, this.operationName, this.variables);
   }
 
-  public ExecutionInput toExecutionInput(final Object localContext) {
+  public @NotNull ExecutionInput toExecutionInput(@Nullable final Object localContext) {
 
     final ExecutionInput.Builder builder = ExecutionInput.newExecutionInput().query(this.query);
 
@@ -211,12 +198,12 @@ public class GraphQLRequest {
     return builder.build();
   }
 
-  public ExecutionInput toExecutionInput() {
-
+  public @NotNull ExecutionInput toExecutionInput() {
     return this.toExecutionInput(null);
   }
 
-  public String toString() {
+  @Override
+  public @NotNull String toString() {
     return "GraphQLRequest(query="
         + this.getQuery()
         + ", operationName="
@@ -224,10 +211,6 @@ public class GraphQLRequest {
         + ", variables="
         + this.getVariables()
         + ")";
-  }
-
-  protected boolean canEqual(final Object other) {
-    return other instanceof GraphQLRequest;
   }
 
   public static final class GraphQLRequestBuilder {
@@ -240,31 +223,22 @@ public class GraphQLRequest {
       // Private constructor
     }
 
-    public GraphQLRequest build() {
+    public @NotNull GraphQLRequest build() {
       return new GraphQLRequest(this.query, this.operationName, this.variables);
     }
 
-    public GraphQLRequestBuilder operationName(final String operationNameParam) {
+    public @NotNull GraphQLRequestBuilder operationName(@Nullable final String operationNameParam) {
       this.operationName = operationNameParam;
       return this;
     }
 
-    public GraphQLRequestBuilder query(final String queryParam) {
-      this.query = queryParam;
+    public @NotNull GraphQLRequestBuilder query(@NotNull final String queryParam) {
+      this.query = Objects.requireNonNull(queryParam);
       return this;
     }
 
-    public String toString() {
-      return "GraphQLRequest.GraphQLRequestBuilder(query="
-          + this.query
-          + ", operationName="
-          + this.operationName
-          + ", variables="
-          + this.variables
-          + ")";
-    }
-
-    public GraphQLRequestBuilder variables(final Map<String, Object> variablesParam) {
+    public @NotNull GraphQLRequestBuilder variables(
+        @Nullable final Map<String, Object> variablesParam) {
       this.variables = variablesParam;
       return this;
     }

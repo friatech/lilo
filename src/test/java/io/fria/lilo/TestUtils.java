@@ -7,25 +7,29 @@ import graphql.schema.idl.SchemaParser;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import static io.fria.lilo.JsonUtils.toObj;
 import static io.fria.lilo.JsonUtils.toStr;
 
 public final class TestUtils {
 
-  private TestUtils() {}
+  private TestUtils() {
+    // Utility class
+  }
 
-  public static GraphQL createGraphQL(
-      final String schemaDefinitionPath, final RuntimeWiring runtimeWiring) throws IOException {
+  public static @NotNull GraphQL createGraphQL(
+      final String schemaDefinitionPath, final RuntimeWiring runtimeWiring) {
 
     final var schemaDefinitionText = loadResource(schemaDefinitionPath);
     final var typeRegistry = new SchemaParser().parse(schemaDefinitionText);
-    final var schemaGenerator = new SchemaGenerator();
-    final var graphQLSchema = schemaGenerator.makeExecutableSchema(typeRegistry, runtimeWiring);
+    final var graphQLSchema =
+        new SchemaGenerator().makeExecutableSchema(typeRegistry, runtimeWiring);
 
     return GraphQL.newGraphQL(graphQLSchema).build();
   }
 
-  public static SchemaSource createSchemaSource(
+  public static @NotNull SchemaSource createSchemaSource(
       final String schemaName,
       final IntrospectionRetriever introspectionRetriever,
       final QueryRetriever queryRetriever) {
@@ -37,7 +41,7 @@ public final class TestUtils {
         .build();
   }
 
-  public static String loadResource(final String path) {
+  public static @NotNull String loadResource(@NotNull final String path) {
 
     try {
       final InputStream stream = TestUtils.class.getResourceAsStream(path);
@@ -52,12 +56,20 @@ public final class TestUtils {
     throw new IllegalArgumentException(String.format("Resource %s not found", path));
   }
 
-  public static String runQuery(final GraphQL graphQL, final String query) {
-    return runQuery(graphQL, toObj(query, GraphQLRequest.class));
+  private static @NotNull String runQuery(
+      @NotNull final GraphQL graphQL, @NotNull final String query) {
+
+    final var graphQLRequestOptional = toObj(query, GraphQLRequest.class);
+
+    if (graphQLRequestOptional.isEmpty()) {
+      throw new IllegalArgumentException("Query request is invalid: Empty query");
+    }
+
+    return runQuery(graphQL, graphQLRequestOptional.get());
   }
 
-  public static String runQuery(final GraphQL graphQL, final GraphQLRequest graphQLRequest) {
-
+  private static @NotNull String runQuery(
+      @NotNull final GraphQL graphQL, @NotNull final GraphQLRequest graphQLRequest) {
     return toStr(graphQL.execute(graphQLRequest.toExecutionInput()));
   }
 
@@ -65,20 +77,20 @@ public final class TestUtils {
 
     private GraphQL graphQL;
 
-    public TestIntrospectionRetriever(final GraphQL graphQL) {
+    public TestIntrospectionRetriever(@NotNull final GraphQL graphQL) {
       this.graphQL = graphQL;
     }
 
     @Override
-    public String get(
-        final LiloContext liloContext,
-        final SchemaSource schemaSource,
-        final String query,
-        final Object context) {
+    public @NotNull String get(
+        final @NotNull LiloContext liloContext,
+        final @NotNull SchemaSource schemaSource,
+        final @NotNull String query,
+        final @Nullable Object localContext) {
       return runQuery(this.graphQL, query);
     }
 
-    public void setGraphQL(final GraphQL graphQL) {
+    public void setGraphQL(@NotNull final GraphQL graphQL) {
       this.graphQL = graphQL;
     }
   }
@@ -87,20 +99,20 @@ public final class TestUtils {
 
     private GraphQL graphQL;
 
-    public TestQueryRetriever(final GraphQL graphQL) {
+    public TestQueryRetriever(@NotNull final GraphQL graphQL) {
       this.graphQL = graphQL;
     }
 
     @Override
-    public String get(
-        final LiloContext liloContext,
-        final SchemaSource schemaSource,
-        final GraphQLQuery query,
-        final Object context) {
+    public @NotNull String get(
+        final @NotNull LiloContext liloContext,
+        final @NotNull SchemaSource schemaSource,
+        final @NotNull GraphQLQuery query,
+        final @Nullable Object context) {
       return runQuery(this.graphQL, query.getQuery());
     }
 
-    public void setGraphQL(final GraphQL graphQL) {
+    public void setGraphQL(@NotNull final GraphQL graphQL) {
       this.graphQL = graphQL;
     }
   }

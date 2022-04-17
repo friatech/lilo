@@ -5,12 +5,13 @@ import graphql.execution.DataFetcherExceptionHandlerParameters;
 import graphql.execution.DataFetcherExceptionHandlerResult;
 import graphql.execution.SimpleDataFetcherExceptionHandler;
 import java.util.List;
+import org.jetbrains.annotations.NotNull;
 
 public class SourceDataFetcherExceptionHandler extends SimpleDataFetcherExceptionHandler {
 
   @Override
-  public DataFetcherExceptionHandlerResult onException(
-      final DataFetcherExceptionHandlerParameters handlerParameters) {
+  public @NotNull DataFetcherExceptionHandlerResult onException(
+      @NotNull final DataFetcherExceptionHandlerParameters handlerParameters) {
 
     final Throwable exception = handlerParameters.getException();
 

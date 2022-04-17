@@ -1,6 +1,7 @@
 package io.fria.lilo.error;
 
 import graphql.language.SourceLocation;
+import org.jetbrains.annotations.Nullable;
 
 public class ErrorSourceLocation extends SourceLocation {
 
@@ -12,7 +13,7 @@ public class ErrorSourceLocation extends SourceLocation {
     super(line, column);
   }
 
-  public ErrorSourceLocation(final int line, final int column, final String sourceName) {
+  public ErrorSourceLocation(final int line, final int column, @Nullable final String sourceName) {
     super(line, column, sourceName);
   }
 
@@ -32,7 +33,7 @@ public class ErrorSourceLocation extends SourceLocation {
   }
 
   @Override
-  public String getSourceName() {
+  public @Nullable String getSourceName() {
     return super.getSourceName();
   }
 

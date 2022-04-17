@@ -1,4 +1,4 @@
-package io.fria.lilo.dynamicloading;
+package io.fria.lilo.dynamic_loading;
 
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
@@ -7,7 +7,6 @@ import graphql.schema.idl.RuntimeWiring;
 import io.fria.lilo.GraphQLRequest;
 import io.fria.lilo.Lilo;
 import io.fria.lilo.TestUtils;
-import java.io.IOException;
 import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -32,7 +31,7 @@ class ReloadSchemaTest {
   }
 
   @Test
-  void stitchingTest() throws IOException {
+  void stitchingTest() {
 
     Map<String, Object> expected =
         Map.of("greeting1", "Hello greeting1", "greeting2", "Hello greeting2");
@@ -61,7 +60,8 @@ class ReloadSchemaTest {
     Assertions.assertEquals(expected, stitchResult.getData());
 
     // After reloading context old expected result won't work.
-    final var project3GraphQL = createGraphQL("/dynamicloading/greeting3.graphqls", createWiring());
+    final var project3GraphQL =
+        createGraphQL("/dynamic_loading/greeting3.graphqls", createWiring());
 
     query2Retriever.setGraphQL(project3GraphQL);
     introspection2Retriever.setGraphQL(project3GraphQL);
