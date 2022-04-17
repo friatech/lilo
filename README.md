@@ -1,6 +1,28 @@
 # Lilo
 Lilo is a super-fast GraphQL stitching library. Project is heavily inspired by Atlassian Braid, but it seems no more maintained.
 
+## Installation
+
+Add dependencies to your `pom.xml` file.
+
+```xml
+<dependencies>
+  ...
+  <dependency>
+    <groupId>io.fria</groupId>
+    <artifactId>lilo</artifactId>
+    <version>22.4.12</version>
+  </dependency>
+  ...
+</dependencies>
+```
+
+If you're using gradle add the dependency to your `build.gradle` file.
+
+```groovy
+implementation 'io.fria:lilo:22.4.12'
+```
+
 ## Basic Usage
 
 ```java
