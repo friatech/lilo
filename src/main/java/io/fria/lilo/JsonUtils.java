@@ -38,38 +38,42 @@ public final class JsonUtils {
     }
   }
 
-  @Nullable
-  public static String getName(@NotNull final Map<String, Object> map) {
+  public static @NotNull Optional<String> getName(@NotNull final Map<String, Object> map) {
     return getStr(map, "name");
   }
 
-  @Nullable
-  public static String getStr(@NotNull final Map<String, Object> map, @NotNull final String key) {
-    return (String) getValue(map, key);
+  public static @NotNull Optional<String> getStr(
+      @NotNull final Map<String, Object> map, @NotNull final String key) {
+
+    try {
+      return Optional.ofNullable((String) getValue(map, key));
+    } catch (final ClassCastException e) {
+      throw new IllegalArgumentException("Map item is not in string type");
+    }
   }
 
   @SuppressWarnings("checkstyle:WhitespaceAround")
-  public static @NotNull Optional<Map<String, Object>> toMap(@Nullable final String jsonText) {
+  public static @NotNull Optional<Map<String, Object>> toMap(@NotNull final String jsonText) {
 
     try {
-      return Optional.ofNullable(OBJECT_MAPPER.readValue(jsonText, new TypeReference<>() {}));
+      return Optional.ofNullable(
+          OBJECT_MAPPER.readValue(Objects.requireNonNull(jsonText), new TypeReference<>() {}));
     } catch (final JsonProcessingException e) {
       throw new IllegalArgumentException("Deserialization exception", e);
     }
   }
 
-  @Nullable
-  public static <T> T toObj(@Nullable final String jsonText, final Class<T> clazz) {
+  public static <T> @NotNull Optional<T> toObj(
+      @NotNull final String jsonText, final Class<T> clazz) {
 
     try {
-      return OBJECT_MAPPER.readValue(jsonText, clazz);
+      return Optional.ofNullable(OBJECT_MAPPER.readValue(Objects.requireNonNull(jsonText), clazz));
     } catch (final JsonProcessingException e) {
       throw new IllegalArgumentException("Deserialization exception", e);
     }
   }
 
-  @NotNull
-  public static String toStr(@Nullable final Object obj) {
+  public static @NotNull String toStr(@Nullable final Object obj) {
 
     try {
       return OBJECT_MAPPER.writeValueAsString(obj);

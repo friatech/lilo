@@ -56,17 +56,93 @@ class JsonUtilsTest {
   }
 
   @Test
-  void getName() {}
+  void getNameWithDifferentType() {
+
+    Assertions.assertThrows(
+        IllegalArgumentException.class, () -> JsonUtils.getName(Map.of("name", 12)));
+  }
 
   @Test
-  void getStr() {}
+  void getNameWithNonNullValue() {
+
+    final Map<String, Object> map = Map.of("name", "someText");
+    final var stringOptional = JsonUtils.getName(map);
+    Assertions.assertTrue(stringOptional.isPresent());
+  }
 
   @Test
-  void toMap() {}
+  void getNameWithNullValue() {
+
+    final Map<String, Object> map = new HashMap<>();
+    final var stringOptional = JsonUtils.getName(map);
+    Assertions.assertTrue(stringOptional.isEmpty());
+  }
 
   @Test
-  void toObj() {}
+  void toMapWithInvalidJson() {
+
+    Assertions.assertThrows(IllegalArgumentException.class, () -> JsonUtils.toMap(""));
+  }
 
   @Test
-  void toStr() {}
+  void toMapWithInvalidType() {
+
+    Assertions.assertThrows(IllegalArgumentException.class, () -> JsonUtils.toMap("[1]"));
+  }
+
+  @Test
+  void toMapWithNullValue() {
+
+    final var mapOptional = JsonUtils.toMap("null");
+    Assertions.assertTrue(mapOptional.isEmpty());
+  }
+
+  @Test
+  void toMapWithValidJson() {
+
+    final var mapOptional = JsonUtils.toMap("{\"someKey\": \"someValue\"}");
+    Assertions.assertTrue(mapOptional.isPresent());
+  }
+
+  @Test
+  void toObjWithInvalidJson() {
+
+    Assertions.assertThrows(
+        IllegalArgumentException.class, () -> JsonUtils.toObj("", String.class));
+  }
+
+  @Test
+  void toObjWithInvalidType() {
+
+    Assertions.assertThrows(
+        IllegalArgumentException.class, () -> JsonUtils.toObj("[1]", Integer.class));
+  }
+
+  @Test
+  void toObjWithNullValue() {
+
+    final var mapOptional = JsonUtils.toObj("null", String.class);
+    Assertions.assertTrue(mapOptional.isEmpty());
+  }
+
+  @Test
+  void toObjWithValidJson() {
+
+    final var mapOptional = JsonUtils.toObj("{\"someKey\": \"someValue\"}", Map.class);
+    Assertions.assertTrue(mapOptional.isPresent());
+  }
+
+  @Test
+  void toStr() {
+
+    final String result = JsonUtils.toStr(Map.of("One", 1));
+    Assertions.assertNotNull(result);
+  }
+
+  @Test
+  void toStrWithNullInput() {
+
+    final String result = JsonUtils.toStr(null);
+    Assertions.assertNotNull(result);
+  }
 }

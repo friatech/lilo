@@ -17,7 +17,7 @@ public final class TestUtils {
   private TestUtils() {}
 
   public static GraphQL createGraphQL(
-      final String schemaDefinitionPath, final RuntimeWiring runtimeWiring) throws IOException {
+      final String schemaDefinitionPath, final RuntimeWiring runtimeWiring) {
 
     final var schemaDefinitionText = loadResource(schemaDefinitionPath);
     final var typeRegistry = new SchemaParser().parse(schemaDefinitionText);
@@ -54,12 +54,18 @@ public final class TestUtils {
     throw new IllegalArgumentException(String.format("Resource %s not found", path));
   }
 
-  public static String runQuery(final GraphQL graphQL, final String query) {
-    return runQuery(graphQL, toObj(query, GraphQLRequest.class));
+  private static String runQuery(@NotNull final GraphQL graphQL, @NotNull final String query) {
+
+    final var graphQLRequestOptional = toObj(query, GraphQLRequest.class);
+
+    if (graphQLRequestOptional.isEmpty()) {
+      throw new IllegalArgumentException("Query request is invalid: Empty query");
+    }
+
+    return runQuery(graphQL, graphQLRequestOptional.get());
   }
 
-  public static String runQuery(final GraphQL graphQL, final GraphQLRequest graphQLRequest) {
-
+  private static String runQuery(final GraphQL graphQL, final GraphQLRequest graphQLRequest) {
     return toStr(graphQL.execute(graphQLRequest.toExecutionInput()));
   }
 

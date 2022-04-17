@@ -3,6 +3,7 @@ package io.fria.lilo;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -20,10 +21,28 @@ final class SchemaMerger {
       @NotNull final Map<String, Object> sourceSchema) {
 
     final var queryTypeOptional = getMap(sourceSchema, "queryType");
-    final var queryTypeName = queryTypeOptional.isEmpty() ? null : getName(queryTypeOptional.get());
+
+    String queryTypeName = null;
+
+    if (queryTypeOptional.isPresent()) {
+      final Optional<String> queryTypeNameOptional = getName(queryTypeOptional.get());
+
+      if (queryTypeNameOptional.isPresent()) {
+        queryTypeName = queryTypeNameOptional.get();
+      }
+    }
+
     final var mutationTypeOptional = getMap(sourceSchema, "mutationType");
-    final var mutationTypeName =
-        mutationTypeOptional.isEmpty() ? null : getName(mutationTypeOptional.get());
+
+    String mutationTypeName = null;
+
+    if (mutationTypeOptional.isPresent()) {
+      final Optional<String> mutationTypeNameOptional = getName(mutationTypeOptional.get());
+
+      if (mutationTypeNameOptional.isPresent()) {
+        mutationTypeName = mutationTypeNameOptional.get();
+      }
+    }
 
     return new OperationTypeNames(queryTypeName, mutationTypeName);
   }
@@ -47,7 +66,13 @@ final class SchemaMerger {
       final Map<String, Object> typeDefinition,
       final Map<String, Map<String, Object>> targetTypeMap) {
 
-    final String typeDefinitionName = getName(typeDefinition);
+    final var typeDefinitionNameOptional = getName(typeDefinition);
+
+    if (typeDefinitionNameOptional.isEmpty()) {
+      return;
+    }
+
+    final String typeDefinitionName = typeDefinitionNameOptional.get();
 
     if (!typeDefinitionName.equals(typeName)) {
       return;
@@ -63,7 +88,10 @@ final class SchemaMerger {
         .orElse(List.of())
         .forEach(
             f -> {
-              if (!targetFields.containsKey(getName(f))) {
+              final Optional<String> fieldNameOptional = getName(f);
+
+              if (fieldNameOptional.isPresent()
+                  && !targetFields.containsKey(fieldNameOptional.get())) {
                 fields.add(f);
               }
             });
@@ -96,7 +124,9 @@ final class SchemaMerger {
         .get()
         .forEach(
             sd -> {
-              if (!targetDirectiveMap.containsKey(getName(sd))) {
+              final Optional<String> sdOptional = getName(sd);
+
+              if (sdOptional.isPresent() && !targetDirectiveMap.containsKey(sdOptional.get())) {
                 targetSchemaDirectives.add(sd);
               }
             });
@@ -131,7 +161,13 @@ final class SchemaMerger {
         .get()
         .forEach(
             st -> {
-              final String typeName = getName(st);
+              final var typeNameOptional = getName(st);
+
+              if (typeNameOptional.isEmpty()) {
+                return;
+              }
+
+              final String typeName = typeNameOptional.get();
 
               if (!targetTypeMap.containsKey(typeName)) {
                 targetSchemaTypes.add(st);

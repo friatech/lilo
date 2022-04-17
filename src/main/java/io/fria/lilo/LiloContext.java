@@ -184,8 +184,13 @@ public class LiloContext {
     final var typeDefinitionRegistry = processedSchemaSource.typeDefinitionRegistry;
     final var typeWiringBuilder = typeRuntimeWiringBuilders.get(typeName);
     final var typeDefinitionOptional = typeDefinitionRegistry.getType(typeName);
-    final var typeDefinition = typeDefinitionOptional.get();
 
+    if (typeDefinitionOptional.isEmpty()) {
+      throw new IllegalArgumentException(
+          String.format("Type definition %s is not found", typeName));
+    }
+
+    final var typeDefinition = typeDefinitionOptional.get();
     final List<FieldDefinition> children = typeDefinition.getChildren();
 
     for (final FieldDefinition field : children) {
@@ -234,8 +239,13 @@ public class LiloContext {
         schemaSource
             .getQueryRetriever()
             .get(this, schemaSource, request, environment.getLocalContext());
-    final var graphQLResult = toObj(queryResult, GraphQLResult.class);
+    final var graphQLResultOptional = toObj(queryResult, GraphQLResult.class);
 
+    if (graphQLResultOptional.isEmpty()) {
+      throw new IllegalArgumentException("DataFetcher caught an empty response");
+    }
+
+    final GraphQLResult graphQLResult = graphQLResultOptional.get();
     final List<? extends GraphQLError> errors = graphQLResult.errors;
 
     if (errors != null && !errors.isEmpty()) {
@@ -282,16 +292,6 @@ public class LiloContext {
 
     private ProcessedSchemaSource(final SchemaSource schemaSource) {
       this.schemaSource = schemaSource;
-    }
-
-    private ProcessedSchemaSource(
-        final SchemaSource schemaSource,
-        final Map<String, Object> schema,
-        final TypeDefinitionRegistry typeDefinitionRegistry) {
-
-      this.schemaSource = schemaSource;
-      this.schema = schema;
-      this.typeDefinitionRegistry = typeDefinitionRegistry;
     }
 
     private void invalidate() {
