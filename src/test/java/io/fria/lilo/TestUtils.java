@@ -14,20 +14,22 @@ import static io.fria.lilo.JsonUtils.toStr;
 
 public final class TestUtils {
 
-  private TestUtils() {}
+  private TestUtils() {
+    // Utility class
+  }
 
-  public static GraphQL createGraphQL(
+  public static @NotNull GraphQL createGraphQL(
       final String schemaDefinitionPath, final RuntimeWiring runtimeWiring) {
 
     final var schemaDefinitionText = loadResource(schemaDefinitionPath);
     final var typeRegistry = new SchemaParser().parse(schemaDefinitionText);
-    final var schemaGenerator = new SchemaGenerator();
-    final var graphQLSchema = schemaGenerator.makeExecutableSchema(typeRegistry, runtimeWiring);
+    final var graphQLSchema =
+        new SchemaGenerator().makeExecutableSchema(typeRegistry, runtimeWiring);
 
     return GraphQL.newGraphQL(graphQLSchema).build();
   }
 
-  public static SchemaSource createSchemaSource(
+  public static @NotNull SchemaSource createSchemaSource(
       final String schemaName,
       final IntrospectionRetriever introspectionRetriever,
       final QueryRetriever queryRetriever) {
@@ -39,7 +41,7 @@ public final class TestUtils {
         .build();
   }
 
-  public static String loadResource(final String path) {
+  public static @NotNull String loadResource(@NotNull final String path) {
 
     try {
       final InputStream stream = TestUtils.class.getResourceAsStream(path);
@@ -54,7 +56,8 @@ public final class TestUtils {
     throw new IllegalArgumentException(String.format("Resource %s not found", path));
   }
 
-  private static String runQuery(@NotNull final GraphQL graphQL, @NotNull final String query) {
+  private static @NotNull String runQuery(
+      @NotNull final GraphQL graphQL, @NotNull final String query) {
 
     final var graphQLRequestOptional = toObj(query, GraphQLRequest.class);
 
@@ -65,7 +68,8 @@ public final class TestUtils {
     return runQuery(graphQL, graphQLRequestOptional.get());
   }
 
-  private static String runQuery(final GraphQL graphQL, final GraphQLRequest graphQLRequest) {
+  private static @NotNull String runQuery(
+      @NotNull final GraphQL graphQL, @NotNull final GraphQLRequest graphQLRequest) {
     return toStr(graphQL.execute(graphQLRequest.toExecutionInput()));
   }
 
@@ -73,7 +77,7 @@ public final class TestUtils {
 
     private GraphQL graphQL;
 
-    public TestIntrospectionRetriever(final GraphQL graphQL) {
+    public TestIntrospectionRetriever(@NotNull final GraphQL graphQL) {
       this.graphQL = graphQL;
     }
 
@@ -86,7 +90,7 @@ public final class TestUtils {
       return runQuery(this.graphQL, query);
     }
 
-    public void setGraphQL(final GraphQL graphQL) {
+    public void setGraphQL(@NotNull final GraphQL graphQL) {
       this.graphQL = graphQL;
     }
   }
@@ -95,7 +99,7 @@ public final class TestUtils {
 
     private GraphQL graphQL;
 
-    public TestQueryRetriever(final GraphQL graphQL) {
+    public TestQueryRetriever(@NotNull final GraphQL graphQL) {
       this.graphQL = graphQL;
     }
 
@@ -108,7 +112,7 @@ public final class TestUtils {
       return runQuery(this.graphQL, query.getQuery());
     }
 
-    public void setGraphQL(final GraphQL graphQL) {
+    public void setGraphQL(@NotNull final GraphQL graphQL) {
       this.graphQL = graphQL;
     }
   }

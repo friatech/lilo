@@ -15,8 +15,9 @@ public final class JsonUtils {
 
   private static final ObjectMapper OBJECT_MAPPER = createMapper();
 
-  @SuppressWarnings("checkstyle:WhitespaceAround")
-  private JsonUtils() {}
+  private JsonUtils() {
+    // Utility class
+  }
 
   public static @NotNull Optional<Map<String, Object>> getMap(
       @NotNull final Map<String, Object> map, @NotNull final String key) {

@@ -22,14 +22,14 @@ final class SchemaMerger {
 
     final var queryTypeOptional = getMap(sourceSchema, "queryType");
 
-    String queryTypeName = null;
+    if (queryTypeOptional.isEmpty()) {
+      throw new IllegalArgumentException("source schema should contain a queryType section");
+    }
 
-    if (queryTypeOptional.isPresent()) {
-      final Optional<String> queryTypeNameOptional = getName(queryTypeOptional.get());
+    final Optional<String> queryTypeNameOptional = getName(queryTypeOptional.get());
 
-      if (queryTypeNameOptional.isPresent()) {
-        queryTypeName = queryTypeNameOptional.get();
-      }
+    if (queryTypeNameOptional.isEmpty()) {
+      throw new IllegalArgumentException("queryType section in source schema cannot be empty");
     }
 
     final var mutationTypeOptional = getMap(sourceSchema, "mutationType");
@@ -44,11 +44,12 @@ final class SchemaMerger {
       }
     }
 
-    return new OperationTypeNames(queryTypeName, mutationTypeName);
+    return new OperationTypeNames(queryTypeNameOptional.get(), mutationTypeName);
   }
 
   static void mergeSchema(
-      final Map<String, Object> targetSchema, final Map<String, Object> sourceSchema) {
+      @NotNull final Map<String, Object> targetSchema,
+      @NotNull final Map<String, Object> sourceSchema) {
 
     if (targetSchema.isEmpty()) {
       targetSchema.putAll(sourceSchema);
@@ -62,9 +63,13 @@ final class SchemaMerger {
   }
 
   private static void addFields(
-      final String typeName,
-      final Map<String, Object> typeDefinition,
-      final Map<String, Map<String, Object>> targetTypeMap) {
+      @Nullable final String typeName,
+      @NotNull final Map<String, Object> typeDefinition,
+      @NotNull final Map<String, Map<String, Object>> targetTypeMap) {
+
+    if (typeName == null) {
+      return;
+    }
 
     final var typeDefinitionNameOptional = getName(typeDefinition);
 
@@ -97,8 +102,32 @@ final class SchemaMerger {
             });
   }
 
+  private static void addFields(
+      @NotNull final Map<String, Object> sourceSchemaTypes,
+      @NotNull final List<Map<String, Object>> targetSchemaTypes,
+      @NotNull final Map<String, Map<String, Object>> targetTypeMap,
+      @NotNull final OperationTypeNames operationTypeNames) {
+
+    final var typeNameOptional = getName(sourceSchemaTypes);
+
+    if (typeNameOptional.isEmpty()) {
+      return;
+    }
+
+    final String typeName = typeNameOptional.get();
+
+    if (!targetTypeMap.containsKey(typeName)) {
+      targetSchemaTypes.add(sourceSchemaTypes);
+      targetTypeMap.put(typeName, sourceSchemaTypes);
+    }
+
+    addFields(operationTypeNames.queryTypeName, sourceSchemaTypes, targetTypeMap);
+    addFields(operationTypeNames.mutationTypeName, sourceSchemaTypes, targetTypeMap);
+  }
+
   private static void mergeSchemaDirectives(
-      final Map<String, Object> targetSchema, final Map<String, Object> sourceSchema) {
+      @NotNull final Map<String, Object> targetSchema,
+      @NotNull final Map<String, Object> sourceSchema) {
 
     final var sourceSchemaDirectivesOptional = getMapList(sourceSchema, "directives");
 
@@ -133,7 +162,8 @@ final class SchemaMerger {
   }
 
   private static void mergeSchemaTypes(
-      final Map<String, Object> targetSchema, final Map<String, Object> sourceSchema) {
+      @NotNull final Map<String, Object> targetSchema,
+      @NotNull final Map<String, Object> sourceSchema) {
 
     final var sourceSchemaTypesOptional = getMapList(sourceSchema, "types");
 
@@ -159,30 +189,13 @@ final class SchemaMerger {
 
     sourceSchemaTypesOptional
         .get()
-        .forEach(
-            st -> {
-              final var typeNameOptional = getName(st);
-
-              if (typeNameOptional.isEmpty()) {
-                return;
-              }
-
-              final String typeName = typeNameOptional.get();
-
-              if (!targetTypeMap.containsKey(typeName)) {
-                targetSchemaTypes.add(st);
-                targetTypeMap.put(typeName, st);
-              }
-
-              addFields(operationTypeNames.queryTypeName, st, targetTypeMap);
-              addFields(operationTypeNames.mutationTypeName, st, targetTypeMap);
-            });
+        .forEach(st -> addFields(st, targetSchemaTypes, targetTypeMap, operationTypeNames));
   }
 
   private static void mergeTypeName(
-      final Map<String, Object> targetSchema,
-      final Map<String, Object> sourceSchema,
-      final String typeNameKey) {
+      @NotNull final Map<String, Object> targetSchema,
+      @NotNull final Map<String, Object> sourceSchema,
+      @NotNull final String typeNameKey) {
 
     final var sourceSchemaQueryTypeOptional = getMap(sourceSchema, typeNameKey);
 
@@ -210,7 +223,7 @@ final class SchemaMerger {
     private final String mutationTypeName;
 
     OperationTypeNames(
-        @Nullable final String queryTypeName, @Nullable final String mutationTypeName) {
+        @NotNull final String queryTypeName, @Nullable final String mutationTypeName) {
       this.queryTypeName = queryTypeName;
       this.mutationTypeName = mutationTypeName;
     }
@@ -220,7 +233,7 @@ final class SchemaMerger {
       return this.mutationTypeName;
     }
 
-    @Nullable
+    @NotNull
     String getQueryTypeName() {
       return this.queryTypeName;
     }

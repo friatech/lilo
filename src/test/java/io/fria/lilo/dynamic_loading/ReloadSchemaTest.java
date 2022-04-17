@@ -7,7 +7,6 @@ import graphql.schema.idl.RuntimeWiring;
 import io.fria.lilo.GraphQLRequest;
 import io.fria.lilo.Lilo;
 import io.fria.lilo.TestUtils;
-import java.io.IOException;
 import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -32,7 +31,7 @@ class ReloadSchemaTest {
   }
 
   @Test
-  void stitchingTest() throws IOException {
+  void stitchingTest() {
 
     Map<String, Object> expected =
         Map.of("greeting1", "Hello greeting1", "greeting2", "Hello greeting2");

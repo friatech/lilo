@@ -17,17 +17,15 @@ public final class Lilo {
     this.context = context;
   }
 
-  public static LiloBuilder builder() {
+  public static @NotNull LiloBuilder builder() {
     return new LiloBuilder();
   }
 
-  @NotNull
-  public LiloContext getContext() {
+  public @NotNull LiloContext getContext() {
     return this.context;
   }
 
-  @NotNull
-  public ExecutionResult stitch(@NotNull final ExecutionInput executionInput) {
+  public @NotNull ExecutionResult stitch(@NotNull final ExecutionInput executionInput) {
 
     if (IntrospectionFetchingMode.FETCH_BEFORE_EVERY_REQUEST
         == this.context.getIntrospectionFetchingMode()) {
@@ -48,14 +46,12 @@ public final class Lilo {
     @SuppressWarnings("checkstyle:WhitespaceAround")
     private LiloBuilder() {}
 
-    @NotNull
-    public LiloBuilder addSource(@NotNull final SchemaSource schemaSource) {
+    public @NotNull LiloBuilder addSource(@NotNull final SchemaSource schemaSource) {
       this.schemaSources.put(schemaSource.getName(), Objects.requireNonNull(schemaSource));
       return this;
     }
 
-    @NotNull
-    public Lilo build() {
+    public @NotNull Lilo build() {
 
       return new Lilo(
           new LiloContext(
@@ -64,15 +60,13 @@ public final class Lilo {
               this.schemaSources.values().toArray(new SchemaSource[0])));
     }
 
-    @NotNull
-    public LiloBuilder defaultDataFetcherExceptionHandler(
+    public @NotNull LiloBuilder defaultDataFetcherExceptionHandler(
         @NotNull final DataFetcherExceptionHandler defaultDataFetcherExceptionHandler) {
       this.dataFetcherExceptionHandler = defaultDataFetcherExceptionHandler;
       return this;
     }
 
-    @NotNull
-    public LiloBuilder introspectionFetchingMode(
+    public @NotNull LiloBuilder introspectionFetchingMode(
         @NotNull final IntrospectionFetchingMode introspectionFetchingMode) {
       this.introspectionFetchingMode = introspectionFetchingMode;
       return this;

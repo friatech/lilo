@@ -18,29 +18,24 @@ public class SchemaSource {
     this.queryRetriever = Objects.requireNonNull(queryRetriever);
   }
 
-  @NotNull
-  public static SchemaSourceBuilder builder() {
+  public static @NotNull SchemaSourceBuilder builder() {
     return new SchemaSourceBuilder();
   }
 
-  @NotNull
-  public IntrospectionRetriever getIntrospectionRetriever() {
+  public @NotNull IntrospectionRetriever getIntrospectionRetriever() {
     return this.introspectionRetriever;
   }
 
-  @NotNull
-  public String getName() {
+  public @NotNull String getName() {
     return this.name;
   }
 
-  @NotNull
-  public QueryRetriever getQueryRetriever() {
+  public @NotNull QueryRetriever getQueryRetriever() {
     return this.queryRetriever;
   }
 
-  @NotNull
   @Override
-  public String toString() {
+  public @NotNull String toString() {
     return "SchemaSource{" + "name='" + this.name + '\'' + '}';
   }
 
@@ -49,26 +44,23 @@ public class SchemaSource {
     private IntrospectionRetriever introspectionRetriever;
     private QueryRetriever queryRetriever;
 
-    @NotNull
-    public SchemaSource build() {
+    public @NotNull SchemaSource build() {
       return new SchemaSource(this.name, this.introspectionRetriever, this.queryRetriever);
     }
 
-    @NotNull
-    public SchemaSourceBuilder introspectionRetriever(
+    public @NotNull SchemaSourceBuilder introspectionRetriever(
         @NotNull final IntrospectionRetriever introspectionRetrieverParam) {
       this.introspectionRetriever = Objects.requireNonNull(introspectionRetrieverParam);
       return this;
     }
 
-    @NotNull
-    public SchemaSourceBuilder name(@NotNull final String nameParam) {
+    public @NotNull SchemaSourceBuilder name(@NotNull final String nameParam) {
       this.name = Objects.requireNonNull(nameParam);
       return this;
     }
 
-    @NotNull
-    public SchemaSourceBuilder queryRetriever(@NotNull final QueryRetriever queryRetrieverParam) {
+    public @NotNull SchemaSourceBuilder queryRetriever(
+        @NotNull final QueryRetriever queryRetrieverParam) {
       this.queryRetriever = Objects.requireNonNull(queryRetrieverParam);
       return this;
     }

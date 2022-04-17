@@ -20,23 +20,19 @@ public class GraphQLQuery {
     this.queryNode = Objects.requireNonNull(queryNode);
   }
 
-  @NotNull
-  public static GraphQLQuery.GraphQLQueryBuilder builder() {
+  public static @NotNull GraphQLQuery.GraphQLQueryBuilder builder() {
     return new GraphQLQuery.GraphQLQueryBuilder();
   }
 
-  @NotNull
-  public OperationDefinition.Operation getOperationType() {
+  public @NotNull OperationDefinition.Operation getOperationType() {
     return this.operationType;
   }
 
-  @NotNull
-  public String getQuery() {
+  public @NotNull String getQuery() {
     return this.query;
   }
 
-  @NotNull
-  public Field getQueryNode() {
+  public @NotNull Field getQueryNode() {
     return this.queryNode;
   }
 
@@ -50,26 +46,23 @@ public class GraphQLQuery {
       // Private constructor
     }
 
-    @NotNull
-    public GraphQLQuery build() {
+    public @NotNull GraphQLQuery build() {
       return new GraphQLQuery(this.query, this.operationType, this.queryNode);
     }
 
-    @NotNull
-    public GraphQLQuery.GraphQLQueryBuilder operationType(
-        final OperationDefinition.Operation operationTypeParam) {
+    public @NotNull GraphQLQuery.GraphQLQueryBuilder operationType(
+        @NotNull final OperationDefinition.Operation operationTypeParam) {
       this.operationType = operationTypeParam;
       return this;
     }
 
-    @NotNull
-    public GraphQLQuery.GraphQLQueryBuilder query(final String queryParam) {
+    public @NotNull GraphQLQuery.GraphQLQueryBuilder query(@NotNull final String queryParam) {
       this.query = queryParam;
       return this;
     }
 
-    @NotNull
-    public GraphQLQuery.GraphQLQueryBuilder queryNode(final Field queryNodeParam) {
+    public @NotNull GraphQLQuery.GraphQLQueryBuilder queryNode(
+        @NotNull final Field queryNodeParam) {
       this.queryNode = queryNodeParam;
       return this;
     }
