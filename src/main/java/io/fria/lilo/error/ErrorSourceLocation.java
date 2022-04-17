@@ -1,18 +1,18 @@
-package io.fria.lilo;
+package io.fria.lilo.error;
 
 import graphql.language.SourceLocation;
 
-public class LiloSourceLocation extends SourceLocation {
+public class ErrorSourceLocation extends SourceLocation {
 
-  public LiloSourceLocation() {
+  public ErrorSourceLocation() {
     super(0, 0);
   }
 
-  public LiloSourceLocation(final int line, final int column) {
+  public ErrorSourceLocation(final int line, final int column) {
     super(line, column);
   }
 
-  public LiloSourceLocation(final int line, final int column, final String sourceName) {
+  public ErrorSourceLocation(final int line, final int column, final String sourceName) {
     super(line, column, sourceName);
   }
 

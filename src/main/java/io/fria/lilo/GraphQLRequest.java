@@ -230,11 +230,15 @@ public class GraphQLRequest {
     return other instanceof GraphQLRequest;
   }
 
-  public static class GraphQLRequestBuilder {
+  public static final class GraphQLRequestBuilder {
 
     private String query;
     private String operationName;
     private Map<String, Object> variables;
+
+    private GraphQLRequestBuilder() {
+      // Private constructor
+    }
 
     public GraphQLRequest build() {
       return new GraphQLRequest(this.query, this.operationName, this.variables);

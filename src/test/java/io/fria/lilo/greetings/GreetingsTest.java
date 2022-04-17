@@ -45,6 +45,7 @@ class GreetingsTest {
     final ExecutionResult result = combinedGraphQL.execute(executionInput);
     final Map<String, Object> expected = result.getData();
     Assertions.assertNotNull(expected);
+    Assertions.assertEquals(0, result.getErrors().size());
 
     // Stitching result ----------------------------------------------------
     final var project1GraphQL = createGraphQL("/greetings/greeting1.graphqls", createWiring());
@@ -62,5 +63,6 @@ class GreetingsTest {
 
     final ExecutionResult stitchResult = lilo.stitch(executionInput);
     Assertions.assertEquals(expected, stitchResult.getData());
+    Assertions.assertEquals(0, stitchResult.getErrors().size());
   }
 }

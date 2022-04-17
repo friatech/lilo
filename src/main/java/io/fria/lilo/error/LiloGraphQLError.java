@@ -1,4 +1,4 @@
-package io.fria.lilo;
+package io.fria.lilo.error;
 
 import graphql.ErrorClassification;
 import graphql.ErrorType;
@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
 public class LiloGraphQLError implements GraphQLError {
 
   private String message;
-  private List<LiloSourceLocation> locations;
+  private List<ErrorSourceLocation> locations;
   private ErrorType errorType;
   private List<Object> path;
 
@@ -34,11 +34,11 @@ public class LiloGraphQLError implements GraphQLError {
     }
 
     return this.locations.stream()
-        .map(l -> new LiloSourceLocation(l.getLine(), l.getColumn(), l.getSourceName()))
+        .map(l -> new ErrorSourceLocation(l.getLine(), l.getColumn(), l.getSourceName()))
         .collect(Collectors.toList());
   }
 
-  public void setLocations(final List<LiloSourceLocation> locations) {
+  public void setLocations(final List<ErrorSourceLocation> locations) {
     this.locations = locations;
   }
 

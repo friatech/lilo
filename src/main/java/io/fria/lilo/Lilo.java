@@ -3,6 +3,7 @@ package io.fria.lilo;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.execution.DataFetcherExceptionHandler;
+import io.fria.lilo.error.SourceDataFetcherExceptionHandler;
 import java.util.HashMap;
 import java.util.Map;
 

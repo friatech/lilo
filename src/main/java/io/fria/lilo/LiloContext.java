@@ -6,22 +6,10 @@ import graphql.GraphQLError;
 import graphql.com.google.common.collect.ImmutableMap;
 import graphql.execution.DataFetcherExceptionHandler;
 import graphql.introspection.IntrospectionResultToSchema;
-import graphql.language.AstPrinter;
-import graphql.language.Definition;
-import graphql.language.Document;
-import graphql.language.Field;
 import graphql.language.FieldDefinition;
-import graphql.language.FragmentDefinition;
-import graphql.language.FragmentSpread;
 import graphql.language.InterfaceTypeDefinition;
-import graphql.language.Node;
-import graphql.language.OperationDefinition;
 import graphql.language.ScalarTypeDefinition;
-import graphql.language.Selection;
-import graphql.language.SelectionSet;
 import graphql.language.UnionTypeDefinition;
-import graphql.language.VariableDefinition;
-import graphql.language.VariableReference;
 import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.GraphQLScalarType;
 import graphql.schema.GraphQLSchema;
@@ -31,17 +19,15 @@ import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import graphql.schema.idl.TypeRuntimeWiring;
-import java.util.ArrayList;
+import io.fria.lilo.error.LiloGraphQLError;
+import io.fria.lilo.error.SourceDataFetcherException;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
-import static io.fria.lilo.JsonUtils.getList;
 import static io.fria.lilo.JsonUtils.getMap;
 import static io.fria.lilo.JsonUtils.getName;
 import static io.fria.lilo.JsonUtils.toMap;
@@ -82,31 +68,6 @@ public class LiloContext {
     this.sourceMap =
         Arrays.stream(schemaSources)
             .collect(Collectors.toMap(SchemaSource::getName, ProcessedSchemaSource::new));
-  }
-
-  private static void addFields(
-      final String typeName,
-      final Map<String, Object> typeDefinition,
-      final Map<String, Map<String, Object>> targetTypeMap) {
-
-    final String typeDefinitionName = getName(typeDefinition);
-
-    if (!typeDefinitionName.equals(typeName)) {
-      return;
-    }
-
-    final var targetQueryTypeDefinition = targetTypeMap.get(typeDefinitionName);
-    final var fields = getList(targetQueryTypeDefinition, "fields");
-    final var targetFields =
-        fields.stream().collect(Collectors.toMap(f -> f.get("name").toString(), f -> f));
-
-    getList(typeDefinition, "fields")
-        .forEach(
-            f -> {
-              if (!targetFields.containsKey(getName(f))) {
-                fields.add(f);
-              }
-            });
   }
 
   private static GraphQL combine(
@@ -154,266 +115,6 @@ public class LiloContext {
     return GraphQL.newGraphQL(graphQLSchema)
         .defaultDataFetcherExceptionHandler(dataFetcherExceptionHandler)
         .build();
-  }
-
-  private static GraphQLQuery createRequest(
-      final DataFetchingEnvironment environment, final String queryName) {
-
-    final var document = environment.getDocument();
-    final var definitions = document.getDefinitions();
-
-    if (definitions.isEmpty()) {
-      throw new IllegalArgumentException("query is not in appropriate format");
-    }
-
-    final var operationDefinitionOptional =
-        definitions.stream().filter(d -> d instanceof OperationDefinition).findFirst();
-
-    if (operationDefinitionOptional.isEmpty()) {
-      throw new IllegalArgumentException("GraphQL query should contain either query or mutation");
-    }
-
-    final var operationDefinition = (OperationDefinition) operationDefinitionOptional.get();
-
-    final var selections =
-        Optional.ofNullable(operationDefinition.getSelectionSet().getSelections())
-            .orElse(List.of());
-
-    final var queryNodeOptional =
-        selections.stream().filter(f -> queryName.equals(((Field) f).getName())).findFirst();
-
-    if (queryNodeOptional.isEmpty()) {
-      throw new IllegalArgumentException("found query does not match with name");
-    }
-
-    final Field queryNode = (Field) queryNodeOptional.get();
-    final Set<String> usedReferenceNames = new HashSet<>();
-    final Set<String> usedFragmentName = new HashSet<>();
-
-    findUsedItems(queryNode, usedReferenceNames, usedFragmentName);
-
-    final List<VariableDefinition> newVariables =
-        operationDefinition.getVariableDefinitions().stream()
-            .filter(v -> usedReferenceNames.contains(v.getName()))
-            .collect(Collectors.toList());
-
-    final List<Definition<?>> newFragmentDefinitions =
-        definitions.stream()
-            .filter(d -> d instanceof FragmentDefinition)
-            .map(d -> (FragmentDefinition) d)
-            .filter(fd -> usedFragmentName.contains(fd.getName()))
-            .map(LiloContext::removeAlias)
-            .collect(Collectors.toList());
-
-    final Field newQueryNode = removeAlias(queryNode);
-
-    final var newOperationDefinition =
-        operationDefinition.transform(
-            builder -> builder
-                .selectionSet(new SelectionSet(List.of(newQueryNode)))
-                .variableDefinitions(newVariables));
-
-    final ArrayList<Definition> newDefinitions = new ArrayList<>();
-    newDefinitions.add(newOperationDefinition);
-    newDefinitions.addAll(newFragmentDefinitions);
-
-    final Document newDocument = document.transform(builder -> builder.definitions(newDefinitions));
-    final var query = AstPrinter.printAst(newDocument);
-    final Map<String, Object> filteredVariables = new HashMap<>();
-
-    environment.getVariables().entrySet().stream()
-        .filter(e -> usedReferenceNames.contains(e.getKey()))
-        .forEach(e -> filteredVariables.put(e.getKey(), e.getValue()));
-
-    final String queryText =
-        toStr(
-            GraphQLRequest.builder()
-                .query(query)
-                .variables(filteredVariables)
-                .operationName(operationDefinition.getName())
-                .build());
-
-    return new GraphQLQuery(queryText, operationDefinition.getOperation(), queryNode);
-  }
-
-  private static void findUsedItems(
-      final Node<?> node, final Set<String> usedReferenceNames, final Set<String> usedFragmentNames) {
-
-    node.getChildren()
-        .forEach(
-            n -> {
-              if (n instanceof FragmentSpread) {
-                usedFragmentNames.add(((FragmentSpread) n).getName());
-              } else if (n instanceof VariableReference) {
-                usedReferenceNames.add(((VariableReference) n).getName());
-              } else {
-                findUsedItems(n, usedReferenceNames, usedFragmentNames);
-              }
-            });
-  }
-
-  private static void mergeSchema(
-      final Map<String, Object> targetSchema, final Map<String, Object> sourceSchema) {
-
-    if (targetSchema.isEmpty()) {
-      targetSchema.putAll(sourceSchema);
-      return;
-    }
-
-    mergeTypeName(targetSchema, sourceSchema, "queryType");
-    mergeTypeName(targetSchema, sourceSchema, "mutationType");
-    mergeSchemaTypes(targetSchema, sourceSchema);
-    mergeSchemaDirectives(targetSchema, sourceSchema);
-  }
-
-  private static void mergeSchemaDirectives(
-      final Map<String, Object> targetSchema, final Map<String, Object> sourceSchema) {
-
-    final List<Map<String, Object>> sourceSchemaDirectives = getList(sourceSchema, "directives");
-
-    if (sourceSchemaDirectives == null) {
-      return;
-    }
-
-    List<Map<String, Object>> targetSchemaDirectives = getList(targetSchema, "directives");
-
-    if (targetSchemaDirectives == null) {
-      targetSchemaDirectives = new ArrayList<>();
-      targetSchema.put("directives", targetSchemaDirectives);
-    }
-
-    final var targetDirectiveMap =
-        targetSchemaDirectives.stream()
-            .collect(Collectors.toMap(d -> d.get("name").toString(), d -> d));
-
-    final List<Map<String, Object>> finalTargetSchemaDirectives = targetSchemaDirectives;
-
-    sourceSchemaDirectives.forEach(
-        sd -> {
-          if (!targetDirectiveMap.containsKey(getName(sd))) {
-            finalTargetSchemaDirectives.add(sd);
-          }
-        });
-  }
-
-  private static void mergeSchemaTypes(
-      final Map<String, Object> targetSchema, final Map<String, Object> sourceSchema) {
-
-    final List<Map<String, Object>> sourceSchemaTypes = getList(sourceSchema, "types");
-
-    if (sourceSchemaTypes == null) {
-      return;
-    }
-
-    List<Map<String, Object>> targetSchemaTypes = getList(targetSchema, "types");
-
-    if (targetSchemaTypes == null) {
-      targetSchemaTypes = new ArrayList<>();
-      targetSchema.put("types", targetSchemaTypes);
-    }
-
-    final var targetTypeMap =
-        targetSchemaTypes.stream()
-            .collect(Collectors.toMap(st -> st.get("name").toString(), st -> st));
-    final var finalTargetSchemaTypes = targetSchemaTypes;
-    final var queryType = getMap(sourceSchema, "queryType");
-    final var queryTypeName = queryType == null ? null : getName(queryType);
-    final var mutationType = getMap(sourceSchema, "mutationType");
-    final var mutationTypeName = mutationType == null ? null : getName(mutationType);
-
-    sourceSchemaTypes.forEach(
-        st -> {
-          final String typeName = getName(st);
-
-          if (!targetTypeMap.containsKey(typeName)) {
-            finalTargetSchemaTypes.add(st);
-            targetTypeMap.put(typeName, st);
-          }
-
-          addFields(queryTypeName, st, targetTypeMap);
-          addFields(mutationTypeName, st, targetTypeMap);
-        });
-  }
-
-  private static void mergeTypeName(
-      final Map<String, Object> targetSchema,
-      final Map<String, Object> sourceSchema,
-      final String typeNameKey) {
-
-    final Map<String, Object> sourceSchemaQueryType = getMap(sourceSchema, typeNameKey);
-
-    if (sourceSchemaQueryType == null) {
-      return;
-    }
-
-    final Map<String, Object> targetSchemaQueryType = getMap(targetSchema, typeNameKey);
-
-    if (targetSchemaQueryType == null) {
-      targetSchema.put(typeNameKey, sourceSchemaQueryType);
-    } else if (!getName(sourceSchemaQueryType).equals(getName(targetSchemaQueryType))) {
-      throw new IllegalArgumentException("type name mismatches");
-    }
-  }
-
-  private static FragmentDefinition removeAlias(final FragmentDefinition fragment) {
-
-    final SelectionSet selectionSet = fragment.getSelectionSet();
-
-    if (selectionSet == null) {
-      return fragment;
-    }
-
-    final List<Selection> newSelections =
-        selectionSet.getSelections().stream()
-            .map(
-                s -> {
-                  if (s instanceof Field) {
-                    return removeAlias((Field) s);
-                  }
-
-                  return s;
-                })
-            .collect(Collectors.toList());
-
-    return fragment.transform(
-        builder -> {
-          builder.selectionSet(SelectionSet.newSelectionSet(newSelections).build()).build();
-        });
-  }
-
-  private static Field removeAlias(final Field field) {
-
-    final SelectionSet selectionSet = field.getSelectionSet();
-
-    List<Selection> newSelections = null;
-
-    if (selectionSet != null) {
-      newSelections =
-          selectionSet.getSelections().stream()
-              .map(
-                  s -> {
-                    if (s instanceof Field) {
-                      return removeAlias((Field) s);
-                    }
-
-                    return s;
-                  })
-              .collect(Collectors.toList());
-    }
-
-    final List<Selection> finalNewSelections = newSelections;
-
-    return field.transform(
-        builder -> {
-          if (finalNewSelections != null) {
-            builder
-                .alias(null)
-                .selectionSet(SelectionSet.newSelectionSet(finalNewSelections).build())
-                .build();
-          } else {
-            builder.alias(null).build();
-          }
-        });
   }
 
   public GraphQL getGraphQL() {
@@ -484,11 +185,7 @@ public class LiloContext {
     final List<FieldDefinition> children = typeDefinition.getChildren();
 
     for (final FieldDefinition field : children) {
-
-      final String fieldName = field.getName();
-
-      typeWiringBuilder.dataFetcher(
-          fieldName, e -> this.createDataFetcher(e, schemaSource, fieldName));
+      typeWiringBuilder.dataFetcher(field.getName(), e -> this.createDataFetcher(e, schemaSource));
     }
   }
 
@@ -509,16 +206,13 @@ public class LiloContext {
         typeRuntimeWiringBuilders, ss.typeDefinitionRegistry, ss.schemaSource, mutationTypeName);
 
     scalars.putAll(ss.typeDefinitionRegistry.scalars());
-
-    mergeSchema(combinedSchemaMap, ss.schema);
+    SchemaMerger.mergeSchema(combinedSchemaMap, ss.schema);
   }
 
   private Object createDataFetcher(
-      final DataFetchingEnvironment environment,
-      final SchemaSource schemaSource,
-      final String queryName) {
+      final DataFetchingEnvironment environment, final SchemaSource schemaSource) {
 
-    final var request = createRequest(environment, queryName);
+    final var request = QueryTransformer.extractQuery(environment);
 
     final var queryResult =
         schemaSource
@@ -532,7 +226,7 @@ public class LiloContext {
       throw new SourceDataFetcherException(errors);
     }
 
-    return graphQLResult.data.get(queryName);
+    return graphQLResult.data.values().iterator().next();
   }
 
   private GraphQL createGraphQL(final Map<String, ProcessedSchemaSource> processedSchemaSourceMap) {

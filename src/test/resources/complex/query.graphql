@@ -203,6 +203,7 @@ query ComplexQuery(
     $s2inputParam07: [InputGrandChild2],
     $includeGrandChildren1: Boolean!,
     $includeGrandChildren2: Boolean!,
+    $includeCommonString: Boolean!
 ){
     alias1: server1queryStringA(paramA: $s1stringParam01, paramB: $s1stringParam02)
     server1queryStringB(paramA: $s1stringParam03, paramB: $s1stringParam04)
@@ -424,10 +425,17 @@ query ComplexQuery(
             }
         }
     }
+    alias8: server2queryTypeB(paramA: $s2typeParam03, paramB: $s2typeParam04) {
+        someString
+        children {
+            someString
+            ... grandChildren3
+        }
+    }
     server2queryInputA(paramA: $s2inputParam01,paramB: $s2inputParam02) {
         someString
     }
-    alias8: server2queryInputA(
+    alias9: server2queryInputA(
             paramA: {
                 someString: $s2inputParam03,
                 children: $s2inputParam04
@@ -466,4 +474,45 @@ fragment grandChildren2 on TypeGrandChild2 {
     idList
     enumList
     enumCommonList
+}
+
+fragment grandChildren3 on TypeChild2 {
+    grandChildren {
+        ... grandChildren2
+        scalarList
+        scalarCommonList
+        typeCommonList {
+            ... commonString @include(if: $includeCommonString)
+        }
+        typeImplementedList {
+            someString
+        }
+        typeImplementedCommonList {
+            alias10: someString
+        }
+        typeExtendedList {
+            someString
+        }
+        typeExtendedCommonList {
+            someString
+        }
+        typeUnionList {
+            __typename
+            ... on TypeUnion2Int {
+                someInteger
+            }
+            ... on TypeUnion2String {
+                someString
+            }
+        }
+        typeUnionCommonList {
+            __typename
+            ... on TypeUnionCommonInt {
+                someInteger
+            }
+            ... on TypeUnionCommonString {
+                someString
+            }
+        }
+    }
 }
