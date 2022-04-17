@@ -108,7 +108,7 @@ public final class TestUtils {
         final @NotNull LiloContext liloContext,
         final @NotNull SchemaSource schemaSource,
         final @NotNull GraphQLQuery query,
-        final @Nullable Object context) {
+        final @Nullable Object localContext) {
       return runQuery(this.graphQL, query.getQuery());
     }
 

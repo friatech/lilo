@@ -37,7 +37,6 @@ class GreetingsTest {
     final ExecutionInput executionInput =
         ExecutionInput.newExecutionInput()
             .query("{greeting1\ngreeting2}")
-            .localContext(param)
             .build();
 
     final GraphQL combinedGraphQL = createGraphQL("/greetings/combined.graphqls", createWiring());

@@ -8,7 +8,6 @@ import io.fria.lilo.IntrospectionFetchingMode;
 import io.fria.lilo.IntrospectionRetriever;
 import io.fria.lilo.Lilo;
 import io.fria.lilo.QueryRetriever;
-import java.io.IOException;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
@@ -30,7 +29,7 @@ class FetchingOptionsTest {
   private static String RESPONSE_QUERY;
 
   @BeforeAll
-  static void init() throws IOException {
+  static void init() {
 
     EXECUTION_INPUT_QUERY = ExecutionInput.newExecutionInput().query("{add(a: 1, b: 2)}").build();
 
@@ -48,10 +47,7 @@ class FetchingOptionsTest {
         .type(
             newTypeWiring("Query")
                 .dataFetcher(
-                    "add", env -> env.<Integer>getArgument("a") + env.<Integer>getArgument("b"))
-                .dataFetcher(
-                    "subtract",
-                    env -> env.<Integer>getArgument("a") - env.<Integer>getArgument("b")))
+                    "add", env -> env.<Integer>getArgument("a") + env.<Integer>getArgument("b")))
         .build();
   }
 
