@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -17,16 +18,24 @@ public final class JsonUtils {
   @SuppressWarnings("checkstyle:WhitespaceAround")
   private JsonUtils() {}
 
-  @Nullable
-  public static List<Map<String, Object>> getList(
+  public static @NotNull Optional<Map<String, Object>> getMap(
       @NotNull final Map<String, Object> map, @NotNull final String key) {
-    return (List<Map<String, Object>>) Objects.requireNonNull(map).get(Objects.requireNonNull(key));
+
+    try {
+      return Optional.ofNullable((Map<String, Object>) getValue(map, key));
+    } catch (final ClassCastException e) {
+      throw new IllegalArgumentException("Map item is not in map type");
+    }
   }
 
-  @Nullable
-  public static Map<String, Object> getMap(
+  public static @NotNull Optional<List<Map<String, Object>>> getMapList(
       @NotNull final Map<String, Object> map, @NotNull final String key) {
-    return (Map<String, Object>) Objects.requireNonNull(map).get(Objects.requireNonNull(key));
+
+    try {
+      return Optional.ofNullable((List<Map<String, Object>>) getValue(map, key));
+    } catch (final ClassCastException e) {
+      throw new IllegalArgumentException("Map item is not in list type");
+    }
   }
 
   @Nullable
@@ -36,15 +45,14 @@ public final class JsonUtils {
 
   @Nullable
   public static String getStr(@NotNull final Map<String, Object> map, @NotNull final String key) {
-    return (String) Objects.requireNonNull(map).get(Objects.requireNonNull(key));
+    return (String) getValue(map, key);
   }
 
-  @Nullable
   @SuppressWarnings("checkstyle:WhitespaceAround")
-  public static Map<String, Object> toMap(@Nullable final String jsonText) {
+  public static @NotNull Optional<Map<String, Object>> toMap(@Nullable final String jsonText) {
 
     try {
-      return OBJECT_MAPPER.readValue(jsonText, new TypeReference<>() {});
+      return Optional.ofNullable(OBJECT_MAPPER.readValue(jsonText, new TypeReference<>() {}));
     } catch (final JsonProcessingException e) {
       throw new IllegalArgumentException("Deserialization exception", e);
     }
@@ -70,10 +78,14 @@ public final class JsonUtils {
     }
   }
 
-  @NotNull
-  private static ObjectMapper createMapper() {
+  private static @NotNull ObjectMapper createMapper() {
     final ObjectMapper mapper = new ObjectMapper();
     mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     return mapper;
+  }
+
+  private static @Nullable Object getValue(
+      @NotNull final Map<String, Object> map, @NotNull final String key) {
+    return Objects.requireNonNull(map).get(Objects.requireNonNull(key));
   }
 }

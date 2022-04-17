@@ -30,7 +30,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 import static io.fria.lilo.JsonUtils.getMap;
-import static io.fria.lilo.JsonUtils.getName;
 import static io.fria.lilo.JsonUtils.toMap;
 import static io.fria.lilo.JsonUtils.toObj;
 import static io.fria.lilo.JsonUtils.toStr;
@@ -200,13 +199,12 @@ public class LiloContext {
       final Map<String, Object> combinedSchemaMap,
       final Map<String, ScalarTypeDefinition> scalars) {
 
-    final var queryType = getMap(processedSchemaSource.schema, "queryType");
-    final var queryTypeName = queryType == null ? null : getName(queryType);
-    final var mutationType = getMap(processedSchemaSource.schema, "mutationType");
-    final var mutationTypeName = mutationType == null ? null : getName(mutationType);
+    final var operationTypeNames = SchemaMerger.getOperationTypeNames(processedSchemaSource.schema);
 
-    this.assignDataFetchers(typeRuntimeWiringBuilders, processedSchemaSource, queryTypeName);
-    this.assignDataFetchers(typeRuntimeWiringBuilders, processedSchemaSource, mutationTypeName);
+    this.assignDataFetchers(
+        typeRuntimeWiringBuilders, processedSchemaSource, operationTypeNames.getQueryTypeName());
+    this.assignDataFetchers(
+        typeRuntimeWiringBuilders, processedSchemaSource, operationTypeNames.getMutationTypeName());
 
     scalars.putAll(processedSchemaSource.typeDefinitionRegistry.scalars());
     SchemaMerger.mergeSchema(combinedSchemaMap, processedSchemaSource.schema);
@@ -311,14 +309,31 @@ public class LiloContext {
               .getIntrospectionRetriever()
               .get(LiloContext.this, this.schemaSource, INTROSPECTION_REQUEST, localContext);
 
-      final var introspectionResult = toMap(introspectionResponse);
-      final var data = getMap(introspectionResult, "data");
-      final var schema = getMap(data, "__schema");
-      final var parser = new SchemaParser();
-      final var schemaDoc = new IntrospectionResultToSchema().createSchemaDefinition(data);
+      final var introspectionResultOptional = toMap(introspectionResponse);
 
-      this.typeDefinitionRegistry = parser.buildRegistry(schemaDoc);
-      this.schema = schema;
+      if (introspectionResultOptional.isEmpty()) {
+        throw new IllegalArgumentException("Introspection response is empty");
+      }
+
+      final var dataOptional = getMap(introspectionResultOptional.get(), "data");
+
+      if (dataOptional.isEmpty()) {
+        throw new IllegalArgumentException(
+            "Introspection response is not valid, requires data section");
+      }
+
+      final var schemaOptional = getMap(dataOptional.get(), "__schema");
+
+      if (schemaOptional.isEmpty()) {
+        throw new IllegalArgumentException(
+            "Introspection response is not valid, requires __schema section");
+      }
+
+      final var schemaDoc =
+          new IntrospectionResultToSchema().createSchemaDefinition(dataOptional.get());
+
+      this.typeDefinitionRegistry = new SchemaParser().buildRegistry(schemaDoc);
+      this.schema = schemaOptional.get();
     }
   }
 }

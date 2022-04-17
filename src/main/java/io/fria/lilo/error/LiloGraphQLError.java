@@ -5,7 +5,10 @@ import graphql.ErrorType;
 import graphql.GraphQLError;
 import graphql.language.SourceLocation;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class LiloGraphQLError implements GraphQLError {
 
@@ -18,16 +21,16 @@ public class LiloGraphQLError implements GraphQLError {
   public LiloGraphQLError() {}
 
   @Override
-  public ErrorClassification getErrorType() {
+  public @Nullable ErrorClassification getErrorType() {
     return this.errorType;
   }
 
-  public void setErrorType(final ErrorType errorType) {
+  public void setErrorType(@Nullable final ErrorType errorType) {
     this.errorType = errorType;
   }
 
   @Override
-  public List<SourceLocation> getLocations() {
+  public @Nullable List<SourceLocation> getLocations() {
 
     if (this.locations == null) {
       return null;
@@ -38,25 +41,25 @@ public class LiloGraphQLError implements GraphQLError {
         .collect(Collectors.toList());
   }
 
-  public void setLocations(final List<ErrorSourceLocation> locations) {
+  public void setLocations(@Nullable final List<ErrorSourceLocation> locations) {
     this.locations = locations;
   }
 
   @Override
-  public String getMessage() {
+  public @NotNull String getMessage() {
     return this.message;
   }
 
-  public void setMessage(final String message) {
-    this.message = message;
+  public void setMessage(@NotNull final String message) {
+    this.message = Objects.requireNonNull(message);
   }
 
   @Override
-  public List<Object> getPath() {
+  public @Nullable List<Object> getPath() {
     return this.path;
   }
 
-  public void setPath(final List<Object> path) {
+  public void setPath(@Nullable final List<Object> path) {
     this.path = path;
   }
 }

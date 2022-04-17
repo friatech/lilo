@@ -61,7 +61,8 @@ class ReloadSchemaTest {
     Assertions.assertEquals(expected, stitchResult.getData());
 
     // After reloading context old expected result won't work.
-    final var project3GraphQL = createGraphQL("/dynamic_loading/greeting3.graphqls", createWiring());
+    final var project3GraphQL =
+        createGraphQL("/dynamic_loading/greeting3.graphqls", createWiring());
 
     query2Retriever.setGraphQL(project3GraphQL);
     introspection2Retriever.setGraphQL(project3GraphQL);

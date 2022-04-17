@@ -29,19 +29,6 @@ class FetchingOptionsTest {
   private static String RESPONSE_INTROSPECTION;
   private static String RESPONSE_QUERY;
 
-  private static RuntimeWiring createWiring() {
-
-    return RuntimeWiring.newRuntimeWiring()
-        .type(
-            newTypeWiring("Query")
-                .dataFetcher(
-                    "add", env -> env.<Integer>getArgument("a") + env.<Integer>getArgument("b"))
-                .dataFetcher(
-                    "subtract",
-                    env -> env.<Integer>getArgument("a") - env.<Integer>getArgument("b")))
-        .build();
-  }
-
   @BeforeAll
   static void init() throws IOException {
 
@@ -53,6 +40,19 @@ class FetchingOptionsTest {
     final GraphQL combinedGraphQL = createGraphQL("/math/add.graphqls", createWiring());
     RESPONSE_INTROSPECTION = toStr(combinedGraphQL.execute(executionInputIntrospection));
     RESPONSE_QUERY = toStr(combinedGraphQL.execute(EXECUTION_INPUT_QUERY));
+  }
+
+  private static RuntimeWiring createWiring() {
+
+    return RuntimeWiring.newRuntimeWiring()
+        .type(
+            newTypeWiring("Query")
+                .dataFetcher(
+                    "add", env -> env.<Integer>getArgument("a") + env.<Integer>getArgument("b"))
+                .dataFetcher(
+                    "subtract",
+                    env -> env.<Integer>getArgument("a") - env.<Integer>getArgument("b")))
+        .build();
   }
 
   @Test
@@ -84,14 +84,14 @@ class FetchingOptionsTest {
     final var query1Retriever = mock(QueryRetriever.class);
 
     when(introspection1Retriever.get(any(), any(), any(), any()))
-      .thenReturn(RESPONSE_INTROSPECTION);
+        .thenReturn(RESPONSE_INTROSPECTION);
     when(query1Retriever.get(any(), any(), any(), any())).thenReturn(RESPONSE_QUERY);
 
     final Lilo lilo =
-      Lilo.builder()
-        .introspectionFetchingMode(IntrospectionFetchingMode.FETCH_BEFORE_EVERY_REQUEST)
-        .addSource(createSchemaSource(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
-        .build();
+        Lilo.builder()
+            .introspectionFetchingMode(IntrospectionFetchingMode.FETCH_BEFORE_EVERY_REQUEST)
+            .addSource(createSchemaSource(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
+            .build();
 
     lilo.stitch(EXECUTION_INPUT_QUERY);
     lilo.stitch(EXECUTION_INPUT_QUERY);

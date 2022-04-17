@@ -4,14 +4,28 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import static io.fria.lilo.JsonUtils.getList;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import static io.fria.lilo.JsonUtils.getMap;
+import static io.fria.lilo.JsonUtils.getMapList;
 import static io.fria.lilo.JsonUtils.getName;
 
-public final class SchemaMerger {
+final class SchemaMerger {
 
   private SchemaMerger() {
     // Utility class
+  }
+
+  static @NotNull OperationTypeNames getOperationTypeNames(
+      @NotNull final Map<String, Object> sourceSchema) {
+
+    final var queryTypeOptional = getMap(sourceSchema, "queryType");
+    final var queryTypeName = queryTypeOptional.isEmpty() ? null : getName(queryTypeOptional.get());
+    final var mutationTypeOptional = getMap(sourceSchema, "mutationType");
+    final var mutationTypeName =
+        mutationTypeOptional.isEmpty() ? null : getName(mutationTypeOptional.get());
+
+    return new OperationTypeNames(queryTypeName, mutationTypeName);
   }
 
   static void mergeSchema(
@@ -40,11 +54,13 @@ public final class SchemaMerger {
     }
 
     final var targetQueryTypeDefinition = targetTypeMap.get(typeDefinitionName);
-    final var fields = getList(targetQueryTypeDefinition, "fields");
+    final var fields = getMapList(targetQueryTypeDefinition, "fields").orElse(List.of());
+
     final var targetFields =
         fields.stream().collect(Collectors.toMap(f -> f.get("name").toString(), f -> f));
 
-    getList(typeDefinition, "fields")
+    getMapList(typeDefinition, "fields")
+        .orElse(List.of())
         .forEach(
             f -> {
               if (!targetFields.containsKey(getName(f))) {
@@ -56,70 +72,75 @@ public final class SchemaMerger {
   private static void mergeSchemaDirectives(
       final Map<String, Object> targetSchema, final Map<String, Object> sourceSchema) {
 
-    final List<Map<String, Object>> sourceSchemaDirectives = getList(sourceSchema, "directives");
+    final var sourceSchemaDirectivesOptional = getMapList(sourceSchema, "directives");
 
-    if (sourceSchemaDirectives == null) {
+    if (sourceSchemaDirectivesOptional.isEmpty()) {
       return;
     }
 
-    List<Map<String, Object>> targetSchemaDirectives = getList(targetSchema, "directives");
+    final var targetSchemaDirectivesOptional = getMapList(targetSchema, "directives");
+    final List<Map<String, Object>> targetSchemaDirectives;
 
-    if (targetSchemaDirectives == null) {
+    if (targetSchemaDirectivesOptional.isEmpty()) {
       targetSchemaDirectives = new ArrayList<>();
       targetSchema.put("directives", targetSchemaDirectives);
+    } else {
+      targetSchemaDirectives = targetSchemaDirectivesOptional.get();
     }
 
     final var targetDirectiveMap =
         targetSchemaDirectives.stream()
             .collect(Collectors.toMap(d -> d.get("name").toString(), d -> d));
 
-    final List<Map<String, Object>> finalTargetSchemaDirectives = targetSchemaDirectives;
-
-    sourceSchemaDirectives.forEach(
-        sd -> {
-          if (!targetDirectiveMap.containsKey(getName(sd))) {
-            finalTargetSchemaDirectives.add(sd);
-          }
-        });
+    sourceSchemaDirectivesOptional
+        .get()
+        .forEach(
+            sd -> {
+              if (!targetDirectiveMap.containsKey(getName(sd))) {
+                targetSchemaDirectives.add(sd);
+              }
+            });
   }
 
   private static void mergeSchemaTypes(
       final Map<String, Object> targetSchema, final Map<String, Object> sourceSchema) {
 
-    final List<Map<String, Object>> sourceSchemaTypes = getList(sourceSchema, "types");
+    final var sourceSchemaTypesOptional = getMapList(sourceSchema, "types");
 
-    if (sourceSchemaTypes == null) {
+    if (sourceSchemaTypesOptional.isEmpty()) {
       return;
     }
 
-    List<Map<String, Object>> targetSchemaTypes = getList(targetSchema, "types");
+    final var targetSchemaTypesOptional = getMapList(targetSchema, "types");
+    final List<Map<String, Object>> targetSchemaTypes;
 
-    if (targetSchemaTypes == null) {
+    if (targetSchemaTypesOptional.isEmpty()) {
       targetSchemaTypes = new ArrayList<>();
       targetSchema.put("types", targetSchemaTypes);
+    } else {
+      targetSchemaTypes = targetSchemaTypesOptional.get();
     }
 
     final var targetTypeMap =
         targetSchemaTypes.stream()
             .collect(Collectors.toMap(st -> st.get("name").toString(), st -> st));
-    final var finalTargetSchemaTypes = targetSchemaTypes;
-    final var queryType = getMap(sourceSchema, "queryType");
-    final var queryTypeName = queryType == null ? null : getName(queryType);
-    final var mutationType = getMap(sourceSchema, "mutationType");
-    final var mutationTypeName = mutationType == null ? null : getName(mutationType);
 
-    sourceSchemaTypes.forEach(
-        st -> {
-          final String typeName = getName(st);
+    final OperationTypeNames operationTypeNames = getOperationTypeNames(sourceSchema);
 
-          if (!targetTypeMap.containsKey(typeName)) {
-            finalTargetSchemaTypes.add(st);
-            targetTypeMap.put(typeName, st);
-          }
+    sourceSchemaTypesOptional
+        .get()
+        .forEach(
+            st -> {
+              final String typeName = getName(st);
 
-          addFields(queryTypeName, st, targetTypeMap);
-          addFields(mutationTypeName, st, targetTypeMap);
-        });
+              if (!targetTypeMap.containsKey(typeName)) {
+                targetSchemaTypes.add(st);
+                targetTypeMap.put(typeName, st);
+              }
+
+              addFields(operationTypeNames.queryTypeName, st, targetTypeMap);
+              addFields(operationTypeNames.mutationTypeName, st, targetTypeMap);
+            });
   }
 
   private static void mergeTypeName(
@@ -127,18 +148,45 @@ public final class SchemaMerger {
       final Map<String, Object> sourceSchema,
       final String typeNameKey) {
 
-    final Map<String, Object> sourceSchemaQueryType = getMap(sourceSchema, typeNameKey);
+    final var sourceSchemaQueryTypeOptional = getMap(sourceSchema, typeNameKey);
 
-    if (sourceSchemaQueryType == null) {
+    if (sourceSchemaQueryTypeOptional.isEmpty()) {
       return;
     }
 
-    final Map<String, Object> targetSchemaQueryType = getMap(targetSchema, typeNameKey);
+    final var sourceSchemaQueryType = sourceSchemaQueryTypeOptional.get();
+    final var targetSchemaQueryTypeOptional = getMap(targetSchema, typeNameKey);
 
-    if (targetSchemaQueryType == null) {
+    if (targetSchemaQueryTypeOptional.isEmpty()) {
       targetSchema.put(typeNameKey, sourceSchemaQueryType);
-    } else if (!getName(sourceSchemaQueryType).equals(getName(targetSchemaQueryType))) {
-      throw new IllegalArgumentException("type name mismatches");
+    } else {
+      final Map<String, Object> targetSchemaQueryType = targetSchemaQueryTypeOptional.get();
+
+      if (!getName(sourceSchemaQueryType).equals(getName(targetSchemaQueryType))) {
+        throw new IllegalArgumentException("type name mismatches");
+      }
+    }
+  }
+
+  static final class OperationTypeNames {
+
+    private final String queryTypeName;
+    private final String mutationTypeName;
+
+    OperationTypeNames(
+        @Nullable final String queryTypeName, @Nullable final String mutationTypeName) {
+      this.queryTypeName = queryTypeName;
+      this.mutationTypeName = mutationTypeName;
+    }
+
+    @Nullable
+    String getMutationTypeName() {
+      return this.mutationTypeName;
+    }
+
+    @Nullable
+    String getQueryTypeName() {
+      return this.queryTypeName;
     }
   }
 }
