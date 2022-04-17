@@ -1,7 +1,7 @@
 # Lilo
-Lilo is a super-fast GraphQL stitching library. Procject is heavily inspired by Atlassian Braid but it seems no more maintained.
+Lilo is a super-fast GraphQL stitching library. Project is heavily inspired by Atlassian Braid, but it seems no more maintained.
 
-Basic Usage:
+## Basic Usage
 
 ```java
 final Lilo lilo = Lilo.builder()
@@ -10,22 +10,22 @@ final Lilo lilo = Lilo.builder()
                                       .name("SERVER_1")
                                       .introspectionRetriever(new MyIntrospectionRetriever("https://server1/graphql"))
                                       .queryRetriever(new MyQueryRetriever("https://server1/graphql"))
-                                      .build()              
+                                      .build()
                       )
                       .addSource(
                           SchemaSource.builder()
                                       .name("SERVER_2")
                                       .introspectionRetriever(new MyIntrospectionRetriever("https://server2/graphql"))
                                       .queryRetriever(new MyQueryRetriever("https://server2/graphql"))
-                                      .build()              
+                                      .build()
                       )
                       .build();
 ```
 
 You need to provide a `IntrospectionRetriever` and `QueryRetriever`. Those can fetch the query result from
-a remote source or local source or you can implement a RSocket communication via the target server.
+a remote source or local source, or you can implement an RSocket communication via the target server.
 
-After every thing properly set you can run your commands:
+After every thing is properly set you can run your implementation similar to this:
 
 ```java
 
@@ -40,3 +40,17 @@ final Map<String, Object> resultMap = lilo.stitch(graphQLRequest.toExecutionInpu
 // You can serialize to JSON and return map as String, following is the Jackson example of serializing
 final String JsonResult = new ObjectMapper().writeValueAsString(resultMap);
 ```
+
+## Parameter passing
+
+Sometimes an HTTP header or a JWT token should be passed to the retrievers. You can pass a local context object
+inside the execution input.
+
+```java
+final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
+                                                    .localContext("aLocalContextObject")
+                                                    .query("{add(a: 1, b: 2)}")
+                                                    .build();
+```
+
+The localContext object is now accessible from your `IntrospectionRetriever` and `QueryRetriever`.

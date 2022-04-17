@@ -9,5 +9,5 @@ public interface QueryRetriever {
       @NotNull LiloContext liloContext,
       @NotNull SchemaSource schemaSource,
       @NotNull GraphQLQuery query,
-      @Nullable Object context);
+      @Nullable Object localContext);
 }
