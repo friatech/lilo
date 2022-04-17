@@ -1,5 +1,7 @@
 package io.fria.lilo;
 
+import org.jetbrains.annotations.NotNull;
+
 public class SchemaSource {
 
   private final String name;
@@ -56,7 +58,8 @@ public class SchemaSource {
       return this;
     }
 
-    public String toString() {
+    @Override
+    public @NotNull String toString() {
       return "SchemaSource.SchemaSourceBuilder(name="
           + this.name
           + ", introspectionRetriever="

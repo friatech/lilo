@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Map;
 
-final class JsonUtils {
+public final class JsonUtils {
 
   private static final ObjectMapper OBJECT_MAPPER = createMapper();
 

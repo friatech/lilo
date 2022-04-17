@@ -1,4 +1,4 @@
-package io.fria.lilo.dynamicloading;
+package io.fria.lilo.dynamic_loading;
 
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
@@ -61,7 +61,7 @@ class ReloadSchemaTest {
     Assertions.assertEquals(expected, stitchResult.getData());
 
     // After reloading context old expected result won't work.
-    final var project3GraphQL = createGraphQL("/dynamicloading/greeting3.graphqls", createWiring());
+    final var project3GraphQL = createGraphQL("/dynamic_loading/greeting3.graphqls", createWiring());
 
     query2Retriever.setGraphQL(project3GraphQL);
     introspection2Retriever.setGraphQL(project3GraphQL);

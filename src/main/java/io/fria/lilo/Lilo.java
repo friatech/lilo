@@ -24,6 +24,12 @@ public final class Lilo {
   }
 
   public ExecutionResult stitch(final ExecutionInput executionInput) {
+
+    if (IntrospectionFetchingMode.FETCH_BEFORE_EVERY_REQUEST
+        == this.context.getIntrospectionFetchingMode()) {
+      this.context.invalidateAll();
+    }
+
     return this.context.getGraphQL(executionInput).execute(executionInput);
   }
 
@@ -32,6 +38,8 @@ public final class Lilo {
     private final Map<String, SchemaSource> schemaSources = new HashMap<>();
     private DataFetcherExceptionHandler dataFetcherExceptionHandler =
         new SourceDataFetcherExceptionHandler();
+    private IntrospectionFetchingMode introspectionFetchingMode =
+        IntrospectionFetchingMode.CACHE_UNTIL_INVALIDATION;
 
     @SuppressWarnings("checkstyle:WhitespaceAround")
     private LiloBuilder() {}
@@ -46,12 +54,19 @@ public final class Lilo {
       return new Lilo(
           new LiloContext(
               this.dataFetcherExceptionHandler,
+              this.introspectionFetchingMode,
               this.schemaSources.values().toArray(new SchemaSource[0])));
     }
 
     public LiloBuilder defaultDataFetcherExceptionHandler(
         final DataFetcherExceptionHandler defaultDataFetcherExceptionHandler) {
       this.dataFetcherExceptionHandler = defaultDataFetcherExceptionHandler;
+      return this;
+    }
+
+    public LiloBuilder introspectionFetchingMode(
+        final IntrospectionFetchingMode introspectionFetchingMode) {
+      this.introspectionFetchingMode = introspectionFetchingMode;
       return this;
     }
   }

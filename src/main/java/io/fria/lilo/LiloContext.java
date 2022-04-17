@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
@@ -58,13 +59,16 @@ public class LiloContext {
       };
 
   private final DataFetcherExceptionHandler dataFetcherExceptionHandler;
+  private final IntrospectionFetchingMode introspectionFetchingMode;
   private Map<String, ProcessedSchemaSource> sourceMap;
   private GraphQL graphQL;
 
   LiloContext(
       final DataFetcherExceptionHandler dataFetcherExceptionHandler,
+      final IntrospectionFetchingMode introspectionFetchingMode,
       final SchemaSource... schemaSources) {
-    this.dataFetcherExceptionHandler = dataFetcherExceptionHandler;
+    this.dataFetcherExceptionHandler = Objects.requireNonNull(dataFetcherExceptionHandler);
+    this.introspectionFetchingMode = Objects.requireNonNull(introspectionFetchingMode);
     this.sourceMap =
         Arrays.stream(schemaSources)
             .collect(Collectors.toMap(SchemaSource::getName, ProcessedSchemaSource::new));
@@ -117,8 +121,16 @@ public class LiloContext {
         .build();
   }
 
+  public DataFetcherExceptionHandler getDataFetcherExceptionHandler() {
+    return this.dataFetcherExceptionHandler;
+  }
+
   public GraphQL getGraphQL() {
     return this.getGraphQL(null);
+  }
+
+  public IntrospectionFetchingMode getIntrospectionFetchingMode() {
+    return this.introspectionFetchingMode;
   }
 
   public Map<String, SchemaSource> getSchemaSources() {
@@ -137,6 +149,11 @@ public class LiloContext {
     final ProcessedSchemaSource processedSource = this.sourceMap.get(schemaName);
     processedSource.invalidate();
 
+    this.graphQL = null;
+  }
+
+  public void invalidateAll() {
+    this.sourceMap.values().forEach(ProcessedSchemaSource::invalidate);
     this.graphQL = null;
   }
 
@@ -166,8 +183,7 @@ public class LiloContext {
 
   private void assignDataFetchers(
       final Map<String, TypeRuntimeWiring.Builder> typeRuntimeWiringBuilders,
-      final TypeDefinitionRegistry typeDefinitionRegistry,
-      final SchemaSource schemaSource,
+      final ProcessedSchemaSource processedSchemaSource,
       final String typeName) {
 
     if (typeName == null) {
@@ -178,6 +194,8 @@ public class LiloContext {
       typeRuntimeWiringBuilders.put(typeName, newTypeWiring(typeName));
     }
 
+    final var schemaSource = processedSchemaSource.schemaSource;
+    final var typeDefinitionRegistry = processedSchemaSource.typeDefinitionRegistry;
     final var typeWiringBuilder = typeRuntimeWiringBuilders.get(typeName);
     final var typeDefinitionOptional = typeDefinitionRegistry.getType(typeName);
     final var typeDefinition = typeDefinitionOptional.get();
@@ -185,31 +203,44 @@ public class LiloContext {
     final List<FieldDefinition> children = typeDefinition.getChildren();
 
     for (final FieldDefinition field : children) {
-      typeWiringBuilder.dataFetcher(field.getName(), e -> this.createDataFetcher(e, schemaSource));
+      typeWiringBuilder.dataFetcher(field.getName(), e -> this.fetchData(e, schemaSource));
     }
   }
 
   private void assignHandler(
-      final ProcessedSchemaSource ss,
+      final ProcessedSchemaSource processedSchemaSource,
       final Map<String, TypeRuntimeWiring.Builder> typeRuntimeWiringBuilders,
       final Map<String, Object> combinedSchemaMap,
       final Map<String, ScalarTypeDefinition> scalars) {
 
-    final var queryType = getMap(ss.schema, "queryType");
+    final var queryType = getMap(processedSchemaSource.schema, "queryType");
     final var queryTypeName = queryType == null ? null : getName(queryType);
-    final var mutationType = getMap(ss.schema, "mutationType");
+    final var mutationType = getMap(processedSchemaSource.schema, "mutationType");
     final var mutationTypeName = mutationType == null ? null : getName(mutationType);
 
-    this.assignDataFetchers(
-        typeRuntimeWiringBuilders, ss.typeDefinitionRegistry, ss.schemaSource, queryTypeName);
-    this.assignDataFetchers(
-        typeRuntimeWiringBuilders, ss.typeDefinitionRegistry, ss.schemaSource, mutationTypeName);
+    this.assignDataFetchers(typeRuntimeWiringBuilders, processedSchemaSource, queryTypeName);
+    this.assignDataFetchers(typeRuntimeWiringBuilders, processedSchemaSource, mutationTypeName);
 
-    scalars.putAll(ss.typeDefinitionRegistry.scalars());
-    SchemaMerger.mergeSchema(combinedSchemaMap, ss.schema);
+    scalars.putAll(processedSchemaSource.typeDefinitionRegistry.scalars());
+    SchemaMerger.mergeSchema(combinedSchemaMap, processedSchemaSource.schema);
   }
 
-  private Object createDataFetcher(
+  private GraphQL createGraphQL(final Map<String, ProcessedSchemaSource> processedSchemaSourceMap) {
+
+    final Map<String, Object> combinedSchemaMap = new HashMap<>();
+    final Map<String, TypeRuntimeWiring.Builder> typeRuntimeWiringBuilders = new HashMap<>();
+    final Map<String, ScalarTypeDefinition> scalars = new HashMap<>();
+
+    processedSchemaSourceMap
+        .values()
+        .forEach(
+            ss -> this.assignHandler(ss, typeRuntimeWiringBuilders, combinedSchemaMap, scalars));
+
+    return combine(
+        typeRuntimeWiringBuilders, combinedSchemaMap, scalars, this.dataFetcherExceptionHandler);
+  }
+
+  private Object fetchData(
       final DataFetchingEnvironment environment, final SchemaSource schemaSource) {
 
     final var request = QueryTransformer.extractQuery(environment);
@@ -227,21 +258,6 @@ public class LiloContext {
     }
 
     return graphQLResult.data.values().iterator().next();
-  }
-
-  private GraphQL createGraphQL(final Map<String, ProcessedSchemaSource> processedSchemaSourceMap) {
-
-    final Map<String, Object> combinedSchemaMap = new HashMap<>();
-    final Map<String, TypeRuntimeWiring.Builder> typeRuntimeWiringBuilders = new HashMap<>();
-    final Map<String, ScalarTypeDefinition> scalars = new HashMap<>();
-
-    processedSchemaSourceMap
-        .values()
-        .forEach(
-            ss -> this.assignHandler(ss, typeRuntimeWiringBuilders, combinedSchemaMap, scalars));
-
-    return combine(
-        typeRuntimeWiringBuilders, combinedSchemaMap, scalars, this.dataFetcherExceptionHandler);
   }
 
   private ProcessedSchemaSource processSource(

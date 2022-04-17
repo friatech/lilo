@@ -128,6 +128,7 @@ public class GraphQLRequest {
     return new GraphQLRequestBuilder();
   }
 
+  @Override
   public boolean equals(final Object o) {
 
     if (o == this) {
@@ -188,6 +189,7 @@ public class GraphQLRequest {
     this.variables = variables;
   }
 
+  @Override
   public int hashCode() {
     return Objects.hash(this.query, this.operationName, this.variables);
   }
@@ -216,6 +218,7 @@ public class GraphQLRequest {
     return this.toExecutionInput(null);
   }
 
+  @Override
   public String toString() {
     return "GraphQLRequest(query="
         + this.getQuery()
@@ -254,6 +257,7 @@ public class GraphQLRequest {
       return this;
     }
 
+    @Override
     public String toString() {
       return "GraphQLRequest.GraphQLRequestBuilder(query="
           + this.query

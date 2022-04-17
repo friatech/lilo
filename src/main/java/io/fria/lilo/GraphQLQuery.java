@@ -65,6 +65,7 @@ public class GraphQLQuery {
       return this;
     }
 
+    @Override
     public String toString() {
       return "GraphQLQuery.GraphQLQueryBuilder(query="
           + this.query
