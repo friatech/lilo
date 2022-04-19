@@ -175,6 +175,7 @@ final class QueryTransformer {
         .forEach(e -> filteredVariables.put(e.getKey(), e.getValue()));
 
     requestBuilder.variables(filteredVariables);
+    queryBuilder.variables(filteredVariables);
 
     return newDefinitions;
   }
