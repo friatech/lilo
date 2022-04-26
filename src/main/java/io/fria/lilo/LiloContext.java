@@ -30,6 +30,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 import static io.fria.lilo.JsonUtils.getMap;
 import static io.fria.lilo.JsonUtils.toMap;
@@ -37,6 +39,8 @@ import static io.fria.lilo.JsonUtils.toObj;
 import static io.fria.lilo.JsonUtils.toStr;
 
 public class LiloContext {
+
+  private static final Logger LOG = LoggerFactory.getLogger(LiloContext.class);
 
   private static final Set<String> PREDEFINED_SCALARS =
       Set.of("Boolean", "Float", "Int", "ID", "String");
@@ -159,7 +163,7 @@ public class LiloContext {
   }
 
   @NotNull
-  GraphQL getGraphQL(@Nullable final ExecutionInput executionInput) {
+  synchronized GraphQL getGraphQL(@Nullable final ExecutionInput executionInput) {
 
     if (this.graphQL == null) {
       final var sourceMapClone = this.processInvalidatedSources(executionInput);
@@ -207,6 +211,10 @@ public class LiloContext {
       @NotNull final Map<String, Object> combinedSchemaMap,
       @NotNull final Map<String, ScalarTypeDefinition> scalars) {
 
+    if (processedSchemaSource.schema == null) {
+      return;
+    }
+
     final var operationTypeNames = SchemaMerger.getOperationTypeNames(processedSchemaSource.schema);
 
     this.assignDataFetchers(
@@ -228,7 +236,7 @@ public class LiloContext {
     processedSchemaSourceMap
         .values()
         .forEach(
-            ss -> this.assignHandler(ss, typeRuntimeWiringBuilders, combinedSchemaMap, scalars));
+            pss -> this.assignHandler(pss, typeRuntimeWiringBuilders, combinedSchemaMap, scalars));
 
     return combine(
         typeRuntimeWiringBuilders, combinedSchemaMap, scalars, this.dataFetcherExceptionHandler);
@@ -309,10 +317,18 @@ public class LiloContext {
 
     private void process(@Nullable final Object localContext) {
 
-      final var introspectionResponse =
-          this.schemaSource
-              .getIntrospectionRetriever()
-              .get(LiloContext.this, this.schemaSource, INTROSPECTION_REQUEST, localContext);
+      final String introspectionResponse;
+
+      try {
+        introspectionResponse =
+            this.schemaSource
+                .getIntrospectionRetriever()
+                .get(LiloContext.this, this.schemaSource, INTROSPECTION_REQUEST, localContext);
+      } catch (final Exception e) {
+        LOG.error("Could not load introspection for {}", this.schemaSource.getName());
+        LOG.debug("Introspection fetching exception", e);
+        return;
+      }
 
       final var introspectionResultOptional = toMap(introspectionResponse);
 
