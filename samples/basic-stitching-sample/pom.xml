@@ -19,7 +19,7 @@
 
   <groupId>io.fria.lilo</groupId>
   <artifactId>basic-stitching-sample</artifactId>
-  <version>22.4.13</version>
+  <version>22.4.15</version>
   <name>basic-stitching-sample</name>
   <description>Basic Lilo usage</description>
 
