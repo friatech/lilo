@@ -5,6 +5,7 @@ import graphql.ErrorType;
 import graphql.GraphQLError;
 import graphql.language.SourceLocation;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
@@ -15,7 +16,8 @@ public class LiloGraphQLError implements GraphQLError {
   private String message;
   private List<ErrorSourceLocation> locations;
   private ErrorType errorType;
-  private List<Object> path;
+  private List<Object>         path;
+  private Map<String, Object> extensions;
 
   @SuppressWarnings("checkstyle:WhitespaceAround")
   public LiloGraphQLError() {}
@@ -41,6 +43,11 @@ public class LiloGraphQLError implements GraphQLError {
         .collect(Collectors.toList());
   }
 
+  @Override
+  public @Nullable Map<String, Object> getExtensions() {
+    return this.extensions;
+  }
+
   public void setLocations(@Nullable final List<ErrorSourceLocation> locations) {
     this.locations = locations;
   }
@@ -61,5 +68,9 @@ public class LiloGraphQLError implements GraphQLError {
 
   public void setPath(@Nullable final List<Object> path) {
     this.path = path;
+  }
+
+  public void setExtensions(@Nullable final Map<String, Object> extensions) {
+    this.extensions = extensions;
   }
 }
