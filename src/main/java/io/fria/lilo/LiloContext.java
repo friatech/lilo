@@ -162,11 +162,12 @@ public class LiloContext {
     this.graphQL = null;
   }
 
-  @NotNull
-  GraphQL getGraphQL(@Nullable final ExecutionInput executionInput) {
+  synchronized @NotNull GraphQL getGraphQL(@Nullable final ExecutionInput executionInput) {
 
     if (this.graphQL == null) {
-      this.createGraphQL(executionInput);
+      final var sourceMapClone = this.processInvalidatedSources(executionInput);
+      this.graphQL = this.createGraphQL(sourceMapClone);
+      this.sourceMap = sourceMapClone;
     }
 
     return this.graphQL;
@@ -222,12 +223,6 @@ public class LiloContext {
 
     scalars.putAll(processedSchemaSource.typeDefinitionRegistry.scalars());
     SchemaMerger.mergeSchema(combinedSchemaMap, processedSchemaSource.schema);
-  }
-
-  private synchronized void createGraphQL(@Nullable final ExecutionInput executionInput) {
-    final var sourceMapClone = this.processInvalidatedSources(executionInput);
-    this.graphQL = this.createGraphQL(sourceMapClone);
-    this.sourceMap = sourceMapClone;
   }
 
   private @NotNull GraphQL createGraphQL(
