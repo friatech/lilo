@@ -199,7 +199,7 @@ final class QueryTransformer {
     final var queryText = AstPrinter.printAst(newDocument);
     final var request = toStr(requestBuilder.query(queryText).build());
 
-    queryBuilder.query(request);
+    queryBuilder.query(request).arguments(environment.getArguments());
 
     return newDocument;
   }

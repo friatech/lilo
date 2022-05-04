@@ -12,16 +12,19 @@ public class GraphQLQuery {
   private final String query;
   private final OperationDefinition.Operation operationType;
   private final Field queryNode;
+  private final Map<String, Object> arguments;
   private final Map<String, Object> variables;
 
   public GraphQLQuery(
       @NotNull final String query,
       @NotNull final OperationDefinition.Operation operationType,
       @NotNull final Field queryNode,
+      @NotNull final Map<String, Object> arguments,
       @Nullable final Map<String, Object> variables) {
     this.query = Objects.requireNonNull(query);
     this.operationType = Objects.requireNonNull(operationType);
     this.queryNode = Objects.requireNonNull(queryNode);
+    this.arguments = arguments;
     this.variables = variables;
   }
 
@@ -41,6 +44,10 @@ public class GraphQLQuery {
     return this.queryNode;
   }
 
+  public @NotNull Map<String, Object> getArguments() {
+    return this.arguments;
+  }
+
   public @Nullable Map<String, Object> getVariables() {
     return this.variables;
   }
@@ -51,13 +58,21 @@ public class GraphQLQuery {
     private OperationDefinition.Operation operationType;
     private Field queryNode;
     private Map<String, Object> variables;
+    private Map<String, Object> arguments;
 
     private GraphQLQueryBuilder() {
       // Private constructor
     }
 
+    public @NotNull GraphQLQueryBuilder arguments(
+        @NotNull final Map<String, Object> argumentsParam) {
+      this.arguments = argumentsParam;
+      return this;
+    }
+
     public @NotNull GraphQLQuery build() {
-      return new GraphQLQuery(this.query, this.operationType, this.queryNode, this.variables);
+      return new GraphQLQuery(
+          this.query, this.operationType, this.queryNode, this.arguments, this.variables);
     }
 
     public @NotNull GraphQLQuery.GraphQLQueryBuilder operationType(
