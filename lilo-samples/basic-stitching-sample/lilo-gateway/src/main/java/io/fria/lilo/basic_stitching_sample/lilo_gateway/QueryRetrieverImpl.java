@@ -14,25 +14,25 @@ import org.springframework.web.client.RestTemplate;
 
 class QueryRetrieverImpl implements QueryRetriever {
 
-  private final String       schemaUrl;
+  private final String schemaUrl;
   private final RestTemplate restTemplate;
 
   QueryRetrieverImpl(@NonNull final String schemaUrl) {
     this.schemaUrl = schemaUrl + "/graphql";
-    this.restTemplate = new RestTemplateBuilder() //
-      .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE) //
-      .build(); //
+    this.restTemplate =
+        new RestTemplateBuilder() //
+            .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE) //
+            .build(); //
   }
 
   @Override
   public @NonNull String get(
-    @NonNull final LiloContext liloContext,
-    @NonNull final SchemaSource schemaSource,
-    @NonNull final GraphQLQuery graphQLQuery,
-    @Nullable final Object localContext) {
+      @NonNull final LiloContext liloContext,
+      @NonNull final SchemaSource schemaSource,
+      @NonNull final GraphQLQuery graphQLQuery,
+      @Nullable final Object localContext) {
 
     return Objects.requireNonNull(
-      this.restTemplate.postForObject(this.schemaUrl, graphQLQuery.getQuery(), String.class)
-    );
+        this.restTemplate.postForObject(this.schemaUrl, graphQLQuery.getQuery(), String.class));
   }
 }

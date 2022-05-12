@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>io.fria.lilo</groupId>
+  <artifactId>lilo-samples</artifactId>
+  <version>22.5.1-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <name>lilo-samples</name>
+  <description>Lilo GraphQL stitching library samples</description>
+  <url>https://github.com/friatech/lilo</url>
+
+  <modules>
+    <module>basic-stitching-sample</module>
+  </modules>
+
+  <parent>
+    <groupId>io.fria</groupId>
+    <artifactId>lilo-parent</artifactId>
+    <version>22.5.1-SNAPSHOT</version>
+  </parent>
+</project>

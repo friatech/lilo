@@ -7,17 +7,23 @@
   <parent>
     <groupId>io.fria.lilo</groupId>
     <artifactId>basic-stitching-sample</artifactId>
-    <version>22.5.0</version>
+    <version>22.5.1-SNAPSHOT</version>
   </parent>
 
   <modelVersion>4.0.0</modelVersion>
 
-  <artifactId>server2</artifactId>
+  <artifactId>lilo-gateway</artifactId>
+
+  <properties>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
+  </properties>
 
   <dependencies>
     <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-graphql</artifactId>
+      <groupId>io.fria</groupId>
+      <artifactId>lilo</artifactId>
+      <version>22.5.1-SNAPSHOT</version>
     </dependency>
   </dependencies>
 </project>

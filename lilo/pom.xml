@@ -5,18 +5,18 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>io.fria</groupId>
-  <artifactId>lilo-parent</artifactId>
+  <artifactId>lilo</artifactId>
   <version>22.5.1-SNAPSHOT</version>
-  <packaging>pom</packaging>
 
-  <name>lilo-parent</name>
-  <description>Lilo GraphQL stitching library parent pom</description>
+  <name>lilo-graphql</name>
+  <description>Lilo GraphQL stitching library</description>
   <url>https://github.com/friatech/lilo</url>
 
-  <modules>
-    <module>lilo</module>
-    <module>lilo-samples</module>
-  </modules>
+  <parent>
+    <groupId>io.fria</groupId>
+    <artifactId>lilo-parent</artifactId>
+    <version>22.5.1-SNAPSHOT</version>
+  </parent>
 
   <licenses>
     <license>
