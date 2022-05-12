@@ -27,5 +27,5 @@ public interface SchemaSource {
 
   boolean isSchemaLoaded();
 
-  void loadSchema(final LiloContext context, @Nullable final Object localContext);
+  void loadSchema(final LiloContext context, final @Nullable Object localContext);
 }

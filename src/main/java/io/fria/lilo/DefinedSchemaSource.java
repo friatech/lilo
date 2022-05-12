@@ -8,24 +8,24 @@ import org.jetbrains.annotations.Nullable;
 public final class DefinedSchemaSource implements SchemaSource {
 
   private DefinedSchemaSource(
-      @NotNull final String schemaName,
-      @NotNull final String definition,
-      @NotNull final RuntimeWiring runtimeWiring) {}
+      final @NotNull String schemaName,
+      final @NotNull String definition,
+      final @NotNull RuntimeWiring runtimeWiring) {}
 
   public static @NotNull SchemaSource create(
-      @NotNull final String schemaName,
-      @NotNull final String definition,
-      @NotNull final RuntimeWiring runtimeWiring) {
+      final @NotNull String schemaName,
+      final @NotNull String definition,
+      final @NotNull RuntimeWiring runtimeWiring) {
 
     return new DefinedSchemaSource(schemaName, definition, runtimeWiring);
   }
 
   @Override
   public @NotNull String execute(
-      @NotNull final LiloContext liloContext,
-      @NotNull final SchemaSource schemaSource,
-      @NotNull final GraphQLQuery query,
-      @Nullable final Object localContext) {
+      final @NotNull LiloContext liloContext,
+      final @NotNull SchemaSource schemaSource,
+      final @NotNull GraphQLQuery query,
+      final @Nullable Object localContext) {
     return null;
   }
 

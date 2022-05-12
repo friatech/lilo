@@ -9,7 +9,7 @@ public class SourceDataFetcherException extends RuntimeException {
 
   private final List<? extends GraphQLError> errors;
 
-  public SourceDataFetcherException(@NotNull final List<? extends GraphQLError> errors) {
+  public SourceDataFetcherException(final @NotNull List<? extends GraphQLError> errors) {
     this.errors = Objects.requireNonNull(errors);
   }
 

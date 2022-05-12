@@ -29,7 +29,7 @@ public final class TestUtils {
     return GraphQL.newGraphQL(graphQLSchema).build();
   }
 
-  public static @NotNull String loadResource(@NotNull final String path) {
+  public static @NotNull String loadResource(final @NotNull String path) {
 
     try {
       final InputStream stream = TestUtils.class.getResourceAsStream(path);
@@ -45,7 +45,7 @@ public final class TestUtils {
   }
 
   private static @NotNull String runQuery(
-      @NotNull final GraphQL graphQL, @NotNull final String query) {
+      final @NotNull GraphQL graphQL, final @NotNull String query) {
 
     final var graphQLRequestOptional = toObj(query, GraphQLRequest.class);
 
@@ -57,7 +57,7 @@ public final class TestUtils {
   }
 
   private static @NotNull String runQuery(
-      @NotNull final GraphQL graphQL, @NotNull final GraphQLRequest graphQLRequest) {
+      final @NotNull GraphQL graphQL, final @NotNull GraphQLRequest graphQLRequest) {
     return toStr(graphQL.execute(graphQLRequest.toExecutionInput()));
   }
 
@@ -65,7 +65,7 @@ public final class TestUtils {
 
     private GraphQL graphQL;
 
-    public TestIntrospectionRetriever(@NotNull final GraphQL graphQL) {
+    public TestIntrospectionRetriever(final @NotNull GraphQL graphQL) {
       this.graphQL = graphQL;
     }
 
@@ -78,7 +78,7 @@ public final class TestUtils {
       return runQuery(this.graphQL, query);
     }
 
-    public void setGraphQL(@NotNull final GraphQL graphQL) {
+    public void setGraphQL(final @NotNull GraphQL graphQL) {
       this.graphQL = graphQL;
     }
   }
@@ -87,7 +87,7 @@ public final class TestUtils {
 
     private GraphQL graphQL;
 
-    public TestQueryRetriever(@NotNull final GraphQL graphQL) {
+    public TestQueryRetriever(final @NotNull GraphQL graphQL) {
       this.graphQL = graphQL;
     }
 
@@ -100,7 +100,7 @@ public final class TestUtils {
       return runQuery(this.graphQL, query.getQuery());
     }
 
-    public void setGraphQL(@NotNull final GraphQL graphQL) {
+    public void setGraphQL(final @NotNull GraphQL graphQL) {
       this.graphQL = graphQL;
     }
   }

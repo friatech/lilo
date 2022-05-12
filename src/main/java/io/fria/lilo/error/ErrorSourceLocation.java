@@ -13,7 +13,7 @@ public class ErrorSourceLocation extends SourceLocation {
     super(line, column);
   }
 
-  public ErrorSourceLocation(final int line, final int column, @Nullable final String sourceName) {
+  public ErrorSourceLocation(final int line, final int column, final @Nullable String sourceName) {
     super(line, column, sourceName);
   }
 

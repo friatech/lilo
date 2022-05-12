@@ -11,7 +11,7 @@ public class SourceDataFetcherExceptionHandler extends SimpleDataFetcherExceptio
 
   @Override
   public @NotNull DataFetcherExceptionHandlerResult onException(
-      @NotNull final DataFetcherExceptionHandlerParameters handlerParameters) {
+      final @NotNull DataFetcherExceptionHandlerParameters handlerParameters) {
 
     final Throwable exception = handlerParameters.getException();
 

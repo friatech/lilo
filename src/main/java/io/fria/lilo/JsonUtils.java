@@ -20,7 +20,7 @@ public final class JsonUtils {
   }
 
   public static @NotNull Optional<Map<String, Object>> getMap(
-      @NotNull final Map<String, Object> map, @NotNull final String key) {
+      final @NotNull Map<String, Object> map, final @NotNull String key) {
 
     try {
       return Optional.ofNullable((Map<String, Object>) getValue(map, key));
@@ -30,7 +30,7 @@ public final class JsonUtils {
   }
 
   public static @NotNull Optional<List<Map<String, Object>>> getMapList(
-      @NotNull final Map<String, Object> map, @NotNull final String key) {
+      final @NotNull Map<String, Object> map, final @NotNull String key) {
 
     try {
       return Optional.ofNullable((List<Map<String, Object>>) getValue(map, key));
@@ -39,12 +39,12 @@ public final class JsonUtils {
     }
   }
 
-  public static @NotNull Optional<String> getName(@NotNull final Map<String, Object> map) {
+  public static @NotNull Optional<String> getName(final @NotNull Map<String, Object> map) {
     return getStr(map, "name");
   }
 
   public static @NotNull Optional<String> getStr(
-      @NotNull final Map<String, Object> map, @NotNull final String key) {
+      final @NotNull Map<String, Object> map, final @NotNull String key) {
 
     try {
       return Optional.ofNullable((String) getValue(map, key));
@@ -54,7 +54,7 @@ public final class JsonUtils {
   }
 
   @SuppressWarnings("checkstyle:WhitespaceAround")
-  public static @NotNull Optional<Map<String, Object>> toMap(@NotNull final String jsonText) {
+  public static @NotNull Optional<Map<String, Object>> toMap(final @NotNull String jsonText) {
 
     try {
       return Optional.ofNullable(
@@ -65,7 +65,7 @@ public final class JsonUtils {
   }
 
   public static <T> @NotNull Optional<T> toObj(
-      @NotNull final String jsonText, final Class<T> clazz) {
+      final @NotNull String jsonText, final Class<T> clazz) {
 
     try {
       return Optional.ofNullable(OBJECT_MAPPER.readValue(Objects.requireNonNull(jsonText), clazz));
@@ -74,7 +74,7 @@ public final class JsonUtils {
     }
   }
 
-  public static @NotNull String toStr(@Nullable final Object obj) {
+  public static @NotNull String toStr(final @Nullable Object obj) {
 
     try {
       return OBJECT_MAPPER.writeValueAsString(obj);
@@ -90,7 +90,7 @@ public final class JsonUtils {
   }
 
   private static @Nullable Object getValue(
-      @NotNull final Map<String, Object> map, @NotNull final String key) {
+      final @NotNull Map<String, Object> map, final @NotNull String key) {
     return Objects.requireNonNull(map).get(Objects.requireNonNull(key));
   }
 }

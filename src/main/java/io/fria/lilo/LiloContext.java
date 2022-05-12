@@ -43,9 +43,9 @@ public class LiloContext {
   private GraphQL graphQL;
 
   LiloContext(
-      @NotNull final DataFetcherExceptionHandler dataFetcherExceptionHandler,
-      @NotNull final IntrospectionFetchingMode introspectionFetchingMode,
-      @NotNull final SchemaSource... schemaSources) {
+      final @NotNull DataFetcherExceptionHandler dataFetcherExceptionHandler,
+      final @NotNull IntrospectionFetchingMode introspectionFetchingMode,
+      final @NotNull SchemaSource... schemaSources) {
     this.dataFetcherExceptionHandler = Objects.requireNonNull(dataFetcherExceptionHandler);
     this.introspectionFetchingMode = Objects.requireNonNull(introspectionFetchingMode);
     this.sourceMap =
@@ -53,8 +53,8 @@ public class LiloContext {
   }
 
   private static RuntimeWiring finalizeWiring(
-      @NotNull final TypeDefinitionRegistry typeRegistry,
-      @NotNull final RuntimeWiring.Builder runtimeWiringBuilder) {
+      final @NotNull TypeDefinitionRegistry typeRegistry,
+      final @NotNull RuntimeWiring.Builder runtimeWiringBuilder) {
 
     final var dummyCoercing = new DummyCoercing();
 
@@ -100,7 +100,7 @@ public class LiloContext {
     return Map.copyOf(this.sourceMap);
   }
 
-  public void invalidate(@NotNull final String schemaName) {
+  public void invalidate(final @NotNull String schemaName) {
 
     if (!this.sourceMap.containsKey(Objects.requireNonNull(schemaName))) {
       return;
@@ -117,7 +117,7 @@ public class LiloContext {
     this.graphQL = null;
   }
 
-  synchronized @NotNull GraphQL getGraphQL(@Nullable final ExecutionInput executionInput) {
+  synchronized @NotNull GraphQL getGraphQL(final @Nullable ExecutionInput executionInput) {
 
     if (this.graphQL == null) {
       final var sourceMapClone = this.loadSources(executionInput);
@@ -128,7 +128,7 @@ public class LiloContext {
     return this.graphQL;
   }
 
-  private @NotNull GraphQL createGraphQL(@NotNull final Map<String, SchemaSource> schemaSourceMap) {
+  private @NotNull GraphQL createGraphQL(final @NotNull Map<String, SchemaSource> schemaSourceMap) {
 
     final TypeDefinitionRegistry combinedRegistry = new TypeDefinitionRegistry();
     final RuntimeWiring.Builder runtimeWiringBuilder = RuntimeWiring.newRuntimeWiring();
@@ -145,7 +145,7 @@ public class LiloContext {
   }
 
   private @NotNull Map<String, SchemaSource> loadSources(
-      @Nullable final ExecutionInput executionInput) {
+      final @Nullable ExecutionInput executionInput) {
 
     final Object localContext = executionInput == null ? null : executionInput.getLocalContext();
 

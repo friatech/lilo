@@ -16,11 +16,11 @@ public class GraphQLQuery {
   private final Map<String, Object> variables;
 
   public GraphQLQuery(
-      @NotNull final String query,
-      @NotNull final OperationDefinition.Operation operationType,
-      @NotNull final Field queryNode,
-      @NotNull final Map<String, Object> arguments,
-      @Nullable final Map<String, Object> variables) {
+      final @NotNull String query,
+      final @NotNull OperationDefinition.Operation operationType,
+      final @NotNull Field queryNode,
+      final @NotNull Map<String, Object> arguments,
+      final @Nullable Map<String, Object> variables) {
     this.query = Objects.requireNonNull(query);
     this.operationType = Objects.requireNonNull(operationType);
     this.queryNode = Objects.requireNonNull(queryNode);
@@ -65,7 +65,7 @@ public class GraphQLQuery {
     }
 
     public @NotNull GraphQLQueryBuilder arguments(
-        @NotNull final Map<String, Object> argumentsParam) {
+        final @NotNull Map<String, Object> argumentsParam) {
       this.arguments = argumentsParam;
       return this;
     }
@@ -76,24 +76,24 @@ public class GraphQLQuery {
     }
 
     public @NotNull GraphQLQuery.GraphQLQueryBuilder operationType(
-        @NotNull final OperationDefinition.Operation operationTypeParam) {
+        final @NotNull OperationDefinition.Operation operationTypeParam) {
       this.operationType = operationTypeParam;
       return this;
     }
 
-    public @NotNull GraphQLQuery.GraphQLQueryBuilder query(@NotNull final String queryParam) {
+    public @NotNull GraphQLQuery.GraphQLQueryBuilder query(final @NotNull String queryParam) {
       this.query = queryParam;
       return this;
     }
 
     public @NotNull GraphQLQuery.GraphQLQueryBuilder queryNode(
-        @NotNull final Field queryNodeParam) {
+        final @NotNull Field queryNodeParam) {
       this.queryNode = queryNodeParam;
       return this;
     }
 
     public @NotNull GraphQLQuery.GraphQLQueryBuilder variables(
-        @Nullable final Map<String, Object> variablesMap) {
+        final @Nullable Map<String, Object> variablesMap) {
       this.variables = variablesMap;
       return this;
     }

@@ -42,18 +42,18 @@ public final class RemoteSchemaSource implements SchemaSource {
   private RuntimeWiring runtimeWiring;
 
   private RemoteSchemaSource(
-      @NotNull final String schemaName,
-      @NotNull final IntrospectionRetriever introspectionRetriever,
-      @NotNull final QueryRetriever queryRetriever) {
+      final @NotNull String schemaName,
+      final @NotNull IntrospectionRetriever introspectionRetriever,
+      final @NotNull QueryRetriever queryRetriever) {
     this.schemaName = schemaName;
     this.introspectionRetriever = introspectionRetriever;
     this.queryRetriever = queryRetriever;
   }
 
   public static @NotNull SchemaSource create(
-      @NotNull final String schemaName,
-      @NotNull final IntrospectionRetriever introspectionRetriever,
-      @NotNull final QueryRetriever queryRetriever) {
+      final @NotNull String schemaName,
+      final @NotNull IntrospectionRetriever introspectionRetriever,
+      final @NotNull QueryRetriever queryRetriever) {
 
     return new RemoteSchemaSource(
         Objects.requireNonNull(schemaName),
@@ -63,10 +63,10 @@ public final class RemoteSchemaSource implements SchemaSource {
 
   @Override
   public @NotNull String execute(
-      @NotNull final LiloContext liloContext,
-      @NotNull final SchemaSource schemaSource,
-      @NotNull final GraphQLQuery query,
-      @Nullable final Object localContext) {
+      final @NotNull LiloContext liloContext,
+      final @NotNull SchemaSource schemaSource,
+      final @NotNull GraphQLQuery query,
+      final @Nullable Object localContext) {
     return this.queryRetriever.get(liloContext, schemaSource, query, localContext);
   }
 
@@ -96,7 +96,9 @@ public final class RemoteSchemaSource implements SchemaSource {
   }
 
   @Override
-  public void invalidate() {}
+  public void invalidate() {
+    this.typeDefinitionRegistry = null;
+  }
 
   @Override
   public boolean isSchemaLoaded() {
@@ -105,7 +107,7 @@ public final class RemoteSchemaSource implements SchemaSource {
 
   @Override
   public void loadSchema(
-      @NotNull final LiloContext liloContext, final @Nullable Object localContext) {
+      final @NotNull LiloContext liloContext, final @Nullable Object localContext) {
 
     final String introspectionResponse;
 
@@ -147,7 +149,7 @@ public final class RemoteSchemaSource implements SchemaSource {
   }
 
   private @Nullable Object fetchData(
-      @NotNull final DataFetchingEnvironment environment, @NotNull final LiloContext liloContext) {
+      final @NotNull DataFetchingEnvironment environment, final @NotNull LiloContext liloContext) {
 
     final var query = QueryTransformer.extractQuery(environment);
     final var queryResult = this.execute(liloContext, this, query, environment.getLocalContext());
@@ -168,9 +170,9 @@ public final class RemoteSchemaSource implements SchemaSource {
   }
 
   private @NotNull Optional<TypeRuntimeWiring> typeWiring(
-      @NotNull final TypeDefinitionRegistry typeDefinitionRegistry,
-      @NotNull final LiloContext liloContext,
-      @Nullable final String typeName) {
+      final @NotNull TypeDefinitionRegistry typeDefinitionRegistry,
+      final @NotNull LiloContext liloContext,
+      final @Nullable String typeName) {
 
     if (typeName == null) {
       return Optional.empty();

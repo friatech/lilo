@@ -10,19 +10,19 @@ public class DummyCoercing implements Coercing<Object, Object> {
 
   @NotNull
   @Override
-  public Object parseLiteral(@NotNull final Object input) throws CoercingParseLiteralException {
+  public Object parseLiteral(final @NotNull Object input) throws CoercingParseLiteralException {
     return input;
   }
 
   @NotNull
   @Override
-  public Object parseValue(@NotNull final Object input) throws CoercingParseValueException {
+  public Object parseValue(final @NotNull Object input) throws CoercingParseValueException {
     return input;
   }
 
   @NotNull
   @Override
-  public Object serialize(@NotNull final Object dataFetcherResult)
+  public Object serialize(final @NotNull Object dataFetcherResult)
       throws CoercingSerializeException {
     return dataFetcherResult;
   }

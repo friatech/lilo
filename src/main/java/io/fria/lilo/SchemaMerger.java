@@ -47,9 +47,9 @@ final class SchemaMerger {
   }
 
   static void mergeSchemas(
-      @NotNull final Collection<SchemaSource> schemaSources,
-      @NotNull final TypeDefinitionRegistry combinedRegistry,
-      @NotNull final RuntimeWiring.Builder runtimeWiringBuilder) {
+      final @NotNull Collection<SchemaSource> schemaSources,
+      final @NotNull TypeDefinitionRegistry combinedRegistry,
+      final RuntimeWiring.@NotNull Builder runtimeWiringBuilder) {
 
     String queryTypeName = null;
     String mutationTypeName = null;
@@ -91,9 +91,9 @@ final class SchemaMerger {
   }
 
   private static void addSchema(
-      @Nullable final String queryTypeName,
-      @Nullable final String mutationTypeName,
-      @NotNull final TypeDefinitionRegistry combinedRegistry) {
+      final @Nullable String queryTypeName,
+      final @Nullable String mutationTypeName,
+      final @NotNull TypeDefinitionRegistry combinedRegistry) {
 
     final SchemaDefinition.Builder builder = SchemaDefinition.newSchemaDefinition();
 
@@ -133,7 +133,7 @@ final class SchemaMerger {
   }
 
   private static @Nullable String checkName(
-      @Nullable final String globalTypeName, @Nullable final String sourceTypeName) {
+      final @Nullable String globalTypeName, final @Nullable String sourceTypeName) {
 
     if (sourceTypeName != null) {
       if (globalTypeName != null && !globalTypeName.equals(sourceTypeName)) {
@@ -147,9 +147,9 @@ final class SchemaMerger {
   }
 
   private static List<SDLDefinition> excludeTypes(
-      @NotNull final TypeDefinitionRegistry sourceRegistry,
-      @Nullable final String queryTypeName,
-      @Nullable final String mutationTypeName) {
+      final @NotNull TypeDefinitionRegistry sourceRegistry,
+      final @Nullable String queryTypeName,
+      final @Nullable String mutationTypeName) {
 
     return sourceRegistry.types().values().stream()
         .filter(t -> !t.getName().equals(queryTypeName) && !t.getName().equals(mutationTypeName))
@@ -157,9 +157,9 @@ final class SchemaMerger {
   }
 
   private static void mergeFieldDefinitions(
-      @Nullable final String typeName,
-      @NotNull final List<FieldDefinition> fieldDefinitions,
-      @NotNull final TypeDefinitionRegistry sourceRegistry,
+      final @Nullable String typeName,
+      final @NotNull List<FieldDefinition> fieldDefinitions,
+      final @NotNull TypeDefinitionRegistry sourceRegistry,
       final RuntimeWiring.@NotNull Builder runtimeWiringBuilder,
       final Map<String, Map<String, DataFetcher>> dataFetchers) {
 
@@ -184,7 +184,7 @@ final class SchemaMerger {
     private final String query;
     private final String mutation;
 
-    OperationTypeNames(@NotNull final String query, @Nullable final String mutation) {
+    OperationTypeNames(final @NotNull String query, final @Nullable String mutation) {
       this.query = query;
       this.mutation = mutation;
     }

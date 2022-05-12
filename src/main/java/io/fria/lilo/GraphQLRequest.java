@@ -116,9 +116,9 @@ public class GraphQLRequest {
   private Map<String, Object> variables;
 
   public GraphQLRequest(
-      @NotNull final String query,
-      @Nullable final String operationName,
-      @Nullable final Map<String, Object> variables) {
+      final @NotNull String query,
+      final @Nullable String operationName,
+      final @Nullable Map<String, Object> variables) {
     this.query = Objects.requireNonNull(query);
     this.operationName = operationName;
     this.variables = variables;
@@ -133,7 +133,7 @@ public class GraphQLRequest {
   }
 
   @Override
-  public boolean equals(@Nullable final Object o) {
+  public boolean equals(final @Nullable Object o) {
 
     if (this == o) {
       return true;
@@ -154,7 +154,7 @@ public class GraphQLRequest {
     return this.operationName;
   }
 
-  public void setOperationName(@Nullable final String operationName) {
+  public void setOperationName(final @Nullable String operationName) {
     this.operationName = operationName;
   }
 
@@ -162,7 +162,7 @@ public class GraphQLRequest {
     return this.query;
   }
 
-  public void setQuery(@NotNull final String query) {
+  public void setQuery(final @NotNull String query) {
     this.query = Objects.requireNonNull(query);
   }
 
@@ -170,7 +170,7 @@ public class GraphQLRequest {
     return this.variables;
   }
 
-  public void setVariables(@Nullable final Map<String, Object> variables) {
+  public void setVariables(final @Nullable Map<String, Object> variables) {
     this.variables = variables;
   }
 
@@ -179,7 +179,7 @@ public class GraphQLRequest {
     return Objects.hash(this.query, this.operationName, this.variables);
   }
 
-  public @NotNull ExecutionInput toExecutionInput(@Nullable final Object localContext) {
+  public @NotNull ExecutionInput toExecutionInput(final @Nullable Object localContext) {
 
     final ExecutionInput.Builder builder = ExecutionInput.newExecutionInput().query(this.query);
 
@@ -227,18 +227,18 @@ public class GraphQLRequest {
       return new GraphQLRequest(this.query, this.operationName, this.variables);
     }
 
-    public @NotNull GraphQLRequestBuilder operationName(@Nullable final String operationNameParam) {
+    public @NotNull GraphQLRequestBuilder operationName(final @Nullable String operationNameParam) {
       this.operationName = operationNameParam;
       return this;
     }
 
-    public @NotNull GraphQLRequestBuilder query(@NotNull final String queryParam) {
+    public @NotNull GraphQLRequestBuilder query(final @NotNull String queryParam) {
       this.query = Objects.requireNonNull(queryParam);
       return this;
     }
 
     public @NotNull GraphQLRequestBuilder variables(
-        @Nullable final Map<String, Object> variablesParam) {
+        final @Nullable Map<String, Object> variablesParam) {
       this.variables = variablesParam;
       return this;
     }

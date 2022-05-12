@@ -27,7 +27,7 @@ public class LiloGraphQLError implements GraphQLError {
     return this.errorType;
   }
 
-  public void setErrorType(@Nullable final ErrorType errorType) {
+  public void setErrorType(final @Nullable ErrorType errorType) {
     this.errorType = errorType;
   }
 
@@ -36,7 +36,7 @@ public class LiloGraphQLError implements GraphQLError {
     return this.extensions;
   }
 
-  public void setExtensions(@Nullable final Map<String, Object> extensions) {
+  public void setExtensions(final @Nullable Map<String, Object> extensions) {
     this.extensions = extensions;
   }
 
@@ -52,7 +52,7 @@ public class LiloGraphQLError implements GraphQLError {
         .collect(Collectors.toList());
   }
 
-  public void setLocations(@Nullable final List<ErrorSourceLocation> locations) {
+  public void setLocations(final @Nullable List<ErrorSourceLocation> locations) {
     this.locations = locations;
   }
 
@@ -61,7 +61,7 @@ public class LiloGraphQLError implements GraphQLError {
     return this.message;
   }
 
-  public void setMessage(@NotNull final String message) {
+  public void setMessage(final @NotNull String message) {
     this.message = Objects.requireNonNull(message);
   }
 
@@ -70,7 +70,7 @@ public class LiloGraphQLError implements GraphQLError {
     return this.path;
   }
 
-  public void setPath(@Nullable final List<Object> path) {
+  public void setPath(final @Nullable List<Object> path) {
     this.path = path;
   }
 }
