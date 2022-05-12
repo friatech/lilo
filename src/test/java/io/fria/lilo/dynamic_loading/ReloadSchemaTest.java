@@ -19,16 +19,14 @@ class ReloadSchemaTest {
   private static final String SCHEMA1_NAME = "project1";
   private static final String SCHEMA2_NAME = "project2";
 
-  private static RuntimeWiring createWiring() {
-
-    return RuntimeWiring.newRuntimeWiring()
-        .type(
-            newTypeWiring("Query")
-                .dataFetcher("greeting1", env -> "Hello greeting1")
-                .dataFetcher("greeting2", env -> "Hello greeting2")
-                .dataFetcher("greeting3", env -> "Hello greeting3"))
-        .build();
-  }
+  private static final RuntimeWiring WIRING =
+      RuntimeWiring.newRuntimeWiring()
+          .type(
+              newTypeWiring("Query")
+                  .dataFetcher("greeting1", env -> "Hello greeting1")
+                  .dataFetcher("greeting2", env -> "Hello greeting2")
+                  .dataFetcher("greeting3", env -> "Hello greeting3"))
+          .build();
 
   @Test
   void stitchingTest() {
@@ -40,8 +38,8 @@ class ReloadSchemaTest {
         ExecutionInput.newExecutionInput().query("{greeting1\ngreeting2}").build();
 
     // Stitching result ----------------------------------------------------
-    final var project1GraphQL = createGraphQL("/greetings/greeting1.graphqls", createWiring());
-    final var project2GraphQL = createGraphQL("/greetings/greeting2.graphqls", createWiring());
+    final var project1GraphQL = createGraphQL("/greetings/greeting1.graphqls", WIRING);
+    final var project2GraphQL = createGraphQL("/greetings/greeting2.graphqls", WIRING);
     final var introspection1Retriever = new TestUtils.TestIntrospectionRetriever(project1GraphQL);
     final var introspection2Retriever = new TestUtils.TestIntrospectionRetriever(project2GraphQL);
     final var query1Retriever = new TestUtils.TestQueryRetriever(project1GraphQL);
@@ -62,8 +60,7 @@ class ReloadSchemaTest {
     Assertions.assertEquals(expected, stitchResult.getData());
 
     // After reloading context old expected result won't work.
-    final var project3GraphQL =
-        createGraphQL("/dynamic_loading/greeting3.graphqls", createWiring());
+    final var project3GraphQL = createGraphQL("/dynamic_loading/greeting3.graphqls", WIRING);
 
     query2Retriever.setGraphQL(project3GraphQL);
     introspection2Retriever.setGraphQL(project3GraphQL);

@@ -23,7 +23,13 @@ import static org.mockito.Mockito.when;
 class FetchingOptionsTest {
 
   private static final String SCHEMA1_NAME = "project1";
-
+  private static final RuntimeWiring WIRING =
+      RuntimeWiring.newRuntimeWiring()
+          .type(
+              newTypeWiring("Query")
+                  .dataFetcher(
+                      "add", env -> env.<Integer>getArgument("a") + env.<Integer>getArgument("b")))
+          .build();
   private static ExecutionInput EXECUTION_INPUT_QUERY;
   private static String RESPONSE_INTROSPECTION;
   private static String RESPONSE_QUERY;
@@ -36,19 +42,9 @@ class FetchingOptionsTest {
     final ExecutionInput executionInputIntrospection =
         ExecutionInput.newExecutionInput().query(GraphQLRequest.INTROSPECTION_QUERY).build();
 
-    final GraphQL combinedGraphQL = createGraphQL("/math/add.graphqls", createWiring());
+    final GraphQL combinedGraphQL = createGraphQL("/math/add.graphqls", WIRING);
     RESPONSE_INTROSPECTION = toStr(combinedGraphQL.execute(executionInputIntrospection));
     RESPONSE_QUERY = toStr(combinedGraphQL.execute(EXECUTION_INPUT_QUERY));
-  }
-
-  private static RuntimeWiring createWiring() {
-
-    return RuntimeWiring.newRuntimeWiring()
-        .type(
-            newTypeWiring("Query")
-                .dataFetcher(
-                    "add", env -> env.<Integer>getArgument("a") + env.<Integer>getArgument("b")))
-        .build();
   }
 
   @Test

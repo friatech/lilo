@@ -21,15 +21,13 @@ class LocalContextTest {
 
   private static final String SCHEMA1_NAME = "project1";
 
-  private static RuntimeWiring createWiring() {
-
-    return RuntimeWiring.newRuntimeWiring()
-        .type(
-            newTypeWiring("Query")
-                .dataFetcher(
-                    "add", env -> env.<Integer>getArgument("a") + env.<Integer>getArgument("b")))
-        .build();
-  }
+  private static final RuntimeWiring WIRING =
+      RuntimeWiring.newRuntimeWiring()
+          .type(
+              newTypeWiring("Query")
+                  .dataFetcher(
+                      "add", env -> env.<Integer>getArgument("a") + env.<Integer>getArgument("b")))
+          .build();
 
   @Test
   void localContextTest() {
@@ -46,7 +44,7 @@ class LocalContextTest {
     final ExecutionInput executionInputIntrospection =
         ExecutionInput.newExecutionInput().query(GraphQLRequest.INTROSPECTION_QUERY).build();
 
-    final var combinedGraphQL = createGraphQL("/math/add.graphqls", createWiring());
+    final var combinedGraphQL = createGraphQL("/math/add.graphqls", WIRING);
     final var introspection1Retriever = mock(IntrospectionRetriever.class);
     final var query1Retriever = mock(QueryRetriever.class);
 

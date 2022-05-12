@@ -1,5 +1,7 @@
 package io.fria.lilo;
 
+import graphql.ExecutionResult;
+import graphql.ExecutionResultImpl;
 import graphql.GraphQLError;
 import graphql.introspection.IntrospectionResultToSchema;
 import graphql.language.FieldDefinition;
@@ -15,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -62,12 +65,20 @@ public final class RemoteSchemaSource implements SchemaSource {
   }
 
   @Override
-  public @NotNull String execute(
+  public @NotNull ExecutionResult execute(
       final @NotNull LiloContext liloContext,
       final @NotNull SchemaSource schemaSource,
       final @NotNull GraphQLQuery query,
       final @Nullable Object localContext) {
-    return this.queryRetriever.get(liloContext, schemaSource, query, localContext);
+
+    final var queryResult = this.queryRetriever.get(liloContext, schemaSource, query, localContext);
+    final var graphQLResultOptional = toObj(queryResult, GraphQLResult.class);
+
+    if (graphQLResultOptional.isEmpty()) {
+      throw new IllegalArgumentException("DataFetcher caught an empty response");
+    }
+
+    return graphQLResultOptional.get();
   }
 
   @Override
@@ -152,21 +163,14 @@ public final class RemoteSchemaSource implements SchemaSource {
       final @NotNull DataFetchingEnvironment environment, final @NotNull LiloContext liloContext) {
 
     final var query = QueryTransformer.extractQuery(environment);
-    final var queryResult = this.execute(liloContext, this, query, environment.getLocalContext());
-    final var graphQLResultOptional = toObj(queryResult, GraphQLResult.class);
-
-    if (graphQLResultOptional.isEmpty()) {
-      throw new IllegalArgumentException("DataFetcher caught an empty response");
-    }
-
-    final GraphQLResult graphQLResult = graphQLResultOptional.get();
-    final List<? extends GraphQLError> errors = graphQLResult.errors;
+    final var graphQLResult = this.execute(liloContext, this, query, environment.getLocalContext());
+    final List<GraphQLError> errors = graphQLResult.getErrors();
 
     if (errors != null && !errors.isEmpty()) {
       throw new SourceDataFetcherException(errors);
     }
 
-    return graphQLResult.data.values().iterator().next();
+    return ((Map<String, Object>) graphQLResult.getData()).values().iterator().next();
   }
 
   private @NotNull Optional<TypeRuntimeWiring> typeWiring(
@@ -195,17 +199,41 @@ public final class RemoteSchemaSource implements SchemaSource {
     return Optional.of(typeWiringBuilder.build());
   }
 
-  private static final class GraphQLResult {
+  private static final class GraphQLResult implements ExecutionResult {
 
     private Map<String, Object> data;
     private List<LiloGraphQLError> errors;
+    private Map<Object, Object> extensions;
 
+    @Override
     public @NotNull Map<String, Object> getData() {
       return this.data;
     }
 
-    public @NotNull List<LiloGraphQLError> getErrors() {
-      return this.errors;
+    @Override
+    public @NotNull List<GraphQLError> getErrors() {
+      return this.errors.stream().map(le -> (GraphQLError) le).collect(Collectors.toList());
+    }
+
+    @Override
+    public @Nullable Map<Object, Object> getExtensions() {
+      return this.extensions;
+    }
+
+    @Override
+    public boolean isDataPresent() {
+      return this.data != null;
+    }
+
+    @Override
+    public Map<String, Object> toSpecification() {
+
+      return ExecutionResultImpl.newExecutionResult()
+          .data(this.data)
+          .errors(this.getErrors())
+          .extensions(this.extensions)
+          .build()
+          .toSpecification();
     }
   }
 }

@@ -20,19 +20,17 @@ class ErrorTest {
   private static final String SCHEMA1_NAME = "project1";
   private static final String SCHEMA2_NAME = "project2";
 
-  private static RuntimeWiring createWiring() {
-
-    return RuntimeWiring.newRuntimeWiring()
-        .type(
-            newTypeWiring("Query")
-                .dataFetcher(
-                    "greeting1",
-                    env -> {
-                      throw new GraphQLException("An error occurred for greeting1");
-                    })
-                .dataFetcher("greeting2", env -> "Hello greeting2"))
-        .build();
-  }
+  private static final RuntimeWiring WIRING =
+      RuntimeWiring.newRuntimeWiring()
+          .type(
+              newTypeWiring("Query")
+                  .dataFetcher(
+                      "greeting1",
+                      env -> {
+                        throw new GraphQLException("An error occurred for greeting1");
+                      })
+                  .dataFetcher("greeting2", env -> "Hello greeting2"))
+          .build();
 
   @Test
   void stitchingTest() {
@@ -41,7 +39,7 @@ class ErrorTest {
     final ExecutionInput executionInput =
         ExecutionInput.newExecutionInput().query("{greeting1\ngreeting2}").build();
 
-    final GraphQL combinedGraphQL = createGraphQL("/greetings/combined.graphqls", createWiring());
+    final GraphQL combinedGraphQL = createGraphQL("/greetings/combined.graphqls", WIRING);
     final ExecutionResult result = combinedGraphQL.execute(executionInput);
     final List<GraphQLError> combinedErrors = result.getErrors();
     Assertions.assertNotNull(combinedErrors);
@@ -49,8 +47,8 @@ class ErrorTest {
     final GraphQLError expected = combinedErrors.get(0);
 
     // Stitching result ----------------------------------------------------
-    final var project1GraphQL = createGraphQL("/greetings/greeting1.graphqls", createWiring());
-    final var project2GraphQL = createGraphQL("/greetings/greeting2.graphqls", createWiring());
+    final var project1GraphQL = createGraphQL("/greetings/greeting1.graphqls", WIRING);
+    final var project2GraphQL = createGraphQL("/greetings/greeting2.graphqls", WIRING);
     final var introspection1Retriever = new TestUtils.TestIntrospectionRetriever(project1GraphQL);
     final var introspection2Retriever = new TestUtils.TestIntrospectionRetriever(project2GraphQL);
     final var query1Retriever = new TestUtils.TestQueryRetriever(project1GraphQL);
