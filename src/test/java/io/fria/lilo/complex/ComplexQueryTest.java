@@ -9,6 +9,7 @@ import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.TypeRuntimeWiring;
 import io.fria.lilo.DummyCoercing;
 import io.fria.lilo.Lilo;
+import io.fria.lilo.RemoteSchemaSource;
 import io.fria.lilo.TestUtils;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -20,7 +21,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 import static io.fria.lilo.TestUtils.createGraphQL;
-import static io.fria.lilo.TestUtils.createSchemaSource;
 import static io.fria.lilo.TestUtils.loadResource;
 
 class ComplexQueryTest {
@@ -851,8 +851,12 @@ class ComplexQueryTest {
 
     final Lilo lilo =
         Lilo.builder()
-            .addSource(createSchemaSource(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
-            .addSource(createSchemaSource(SCHEMA2_NAME, introspection2Retriever, query2Retriever))
+            .addSource(
+                RemoteSchemaSource.create(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
+            .addSource(
+                RemoteSchemaSource.create(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
+            .addSource(
+                RemoteSchemaSource.create(SCHEMA2_NAME, introspection2Retriever, query2Retriever))
             .build();
 
     final ExecutionResult stitchResult = lilo.stitch(executionInput);

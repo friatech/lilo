@@ -6,14 +6,13 @@ import io.fria.lilo.GraphQLRequest;
 import io.fria.lilo.IntrospectionRetriever;
 import io.fria.lilo.Lilo;
 import io.fria.lilo.QueryRetriever;
+import io.fria.lilo.RemoteSchemaSource;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 import static io.fria.lilo.JsonUtils.toStr;
 import static io.fria.lilo.TestUtils.createGraphQL;
-import static io.fria.lilo.TestUtils.createSchemaSource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -58,7 +57,8 @@ class LocalContextTest {
 
     final Lilo lilo =
         Lilo.builder()
-            .addSource(createSchemaSource(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
+            .addSource(
+                RemoteSchemaSource.create(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
             .build();
 
     lilo.stitch(executionInput);

@@ -16,7 +16,7 @@ public class LiloGraphQLError implements GraphQLError {
   private String message;
   private List<ErrorSourceLocation> locations;
   private ErrorType errorType;
-  private List<Object>         path;
+  private List<Object> path;
   private Map<String, Object> extensions;
 
   @SuppressWarnings("checkstyle:WhitespaceAround")
@@ -32,6 +32,15 @@ public class LiloGraphQLError implements GraphQLError {
   }
 
   @Override
+  public @Nullable Map<String, Object> getExtensions() {
+    return this.extensions;
+  }
+
+  public void setExtensions(@Nullable final Map<String, Object> extensions) {
+    this.extensions = extensions;
+  }
+
+  @Override
   public @Nullable List<SourceLocation> getLocations() {
 
     if (this.locations == null) {
@@ -41,11 +50,6 @@ public class LiloGraphQLError implements GraphQLError {
     return this.locations.stream()
         .map(l -> new ErrorSourceLocation(l.getLine(), l.getColumn(), l.getSourceName()))
         .collect(Collectors.toList());
-  }
-
-  @Override
-  public @Nullable Map<String, Object> getExtensions() {
-    return this.extensions;
   }
 
   public void setLocations(@Nullable final List<ErrorSourceLocation> locations) {
@@ -68,9 +72,5 @@ public class LiloGraphQLError implements GraphQLError {
 
   public void setPath(@Nullable final List<Object> path) {
     this.path = path;
-  }
-
-  public void setExtensions(@Nullable final Map<String, Object> extensions) {
-    this.extensions = extensions;
   }
 }

@@ -8,12 +8,12 @@ import io.fria.lilo.IntrospectionFetchingMode;
 import io.fria.lilo.IntrospectionRetriever;
 import io.fria.lilo.Lilo;
 import io.fria.lilo.QueryRetriever;
+import io.fria.lilo.RemoteSchemaSource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 import static io.fria.lilo.JsonUtils.toStr;
 import static io.fria.lilo.TestUtils.createGraphQL;
-import static io.fria.lilo.TestUtils.createSchemaSource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -63,7 +63,8 @@ class FetchingOptionsTest {
 
     final Lilo lilo =
         Lilo.builder()
-            .addSource(createSchemaSource(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
+            .addSource(
+                RemoteSchemaSource.create(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
             .build();
 
     lilo.stitch(EXECUTION_INPUT_QUERY);
@@ -86,7 +87,8 @@ class FetchingOptionsTest {
     final Lilo lilo =
         Lilo.builder()
             .introspectionFetchingMode(IntrospectionFetchingMode.FETCH_BEFORE_EVERY_REQUEST)
-            .addSource(createSchemaSource(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
+            .addSource(
+                RemoteSchemaSource.create(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
             .build();
 
     lilo.stitch(EXECUTION_INPUT_QUERY);

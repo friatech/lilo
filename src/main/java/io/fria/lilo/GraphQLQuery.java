@@ -32,6 +32,10 @@ public class GraphQLQuery {
     return new GraphQLQuery.GraphQLQueryBuilder();
   }
 
+  public @NotNull Map<String, Object> getArguments() {
+    return this.arguments;
+  }
+
   public @NotNull OperationDefinition.Operation getOperationType() {
     return this.operationType;
   }
@@ -42,10 +46,6 @@ public class GraphQLQuery {
 
   public @NotNull Field getQueryNode() {
     return this.queryNode;
-  }
-
-  public @NotNull Map<String, Object> getArguments() {
-    return this.arguments;
   }
 
   public @Nullable Map<String, Object> getVariables() {

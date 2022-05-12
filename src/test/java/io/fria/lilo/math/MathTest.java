@@ -5,13 +5,13 @@ import graphql.ExecutionResult;
 import graphql.GraphQL;
 import graphql.schema.idl.RuntimeWiring;
 import io.fria.lilo.Lilo;
+import io.fria.lilo.RemoteSchemaSource;
 import io.fria.lilo.TestUtils;
 import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 import static io.fria.lilo.TestUtils.createGraphQL;
-import static io.fria.lilo.TestUtils.createSchemaSource;
 import static io.fria.lilo.TestUtils.loadResource;
 
 class MathTest {
@@ -19,18 +19,16 @@ class MathTest {
   private static final String SCHEMA1_NAME = "project1";
   private static final String SCHEMA2_NAME = "project2";
 
-  private static RuntimeWiring createWiring() {
-
-    return RuntimeWiring.newRuntimeWiring()
-        .type(
-            newTypeWiring("Query")
-                .dataFetcher(
-                    "add", env -> env.<Integer>getArgument("a") + env.<Integer>getArgument("b"))
-                .dataFetcher(
-                    "subtract",
-                    env -> env.<Integer>getArgument("a") - env.<Integer>getArgument("b")))
-        .build();
-  }
+  private static final RuntimeWiring WIRING =
+      RuntimeWiring.newRuntimeWiring()
+          .type(
+              newTypeWiring("Query")
+                  .dataFetcher(
+                      "add", env -> env.<Integer>getArgument("a") + env.<Integer>getArgument("b"))
+                  .dataFetcher(
+                      "subtract",
+                      env -> env.<Integer>getArgument("a") - env.<Integer>getArgument("b")))
+          .build();
 
   @Test
   void stitchingTest() {
@@ -41,15 +39,15 @@ class MathTest {
             .query("{add(a: 1, b: 2)\nsubtract(a: 20, b: 10)}")
             .build();
 
-    final GraphQL combinedGraphQL = createGraphQL("/math/combined.graphqls", createWiring());
+    final GraphQL combinedGraphQL = createGraphQL("/math/combined.graphqls", WIRING);
     final ExecutionResult result = combinedGraphQL.execute(executionInput);
     final Map<String, Object> expected = result.getData();
     Assertions.assertNotNull(expected);
     Assertions.assertEquals(0, result.getErrors().size());
 
     // Stitching result ----------------------------------------------------
-    final var project1GraphQL = createGraphQL("/math/add.graphqls", createWiring());
-    final var project2GraphQL = createGraphQL("/math/subtract.graphqls", createWiring());
+    final var project1GraphQL = createGraphQL("/math/add.graphqls", WIRING);
+    final var project2GraphQL = createGraphQL("/math/subtract.graphqls", WIRING);
     final var introspection1Retriever = new TestUtils.TestIntrospectionRetriever(project1GraphQL);
     final var introspection2Retriever = new TestUtils.TestIntrospectionRetriever(project2GraphQL);
     final var query1Retriever = new TestUtils.TestQueryRetriever(project1GraphQL);
@@ -57,8 +55,10 @@ class MathTest {
 
     final Lilo lilo =
         Lilo.builder()
-            .addSource(createSchemaSource(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
-            .addSource(createSchemaSource(SCHEMA2_NAME, introspection2Retriever, query2Retriever))
+            .addSource(
+                RemoteSchemaSource.create(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
+            .addSource(
+                RemoteSchemaSource.create(SCHEMA2_NAME, introspection2Retriever, query2Retriever))
             .build();
 
     final ExecutionResult stitchResult = lilo.stitch(executionInput);
@@ -77,14 +77,14 @@ class MathTest {
             .variables(Map.of("paramA", 1, "paramB", 2, "paramC", 20, "paramD", 10))
             .build();
 
-    final GraphQL combinedGraphQL = createGraphQL("/math/combined.graphqls", createWiring());
+    final GraphQL combinedGraphQL = createGraphQL("/math/combined.graphqls", WIRING);
     final ExecutionResult result = combinedGraphQL.execute(executionInput);
     final Map<String, Object> expected = result.getData();
     Assertions.assertNotNull(expected);
 
     // Stitching result ----------------------------------------------------
-    final var project1GraphQL = createGraphQL("/math/add.graphqls", createWiring());
-    final var project2GraphQL = createGraphQL("/math/subtract.graphqls", createWiring());
+    final var project1GraphQL = createGraphQL("/math/add.graphqls", WIRING);
+    final var project2GraphQL = createGraphQL("/math/subtract.graphqls", WIRING);
     final var introspection1Retriever = new TestUtils.TestIntrospectionRetriever(project1GraphQL);
     final var introspection2Retriever = new TestUtils.TestIntrospectionRetriever(project2GraphQL);
     final var query1Retriever = new TestUtils.TestQueryRetriever(project1GraphQL);
@@ -92,8 +92,10 @@ class MathTest {
 
     final Lilo lilo =
         Lilo.builder()
-            .addSource(createSchemaSource(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
-            .addSource(createSchemaSource(SCHEMA2_NAME, introspection2Retriever, query2Retriever))
+            .addSource(
+                RemoteSchemaSource.create(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
+            .addSource(
+                RemoteSchemaSource.create(SCHEMA2_NAME, introspection2Retriever, query2Retriever))
             .build();
 
     final ExecutionResult stitchResult = lilo.stitch(executionInput);

@@ -29,18 +29,6 @@ public final class TestUtils {
     return GraphQL.newGraphQL(graphQLSchema).build();
   }
 
-  public static @NotNull SchemaSource createSchemaSource(
-      final String schemaName,
-      final IntrospectionRetriever introspectionRetriever,
-      final QueryRetriever queryRetriever) {
-
-    return SchemaSource.builder()
-        .name(schemaName)
-        .introspectionRetriever(introspectionRetriever)
-        .queryRetriever(queryRetriever)
-        .build();
-  }
-
   public static @NotNull String loadResource(@NotNull final String path) {
 
     try {

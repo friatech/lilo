@@ -1,68 +1,31 @@
 package io.fria.lilo;
 
-import java.util.Objects;
+import graphql.schema.idl.RuntimeWiring;
+import graphql.schema.idl.TypeDefinitionRegistry;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-public class SchemaSource {
+public interface SchemaSource {
 
-  private final String name;
-  private final IntrospectionRetriever introspectionRetriever;
-  private final QueryRetriever queryRetriever;
+  @NotNull
+  String execute(
+      @NotNull LiloContext liloContext,
+      @NotNull SchemaSource schemaSource,
+      @NotNull GraphQLQuery query,
+      @Nullable Object localContext);
 
-  SchemaSource(
-      @NotNull final String name,
-      @NotNull final IntrospectionRetriever introspectionRetriever,
-      @NotNull final QueryRetriever queryRetriever) {
-    this.name = Objects.requireNonNull(name);
-    this.introspectionRetriever = Objects.requireNonNull(introspectionRetriever);
-    this.queryRetriever = Objects.requireNonNull(queryRetriever);
-  }
+  @NotNull
+  String getName();
 
-  public static @NotNull SchemaSourceBuilder builder() {
-    return new SchemaSourceBuilder();
-  }
+  @NotNull
+  RuntimeWiring getRuntimeWiring();
 
-  public @NotNull IntrospectionRetriever getIntrospectionRetriever() {
-    return this.introspectionRetriever;
-  }
+  @NotNull
+  TypeDefinitionRegistry getTypeDefinitionRegistry();
 
-  public @NotNull String getName() {
-    return this.name;
-  }
+  void invalidate();
 
-  public @NotNull QueryRetriever getQueryRetriever() {
-    return this.queryRetriever;
-  }
+  boolean isSchemaLoaded();
 
-  @Override
-  public @NotNull String toString() {
-    return "SchemaSource{" + "name='" + this.name + '\'' + '}';
-  }
-
-  public static final class SchemaSourceBuilder {
-    private String name;
-    private IntrospectionRetriever introspectionRetriever;
-    private QueryRetriever queryRetriever;
-
-    public @NotNull SchemaSource build() {
-      return new SchemaSource(this.name, this.introspectionRetriever, this.queryRetriever);
-    }
-
-    public @NotNull SchemaSourceBuilder introspectionRetriever(
-        @NotNull final IntrospectionRetriever introspectionRetrieverParam) {
-      this.introspectionRetriever = Objects.requireNonNull(introspectionRetrieverParam);
-      return this;
-    }
-
-    public @NotNull SchemaSourceBuilder name(@NotNull final String nameParam) {
-      this.name = Objects.requireNonNull(nameParam);
-      return this;
-    }
-
-    public @NotNull SchemaSourceBuilder queryRetriever(
-        @NotNull final QueryRetriever queryRetrieverParam) {
-      this.queryRetriever = Objects.requireNonNull(queryRetrieverParam);
-      return this;
-    }
-  }
+  void loadSchema(final LiloContext context, @Nullable final Object localContext);
 }
