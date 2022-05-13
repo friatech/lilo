@@ -211,7 +211,12 @@ public final class RemoteSchemaSource implements SchemaSource {
     }
 
     @Override
-    public @NotNull List<GraphQLError> getErrors() {
+    public @Nullable List<GraphQLError> getErrors() {
+
+      if (this.errors == null) {
+        return null;
+      }
+
       return this.errors.stream().map(le -> (GraphQLError) le).collect(Collectors.toList());
     }
 
