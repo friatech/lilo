@@ -57,6 +57,11 @@ final class SchemaMerger {
     final List<FieldDefinition> mutationFieldDefinitions = new ArrayList<>();
 
     for (final SchemaSource schemaSource : schemaSources) {
+
+      if (!schemaSource.isSchemaLoaded()) {
+        continue;
+      }
+
       final TypeDefinitionRegistry sourceRegistry = schemaSource.getTypeDefinitionRegistry();
       final OperationTypeNames operationTypeNames = getOperationTypeNames(sourceRegistry);
 
