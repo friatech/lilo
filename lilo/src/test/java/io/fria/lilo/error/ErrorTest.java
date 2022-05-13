@@ -6,6 +6,7 @@ import graphql.GraphQL;
 import graphql.GraphQLError;
 import graphql.GraphQLException;
 import graphql.schema.idl.RuntimeWiring;
+import io.fria.lilo.DefinedSchemaSource;
 import io.fria.lilo.Lilo;
 import io.fria.lilo.RemoteSchemaSource;
 import io.fria.lilo.TestUtils;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 import static io.fria.lilo.TestUtils.createGraphQL;
+import static io.fria.lilo.TestUtils.loadResource;
 
 class ErrorTest {
 
@@ -61,6 +63,41 @@ class ErrorTest {
             .addSource(
                 RemoteSchemaSource.create(SCHEMA2_NAME, introspection2Retriever, query2Retriever))
             .build();
+
+    final ExecutionResult stitchResult = lilo.stitch(executionInput);
+    final List<GraphQLError> stitchedErrors = stitchResult.getErrors();
+    Assertions.assertNotNull(stitchedErrors);
+    Assertions.assertEquals(1, stitchedErrors.size());
+    Assertions.assertEquals(expected.getMessage(), stitchedErrors.get(0).getMessage());
+  }
+
+  @Test
+  void definedStitchingTest() {
+
+    // Combined result -----------------------------------------------------
+    final ExecutionInput executionInput =
+      ExecutionInput.newExecutionInput().query("{greeting1\ngreeting2}").build();
+
+    final GraphQL combinedGraphQL = createGraphQL("/greetings/combined.graphqls", WIRING);
+    final ExecutionResult result = combinedGraphQL.execute(executionInput);
+    final List<GraphQLError> combinedErrors = result.getErrors();
+    Assertions.assertNotNull(combinedErrors);
+    Assertions.assertEquals(1, combinedErrors.size());
+    final GraphQLError expected = combinedErrors.get(0);
+
+    // Stitching result ----------------------------------------------------
+    final var project2GraphQL = createGraphQL("/greetings/greeting2.graphqls", WIRING);
+    final var introspection2Retriever = new TestUtils.TestIntrospectionRetriever(project2GraphQL);
+    final var query2Retriever = new TestUtils.TestQueryRetriever(project2GraphQL);
+
+    final Lilo lilo =
+      Lilo.builder()
+        .addSource(
+          DefinedSchemaSource.create(
+            SCHEMA1_NAME, loadResource("/greetings/greeting1.graphqls"), WIRING))
+        .addSource(
+          RemoteSchemaSource.create(SCHEMA2_NAME, introspection2Retriever, query2Retriever))
+        .build();
 
     final ExecutionResult stitchResult = lilo.stitch(executionInput);
     final List<GraphQLError> stitchedErrors = stitchResult.getErrors();
