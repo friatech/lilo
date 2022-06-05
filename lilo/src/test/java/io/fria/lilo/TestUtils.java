@@ -83,7 +83,7 @@ public final class TestUtils {
     }
   }
 
-  public static class TestQueryRetriever implements QueryRetriever {
+  public static class TestQueryRetriever implements SyncQueryRetriever {
 
     private GraphQL graphQL;
 

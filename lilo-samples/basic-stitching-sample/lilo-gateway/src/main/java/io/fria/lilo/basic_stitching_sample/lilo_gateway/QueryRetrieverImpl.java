@@ -2,8 +2,8 @@ package io.fria.lilo.basic_stitching_sample.lilo_gateway;
 
 import io.fria.lilo.GraphQLQuery;
 import io.fria.lilo.LiloContext;
-import io.fria.lilo.QueryRetriever;
 import io.fria.lilo.SchemaSource;
+import io.fria.lilo.SyncQueryRetriever;
 import java.util.Objects;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpHeaders;
@@ -12,7 +12,7 @@ import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
 import org.springframework.web.client.RestTemplate;
 
-class QueryRetrieverImpl implements QueryRetriever {
+class QueryRetrieverImpl implements SyncQueryRetriever {
 
   private final String schemaUrl;
   private final RestTemplate restTemplate;

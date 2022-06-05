@@ -1,28 +1,32 @@
 package io.fria.lilo;
 
+import graphql.ExecutionResult;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.TypeDefinitionRegistry;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import static io.fria.lilo.JsonUtils.toObj;
 
-interface SchemaSource<E> {
+public abstract class SchemaSource {
 
   @NotNull
-  E execute(
+  abstract CompletableFuture<ExecutionResult> execute(
       @NotNull LiloContext liloContext, @NotNull GraphQLQuery query, @Nullable Object localContext);
 
   @NotNull
-  String getName();
+  abstract String getName();
 
   @NotNull
-  RuntimeWiring getRuntimeWiring();
+  abstract RuntimeWiring getRuntimeWiring();
 
   @NotNull
-  TypeDefinitionRegistry getTypeDefinitionRegistry();
+  abstract TypeDefinitionRegistry getTypeDefinitionRegistry();
 
-  void invalidate();
+  abstract void invalidate();
 
-  boolean isSchemaLoaded();
+  abstract boolean isSchemaLoaded();
 
-  void loadSchema(@NotNull LiloContext context, @Nullable Object localContext);
+  abstract void loadSchema(@NotNull LiloContext context, @Nullable Object localContext);
 }

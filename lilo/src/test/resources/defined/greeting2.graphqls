@@ -1,0 +1,5 @@
+scalar Text
+
+type Query {
+    greeting2: Text!
+}

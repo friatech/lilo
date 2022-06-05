@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -29,7 +30,7 @@ import static io.fria.lilo.JsonUtils.toMap;
 import static io.fria.lilo.JsonUtils.toObj;
 import static io.fria.lilo.JsonUtils.toStr;
 
-public final class RemoteSchemaSource implements SchemaSource {
+public final class RemoteSchemaSource extends SchemaSource {
 
   private static final Logger LOG = LoggerFactory.getLogger(RemoteSchemaSource.class);
   private static final String INTROSPECTION_REQUEST =
@@ -65,14 +66,27 @@ public final class RemoteSchemaSource implements SchemaSource {
         Objects.requireNonNull(queryRetriever));
   }
 
-  @Override
-  public @NotNull ExecutionResult execute(
-      final @NotNull LiloContext liloContext,
-      final @NotNull GraphQLQuery query,
-      final @Nullable Object localContext) {
+  private static Object fetchData(final CompletableFuture<ExecutionResult> graphQLResultFuture) {
+    final ExecutionResult graphQLResult;
 
-    final var queryResult = this.queryRetriever.get(liloContext, this, query, localContext);
-    final var graphQLResultOptional = toObj(queryResult, GraphQLResult.class);
+    try {
+      graphQLResult = graphQLResultFuture.get();
+    } catch (final InterruptedException | ExecutionException e) {
+      throw new RuntimeException(e);
+    }
+
+    final List<GraphQLError> errors = graphQLResult.getErrors();
+
+    if (errors != null && !errors.isEmpty()) {
+      throw new SourceDataFetcherException(errors);
+    }
+
+    return ((Map<String, Object>) graphQLResult.getData()).values().iterator().next();
+  }
+
+  private static @NotNull ExecutionResult toExecutionResult(final @NotNull String queryResult) {
+
+    final Optional<GraphQLResult> graphQLResultOptional = toObj(queryResult, GraphQLResult.class);
 
     if (graphQLResultOptional.isEmpty()) {
       throw new IllegalArgumentException("DataFetcher caught an empty response");
@@ -82,19 +96,20 @@ public final class RemoteSchemaSource implements SchemaSource {
   }
 
   @Override
-  public @NotNull ExecutionResult execute(
-    final @NotNull LiloContext liloContext,
-    final @NotNull GraphQLQuery query,
-    final @Nullable Object localContext) {
+  public @NotNull CompletableFuture<ExecutionResult> execute(
+      final @NotNull LiloContext liloContext,
+      final @NotNull GraphQLQuery query,
+      final @Nullable Object localContext) {
 
-    final var queryResult = this.queryRetriever.get(liloContext, this, query, localContext);
-    final var graphQLResultOptional = toObj(queryResult, GraphQLResult.class);
-
-    if (graphQLResultOptional.isEmpty()) {
-      throw new IllegalArgumentException("DataFetcher caught an empty response");
+    if (this.queryRetriever instanceof AsyncQueryRetriever) {
+      final AsyncQueryRetriever queryRetriever = (AsyncQueryRetriever) this.queryRetriever;
+      final var queryResult = queryRetriever.get(liloContext, this, query, localContext);
+      return queryResult.thenApply(RemoteSchemaSource::toExecutionResult);
+    } else {
+      final SyncQueryRetriever queryRetriever = (SyncQueryRetriever) this.queryRetriever;
+      final var queryResult = queryRetriever.get(liloContext, this, query, localContext);
+      return CompletableFuture.supplyAsync(() -> RemoteSchemaSource.toExecutionResult(queryResult));
     }
-
-    return graphQLResultOptional.get();
   }
 
   @Override
@@ -175,18 +190,25 @@ public final class RemoteSchemaSource implements SchemaSource {
     this.typeDefinitionRegistry = typeDefinitionRegistry;
   }
 
-  private @Nullable Object fetchData(
+  private @Nullable CompletableFuture<Object> fetchData(
       final @NotNull DataFetchingEnvironment environment, final @NotNull LiloContext liloContext) {
 
-    final var query = QueryTransformer.extractQuery(environment);
-    final var graphQLResult = this.execute(liloContext, query, environment.getLocalContext());
-    final List<GraphQLError> errors = graphQLResult.getErrors();
+    if (this.queryRetriever instanceof AsyncQueryRetriever) {
+      final var query = QueryTransformer.extractQuery(environment);
+      final var graphQLResultFuture =
+          RemoteSchemaSource.this.execute(liloContext, query, environment.getLocalContext());
 
-    if (errors != null && !errors.isEmpty()) {
-      throw new SourceDataFetcherException(errors);
+      return graphQLResultFuture.thenApply(executionResult -> fetchData(graphQLResultFuture));
+    } else {
+      return CompletableFuture.supplyAsync(
+          () -> {
+            final var query = QueryTransformer.extractQuery(environment);
+            final var graphQLResultFuture =
+                RemoteSchemaSource.this.execute(liloContext, query, environment.getLocalContext());
+
+            return fetchData(graphQLResultFuture);
+          });
     }
-
-    return ((Map<String, Object>) graphQLResult.getData()).values().iterator().next();
   }
 
   private @NotNull Optional<TypeRuntimeWiring> typeWiring(
@@ -209,31 +231,10 @@ public final class RemoteSchemaSource implements SchemaSource {
     final List<FieldDefinition> fields = typeDefinition.getFieldDefinitions();
 
     for (final FieldDefinition field : fields) {
-      if (this.queryRetriever instanceof AsyncQueryRetriever) {
-        typeWiringBuilder.dataFetcher(field.getName(), e -> this.asyncFetchData(e, liloContext));
-      } else {
-        typeWiringBuilder.dataFetcher(field.getName(), e -> this.fetchData(e, liloContext));
-      }
+      typeWiringBuilder.dataFetcher(field.getName(), e -> this.fetchData(e, liloContext));
     }
 
     return Optional.of(typeWiringBuilder.build());
-  }
-
-  private CompletableFuture<Object> asyncFetchData(final @NotNull DataFetchingEnvironment environment, final @NotNull LiloContext liloContext) {
-
-    final var query = QueryTransformer.extractQuery(environment);
-
-
-
-
-    final var graphQLResult = this.execute(liloContext, query, environment.getLocalContext());
-    final List<GraphQLError> errors = graphQLResult.getErrors();
-
-    if (errors != null && !errors.isEmpty()) {
-      throw new SourceDataFetcherException(errors);
-    }
-
-    return ((Map<String, Object>) graphQLResult.getData()).values().iterator().next();
   }
 
   private static final class GraphQLResult implements ExecutionResult {

@@ -5,8 +5,8 @@ import graphql.schema.idl.RuntimeWiring;
 import io.fria.lilo.GraphQLRequest;
 import io.fria.lilo.IntrospectionRetriever;
 import io.fria.lilo.Lilo;
-import io.fria.lilo.QueryRetriever;
 import io.fria.lilo.RemoteSchemaSource;
+import io.fria.lilo.SyncQueryRetriever;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -46,7 +46,7 @@ class LocalContextTest {
 
     final var combinedGraphQL = createGraphQL("/math/add.graphqls", WIRING);
     final var introspection1Retriever = mock(IntrospectionRetriever.class);
-    final var query1Retriever = mock(QueryRetriever.class);
+    final var query1Retriever = mock(SyncQueryRetriever.class);
 
     when(introspection1Retriever.get(any(), any(), any(), any()))
         .thenReturn(toStr(combinedGraphQL.execute(executionInputIntrospection)));

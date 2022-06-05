@@ -7,6 +7,7 @@ import io.fria.lilo.error.SourceDataFetcherExceptionHandler;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.NotNull;
 
 public final class Lilo {
@@ -33,6 +34,17 @@ public final class Lilo {
     }
 
     return this.context.getGraphQL(executionInput).execute(executionInput);
+  }
+
+  public @NotNull CompletableFuture<ExecutionResult> stitchAsync(
+      final @NotNull ExecutionInput executionInput) {
+
+    if (IntrospectionFetchingMode.FETCH_BEFORE_EVERY_REQUEST
+        == this.context.getIntrospectionFetchingMode()) {
+      this.context.invalidateAll();
+    }
+
+    return this.context.getGraphQL(executionInput).executeAsync(executionInput);
   }
 
   public static final class LiloBuilder {
