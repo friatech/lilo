@@ -43,3 +43,16 @@ curl -X POST \
     -d '{"query":"{\ngreeting1\ngreeting2\n}","variables":null}' \
     http://localhost:8080/graphql
 ```
+
+# Test Cases
+
+- Start Gateway, Server 1, Server 2
+  - greeting1 and greeting2 should return success result
+- Start Gateway, Server 2
+  - Only greeting2 should return successful result
+  - Start Server1
+  - greeting1 and greeting2 should return success result
+  - Stop Server1
+  - Only greeting2 should return successful result
+  - Start Server1
+  - greeting1 and greeting2 should return success result

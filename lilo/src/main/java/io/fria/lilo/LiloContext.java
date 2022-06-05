@@ -13,6 +13,7 @@ import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -87,6 +88,10 @@ public class LiloContext {
     return runtimeWiringBuilder.build();
   }
 
+  private static boolean hasNotLoadedSchemas(final Collection<BaseSchemaSource> values) {
+    return values.stream().anyMatch(BaseSchemaSource::isSchemaNotLoaded);
+  }
+
   private static @NotNull Map<String, BaseSchemaSource> toSourceMap(
       final @NotNull Stream<BaseSchemaSource> schemaSourcesStream) {
     return schemaSourcesStream
@@ -144,7 +149,7 @@ public class LiloContext {
   @NotNull
   CompletableFuture<GraphQL> getGraphQLAsync(final @Nullable ExecutionInput executionInput) {
 
-    if (this.graphQL == null) {
+    if (this.graphQL == null || hasNotLoadedSchemas(this.sourceMap.values())) {
       return this.loadSources(executionInput)
           .thenApply(
               sourceMapClone -> {
