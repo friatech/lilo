@@ -89,7 +89,9 @@ public class LiloContext {
 
   private static @NotNull Map<String, BaseSchemaSource> toSourceMap(
       final @NotNull Stream<BaseSchemaSource> schemaSourcesStream) {
-    return schemaSourcesStream.filter(Objects::nonNull).collect(Collectors.toMap(SchemaSource::getName, ss -> ss));
+    return schemaSourcesStream
+        .filter(Objects::nonNull)
+        .collect(Collectors.toMap(SchemaSource::getName, ss -> ss));
   }
 
   public @NotNull DataFetcherExceptionHandler getDataFetcherExceptionHandler() {

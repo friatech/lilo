@@ -7,8 +7,8 @@ import org.springframework.stereotype.Controller;
 @Controller
 public class GreetingController {
 
-    @QueryMapping
-    public @NonNull String greeting2() {
-        return "Hello world";
-    }
+  @QueryMapping
+  public @NonNull String greeting2() {
+    return "Hello world";
+  }
 }
