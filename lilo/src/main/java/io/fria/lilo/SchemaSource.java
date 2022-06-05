@@ -1,15 +1,14 @@
 package io.fria.lilo;
 
-import graphql.ExecutionResult;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public interface SchemaSource {
+interface SchemaSource<E> {
 
   @NotNull
-  ExecutionResult execute(
+  E execute(
       @NotNull LiloContext liloContext, @NotNull GraphQLQuery query, @Nullable Object localContext);
 
   @NotNull

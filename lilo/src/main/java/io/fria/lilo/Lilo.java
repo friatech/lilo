@@ -38,7 +38,6 @@ public final class Lilo {
   public static final class LiloBuilder {
 
     private final Map<String, SchemaSource> schemaSources = new HashMap<>();
-    // private final Map<String, RectiveSchemaSource> reactiveSchemaSources = new HashMap<>();
     private DataFetcherExceptionHandler dataFetcherExceptionHandler =
         new SourceDataFetcherExceptionHandler();
     private IntrospectionFetchingMode introspectionFetchingMode =
@@ -46,12 +45,6 @@ public final class Lilo {
 
     @SuppressWarnings("checkstyle:WhitespaceAround")
     private LiloBuilder() {}
-
-    //    public @NotNull LiloBuilder addReactiveSource(final @NotNull ReactiveSchemaSource
-    // schemaSource) {
-    //
-    //      return null;
-    //    }
 
     public @NotNull LiloBuilder addSource(final @NotNull SchemaSource schemaSource) {
       this.schemaSources.put(schemaSource.getName(), Objects.requireNonNull(schemaSource));
