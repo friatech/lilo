@@ -15,6 +15,7 @@
 
   <modules>
     <module>basic-stitching-sample</module>
+    <module>reactive-stitching-sample</module>
   </modules>
 
   <parent>
