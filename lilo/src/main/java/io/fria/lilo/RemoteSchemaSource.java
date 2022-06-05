@@ -19,8 +19,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -159,109 +157,33 @@ public final class RemoteSchemaSource implements BaseSchemaSource {
 
       return introspectionRetriever
           .get(liloContext, this, INTROSPECTION_REQUEST, localContext)
-          .thenApply(
-              new Function<String, BaseSchemaSource>() {
-                @Override
-                public BaseSchemaSource apply(final String introspectionResponse) {
-                  final var introspectionResultOptional = toMap(introspectionResponse);
-
-                  if (introspectionResultOptional.isEmpty()) {
-                    throw new IllegalArgumentException("Introspection response is empty");
-                  }
-
-                  final var dataOptional = getMap(introspectionResultOptional.get(), "data");
-
-                  if (dataOptional.isEmpty()) {
-                    throw new IllegalArgumentException(
-                        "Introspection response is not valid, requires data section");
-                  }
-
-                  final var schemaDoc =
-                      new IntrospectionResultToSchema().createSchemaDefinition(dataOptional.get());
-                  final var typeDefinitionRegistry = new SchemaParser().buildRegistry(schemaDoc);
-                  final var operationTypeNames =
-                      SchemaMerger.getOperationTypeNames(typeDefinitionRegistry);
-
-                  final RuntimeWiring.Builder runtimeWiringBuilder =
-                      RuntimeWiring.newRuntimeWiring();
-                  RemoteSchemaSource.this
-                      .typeWiring(
-                          typeDefinitionRegistry, liloContext, operationTypeNames.getQuery())
-                      .ifPresent(runtimeWiringBuilder::type);
-                  RemoteSchemaSource.this
-                      .typeWiring(
-                          typeDefinitionRegistry, liloContext, operationTypeNames.getMutation())
-                      .ifPresent(runtimeWiringBuilder::type);
-
-                  RemoteSchemaSource.this.runtimeWiring = runtimeWiringBuilder.build();
-                  RemoteSchemaSource.this.typeDefinitionRegistry = typeDefinitionRegistry;
-
-                  return RemoteSchemaSource.this;
-                }
-              })
+          .thenApply(res -> this.fetchIntrospection(res, liloContext))
           .exceptionally(
-              new Function<Throwable, BaseSchemaSource>() {
-                @Override
-                public BaseSchemaSource apply(final Throwable throwable) {
-                  LOG.error(
-                      "Could not load introspection for {}", RemoteSchemaSource.this.schemaName);
-                  LOG.debug("Introspection fetching exception", throwable);
-                  return null;
-                }
+              e -> {
+                LOG.error(
+                    "Could not load introspection for {}", RemoteSchemaSource.this.schemaName);
+                LOG.debug("Introspection fetching exception", e);
+                return null;
               });
     } else {
       final SyncIntrospectionRetriever introspectionRetriever =
           (SyncIntrospectionRetriever) this.introspectionRetriever;
 
       return CompletableFuture.supplyAsync(
-          new Supplier<BaseSchemaSource>() {
-            @Override
-            public BaseSchemaSource get() {
-              final String introspectionResponse;
+          () -> {
+            final String introspectionResponse;
 
-              try {
-                introspectionResponse =
-                    introspectionRetriever.get(
-                        liloContext, RemoteSchemaSource.this, INTROSPECTION_REQUEST, localContext);
-              } catch (final Exception e) {
-                LOG.error(
-                    "Could not load introspection for {}", RemoteSchemaSource.this.schemaName);
-                LOG.debug("Introspection fetching exception", e);
-                return RemoteSchemaSource.this;
-              }
-
-              final var introspectionResultOptional = toMap(introspectionResponse);
-
-              if (introspectionResultOptional.isEmpty()) {
-                throw new IllegalArgumentException("Introspection response is empty");
-              }
-
-              final var dataOptional = getMap(introspectionResultOptional.get(), "data");
-
-              if (dataOptional.isEmpty()) {
-                throw new IllegalArgumentException(
-                    "Introspection response is not valid, requires data section");
-              }
-
-              final var schemaDoc =
-                  new IntrospectionResultToSchema().createSchemaDefinition(dataOptional.get());
-              final var typeDefinitionRegistry = new SchemaParser().buildRegistry(schemaDoc);
-              final var operationTypeNames =
-                  SchemaMerger.getOperationTypeNames(typeDefinitionRegistry);
-
-              final RuntimeWiring.Builder runtimeWiringBuilder = RuntimeWiring.newRuntimeWiring();
-              RemoteSchemaSource.this
-                  .typeWiring(typeDefinitionRegistry, liloContext, operationTypeNames.getQuery())
-                  .ifPresent(runtimeWiringBuilder::type);
-              RemoteSchemaSource.this
-                  .typeWiring(typeDefinitionRegistry, liloContext, operationTypeNames.getMutation())
-                  .ifPresent(runtimeWiringBuilder::type);
-
-              RemoteSchemaSource.this.runtimeWiring = runtimeWiringBuilder.build();
-              RemoteSchemaSource.this.typeDefinitionRegistry = typeDefinitionRegistry;
-
+            try {
+              introspectionResponse =
+                  introspectionRetriever.get(
+                      liloContext, RemoteSchemaSource.this, INTROSPECTION_REQUEST, localContext);
+            } catch (final Exception e) {
+              LOG.error("Could not load introspection for {}", RemoteSchemaSource.this.schemaName);
+              LOG.debug("Introspection fetching exception", e);
               return RemoteSchemaSource.this;
             }
+
+            return RemoteSchemaSource.this.fetchIntrospection(introspectionResponse, liloContext);
           });
     }
   }
@@ -285,6 +207,38 @@ public final class RemoteSchemaSource implements BaseSchemaSource {
             return fetchData(graphQLResultFuture);
           });
     }
+  }
+
+  private BaseSchemaSource fetchIntrospection(
+      final @NotNull String introspectionResponse, final @NotNull LiloContext liloContext) {
+    final var introspectionResultOptional = toMap(introspectionResponse);
+
+    if (introspectionResultOptional.isEmpty()) {
+      throw new IllegalArgumentException("Introspection response is empty");
+    }
+
+    final var dataOptional = getMap(introspectionResultOptional.get(), "data");
+
+    if (dataOptional.isEmpty()) {
+      throw new IllegalArgumentException(
+          "Introspection response is not valid, requires data section");
+    }
+
+    final var schemaDoc =
+        new IntrospectionResultToSchema().createSchemaDefinition(dataOptional.get());
+    final var typeDefinitionRegistry = new SchemaParser().buildRegistry(schemaDoc);
+    final var operationTypeNames = SchemaMerger.getOperationTypeNames(typeDefinitionRegistry);
+
+    final RuntimeWiring.Builder runtimeWiringBuilder = RuntimeWiring.newRuntimeWiring();
+    this.typeWiring(typeDefinitionRegistry, liloContext, operationTypeNames.getQuery())
+        .ifPresent(runtimeWiringBuilder::type);
+    this.typeWiring(typeDefinitionRegistry, liloContext, operationTypeNames.getMutation())
+        .ifPresent(runtimeWiringBuilder::type);
+
+    this.runtimeWiring = runtimeWiringBuilder.build();
+    this.typeDefinitionRegistry = typeDefinitionRegistry;
+
+    return this;
   }
 
   private @NotNull Optional<TypeRuntimeWiring> typeWiring(

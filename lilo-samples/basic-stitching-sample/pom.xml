@@ -11,9 +11,9 @@
   <description>Basic Lilo usage</description>
 
   <modules>
-    <module>lilo-gateway</module>
-    <module>server1</module>
-    <module>server2</module>
+    <module>bss-lilo-gateway</module>
+    <module>bss-server1</module>
+    <module>bss-server2</module>
   </modules>
 
   <parent>

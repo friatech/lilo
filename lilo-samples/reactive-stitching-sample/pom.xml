@@ -11,9 +11,9 @@
   <description>Reactive Lilo usage</description>
 
   <modules>
-    <module>lilo-gateway</module>
-    <module>server1</module>
-    <module>server2</module>
+    <module>rss-lilo-gateway</module>
+    <module>rss-server1</module>
+    <module>rss-server2</module>
   </modules>
 
   <parent>

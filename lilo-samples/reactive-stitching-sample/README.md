@@ -20,19 +20,19 @@ server2 provides `greeting2` query.
 Running gateway:
 
 ```bash
- ./mvnw -pl lilo-gateway spring-boot:run
+ ./mvnw -pl rss-lilo-gateway spring-boot:run
 ```
 
 Running server1:
 
 ```bash
- ./mvnw -pl server1 spring-boot:run
+ ./mvnw -pl rss-server1 spring-boot:run
 ```
 
 Running server2:
 
 ```bash
- ./mvnw -pl server2 spring-boot:run
+ ./mvnw -pl rss-server2 spring-boot:run
 ```
 
 # Testing

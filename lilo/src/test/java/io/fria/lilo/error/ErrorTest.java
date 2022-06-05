@@ -98,7 +98,7 @@ class ErrorTest {
               @NotNull final LiloContext liloContext,
               @NotNull final SchemaSource schemaSource,
               @NotNull final String query,
-              @Nullable final Object localContext) {
+              final @Nullable Object localContext) {
             throw new IllegalArgumentException("Cannot load remote introspection");
           }
         };
