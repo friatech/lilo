@@ -6,11 +6,14 @@ import graphql.schema.idl.TypeDefinitionRegistry;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public interface SchemaSource {
+public interface ReactiveSchemaSource {
 
   @NotNull
   ExecutionResult execute(
-      @NotNull LiloContext liloContext, @NotNull GraphQLQuery query, @Nullable Object localContext);
+      @NotNull LiloContext liloContext,
+      @NotNull ReactiveSchemaSource schemaSource,
+      @NotNull GraphQLQuery query,
+      @Nullable Object localContext);
 
   @NotNull
   String getName();

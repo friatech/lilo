@@ -39,7 +39,6 @@ public final class DefinedSchemaSource implements SchemaSource {
   @Override
   public @NotNull ExecutionResult execute(
       final @NotNull LiloContext liloContext,
-      final @NotNull SchemaSource schemaSource,
       final @NotNull GraphQLQuery query,
       final @Nullable Object localContext) {
 

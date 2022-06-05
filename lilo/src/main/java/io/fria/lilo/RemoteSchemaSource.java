@@ -67,11 +67,10 @@ public final class RemoteSchemaSource implements SchemaSource {
   @Override
   public @NotNull ExecutionResult execute(
       final @NotNull LiloContext liloContext,
-      final @NotNull SchemaSource schemaSource,
       final @NotNull GraphQLQuery query,
       final @Nullable Object localContext) {
 
-    final var queryResult = this.queryRetriever.get(liloContext, schemaSource, query, localContext);
+    final var queryResult = this.queryRetriever.get(liloContext, this, query, localContext);
     final var graphQLResultOptional = toObj(queryResult, GraphQLResult.class);
 
     if (graphQLResultOptional.isEmpty()) {
@@ -163,7 +162,7 @@ public final class RemoteSchemaSource implements SchemaSource {
       final @NotNull DataFetchingEnvironment environment, final @NotNull LiloContext liloContext) {
 
     final var query = QueryTransformer.extractQuery(environment);
-    final var graphQLResult = this.execute(liloContext, this, query, environment.getLocalContext());
+    final var graphQLResult = this.execute(liloContext, query, environment.getLocalContext());
     final List<GraphQLError> errors = graphQLResult.getErrors();
 
     if (errors != null && !errors.isEmpty()) {
