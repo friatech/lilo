@@ -37,7 +37,8 @@ public final class DefinedSchemaSource implements BaseSchemaSource {
     return new DefinedSchemaSource(schemaName, definition, runtimeWiring);
   }
 
-  private static BaseSchemaSource loadSchema(final DefinedSchemaSource schemaSource) {
+  private static @NotNull BaseSchemaSource loadSchema(
+      final @NotNull DefinedSchemaSource schemaSource) {
 
     schemaSource.typeDefinitionRegistry = new SchemaParser().parse(schemaSource.definition);
     final var graphQLSchema =

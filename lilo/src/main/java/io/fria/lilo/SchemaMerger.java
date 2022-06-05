@@ -151,7 +151,7 @@ final class SchemaMerger {
     return globalTypeName;
   }
 
-  private static List<SDLDefinition> excludeTypes(
+  private static @NotNull List<SDLDefinition> excludeTypes(
       final @NotNull TypeDefinitionRegistry sourceRegistry,
       final @Nullable String queryTypeName,
       final @Nullable String mutationTypeName) {
@@ -166,7 +166,7 @@ final class SchemaMerger {
       final @NotNull List<FieldDefinition> fieldDefinitions,
       final @NotNull TypeDefinitionRegistry sourceRegistry,
       final RuntimeWiring.@NotNull Builder runtimeWiringBuilder,
-      final Map<String, Map<String, DataFetcher>> dataFetchers) {
+      final @NotNull Map<String, Map<String, DataFetcher>> dataFetchers) {
 
     if (typeName == null) {
       return;

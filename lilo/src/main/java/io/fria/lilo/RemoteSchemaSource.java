@@ -66,7 +66,8 @@ public final class RemoteSchemaSource implements BaseSchemaSource {
         Objects.requireNonNull(queryRetriever));
   }
 
-  private static Object fetchData(final CompletableFuture<ExecutionResult> graphQLResultFuture) {
+  private static @Nullable Object fetchData(
+      final CompletableFuture<ExecutionResult> graphQLResultFuture) {
     final ExecutionResult graphQLResult;
 
     try {
@@ -163,7 +164,7 @@ public final class RemoteSchemaSource implements BaseSchemaSource {
                 LOG.error(
                     "Could not load introspection for {}", RemoteSchemaSource.this.schemaName);
                 LOG.debug("Introspection fetching exception", e);
-                return null;
+                return RemoteSchemaSource.this;
               });
     } else {
       final SyncIntrospectionRetriever introspectionRetriever =
@@ -209,7 +210,7 @@ public final class RemoteSchemaSource implements BaseSchemaSource {
     }
   }
 
-  private BaseSchemaSource fetchIntrospection(
+  private @NotNull BaseSchemaSource fetchIntrospection(
       final @NotNull String introspectionResponse, final @NotNull LiloContext liloContext) {
     final var introspectionResultOptional = toMap(introspectionResponse);
 
@@ -299,7 +300,7 @@ public final class RemoteSchemaSource implements BaseSchemaSource {
     }
 
     @Override
-    public Map<String, Object> toSpecification() {
+    public @NotNull Map<String, Object> toSpecification() {
 
       return ExecutionResultImpl.newExecutionResult()
           .data(this.data)

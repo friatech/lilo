@@ -56,7 +56,7 @@ public class LiloContext {
     this.sourceMap = toSourceMap(Arrays.stream(schemaSources));
   }
 
-  private static RuntimeWiring finalizeWiring(
+  private static @NotNull RuntimeWiring finalizeWiring(
       final @NotNull TypeDefinitionRegistry typeRegistry,
       final @NotNull RuntimeWiring.Builder runtimeWiringBuilder) {
 
@@ -88,15 +88,13 @@ public class LiloContext {
     return runtimeWiringBuilder.build();
   }
 
-  private static boolean hasNotLoadedSchemas(final Collection<BaseSchemaSource> values) {
+  private static boolean hasNotLoadedSchemas(final @NotNull Collection<BaseSchemaSource> values) {
     return values.stream().anyMatch(BaseSchemaSource::isSchemaNotLoaded);
   }
 
   private static @NotNull Map<String, BaseSchemaSource> toSourceMap(
       final @NotNull Stream<BaseSchemaSource> schemaSourcesStream) {
-    return schemaSourcesStream
-        .filter(Objects::nonNull)
-        .collect(Collectors.toMap(SchemaSource::getName, ss -> ss));
+    return schemaSourcesStream.collect(Collectors.toMap(SchemaSource::getName, ss -> ss));
   }
 
   public @NotNull DataFetcherExceptionHandler getDataFetcherExceptionHandler() {

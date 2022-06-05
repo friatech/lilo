@@ -1,6 +1,7 @@
 package io.fria.lilo.error;
 
 import graphql.language.SourceLocation;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public class ErrorSourceLocation extends SourceLocation {
@@ -18,7 +19,7 @@ public class ErrorSourceLocation extends SourceLocation {
   }
 
   @Override
-  public boolean equals(final Object o) {
+  public boolean equals(final @Nullable Object o) {
     return super.equals(o);
   }
 
@@ -43,7 +44,7 @@ public class ErrorSourceLocation extends SourceLocation {
   }
 
   @Override
-  public String toString() {
+  public @NotNull String toString() {
     return super.toString();
   }
 }
