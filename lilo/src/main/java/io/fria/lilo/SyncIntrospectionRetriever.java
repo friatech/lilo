@@ -3,10 +3,11 @@ package io.fria.lilo;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-interface IntrospectionRetriever<T> {
+public interface SyncIntrospectionRetriever extends IntrospectionRetriever<String> {
 
+  @Override
   @NotNull
-  T get(
+  String get(
       @NotNull LiloContext liloContext,
       @NotNull SchemaSource schemaSource,
       @NotNull String query,

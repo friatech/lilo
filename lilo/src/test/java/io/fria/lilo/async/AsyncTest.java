@@ -79,8 +79,10 @@ class AsyncTest {
     // Stitching result ----------------------------------------------------
     final var project1GraphQL = createGraphQL("/greetings/greeting1.graphqls", WIRING);
     final var project2GraphQL = createGraphQL("/greetings/greeting2.graphqls", WIRING);
-    final var introspection1Retriever = new TestUtils.TestIntrospectionRetriever(project1GraphQL);
-    final var introspection2Retriever = new TestUtils.TestIntrospectionRetriever(project2GraphQL);
+    final var introspection1Retriever =
+        new TestUtils.TestAsyncIntrospectionRetriever(project1GraphQL, 400);
+    final var introspection2Retriever =
+        new TestUtils.TestAsyncIntrospectionRetriever(project2GraphQL, 600);
     final var query1Retriever = new TestUtils.TestAsyncQueryRetriever(project1GraphQL);
     final var query2Retriever = new TestUtils.TestAsyncQueryRetriever(project2GraphQL);
 
@@ -93,7 +95,7 @@ class AsyncTest {
             .build();
 
     Assertions.assertTimeout(
-        Duration.ofSeconds(1),
+        Duration.ofSeconds(3),
         () -> {
           final ExecutionResult stitchResult = lilo.stitchAsync(executionInput).get();
           final Map<String, Object> expected = expectedList.get(0);

@@ -58,7 +58,7 @@ final class SchemaMerger {
 
     for (final BaseSchemaSource schemaSource : schemaSources) {
 
-      if (!schemaSource.isSchemaLoaded()) {
+      if (schemaSource.isSchemaNotLoaded()) {
         continue;
       }
 

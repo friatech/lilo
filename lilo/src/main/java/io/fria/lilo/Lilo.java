@@ -44,7 +44,9 @@ public final class Lilo {
       this.context.invalidateAll();
     }
 
-    return this.context.getGraphQL(executionInput).executeAsync(executionInput);
+    return this.context
+        .getGraphQLAsync(executionInput)
+        .thenCompose(graphQL -> graphQL.executeAsync(executionInput));
   }
 
   public static final class LiloBuilder {

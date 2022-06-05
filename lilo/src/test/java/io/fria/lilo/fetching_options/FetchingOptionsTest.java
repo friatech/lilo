@@ -5,9 +5,9 @@ import graphql.GraphQL;
 import graphql.schema.idl.RuntimeWiring;
 import io.fria.lilo.GraphQLRequest;
 import io.fria.lilo.IntrospectionFetchingMode;
-import io.fria.lilo.IntrospectionRetriever;
 import io.fria.lilo.Lilo;
 import io.fria.lilo.RemoteSchemaSource;
+import io.fria.lilo.SyncIntrospectionRetriever;
 import io.fria.lilo.SyncQueryRetriever;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -50,7 +50,7 @@ class FetchingOptionsTest {
   @Test
   void cacheUntilInvalidationTest() {
 
-    final var introspection1Retriever = mock(IntrospectionRetriever.class);
+    final var introspection1Retriever = mock(SyncIntrospectionRetriever.class);
     final var query1Retriever = mock(SyncQueryRetriever.class);
 
     when(introspection1Retriever.get(any(), any(), any(), any()))
@@ -73,7 +73,7 @@ class FetchingOptionsTest {
   @Test
   void fetchBeforeEveryRequestTest() {
 
-    final var introspection1Retriever = mock(IntrospectionRetriever.class);
+    final var introspection1Retriever = mock(SyncIntrospectionRetriever.class);
     final var query1Retriever = mock(SyncQueryRetriever.class);
 
     when(introspection1Retriever.get(any(), any(), any(), any()))

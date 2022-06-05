@@ -1,8 +1,8 @@
 package io.fria.lilo.basic_stitching_sample.lilo_gateway;
 
-import io.fria.lilo.IntrospectionRetriever;
 import io.fria.lilo.LiloContext;
 import io.fria.lilo.SchemaSource;
+import io.fria.lilo.SyncIntrospectionRetriever;
 import java.util.Objects;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpHeaders;
@@ -11,7 +11,7 @@ import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
 import org.springframework.web.client.RestTemplate;
 
-class IntrospectionRetrieverImpl implements IntrospectionRetriever {
+class IntrospectionRetrieverImpl implements SyncIntrospectionRetriever {
 
   private final String schemaUrl;
   private final RestTemplate restTemplate;

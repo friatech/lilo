@@ -11,7 +11,9 @@ interface BaseSchemaSource extends SchemaSource {
   CompletableFuture<ExecutionResult> execute(
       @NotNull LiloContext liloContext, @NotNull GraphQLQuery query, @Nullable Object localContext);
 
-  boolean isSchemaLoaded();
+  boolean isSchemaNotLoaded();
 
-  void loadSchema(@NotNull LiloContext context, @Nullable Object localContext);
+  @NotNull
+  CompletableFuture<BaseSchemaSource> loadSchema(
+      @NotNull LiloContext context, @Nullable Object localContext);
 }

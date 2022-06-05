@@ -1,12 +1,15 @@
 package io.fria.lilo;
 
+import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-interface IntrospectionRetriever<T> {
+public interface AsyncIntrospectionRetriever
+    extends IntrospectionRetriever<CompletableFuture<String>> {
 
+  @Override
   @NotNull
-  T get(
+  CompletableFuture<String> get(
       @NotNull LiloContext liloContext,
       @NotNull SchemaSource schemaSource,
       @NotNull String query,

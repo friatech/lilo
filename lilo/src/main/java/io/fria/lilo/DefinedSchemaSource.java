@@ -37,6 +37,17 @@ public final class DefinedSchemaSource implements BaseSchemaSource {
     return new DefinedSchemaSource(schemaName, definition, runtimeWiring);
   }
 
+  private static BaseSchemaSource loadSchema(final DefinedSchemaSource schemaSource) {
+
+    schemaSource.typeDefinitionRegistry = new SchemaParser().parse(schemaSource.definition);
+    final var graphQLSchema =
+        new SchemaGenerator()
+            .makeExecutableSchema(schemaSource.typeDefinitionRegistry, schemaSource.runtimeWiring);
+
+    schemaSource.graphQL = GraphQL.newGraphQL(graphQLSchema).build();
+    return schemaSource;
+  }
+
   @Override
   public @NotNull CompletableFuture<ExecutionResult> execute(
       final @NotNull LiloContext liloContext,
@@ -77,17 +88,14 @@ public final class DefinedSchemaSource implements BaseSchemaSource {
   }
 
   @Override
-  public boolean isSchemaLoaded() {
-    return this.typeDefinitionRegistry != null;
+  public boolean isSchemaNotLoaded() {
+    return this.typeDefinitionRegistry == null;
   }
 
   @Override
-  public void loadSchema(final @NotNull LiloContext context, final @Nullable Object localContext) {
+  public @NotNull CompletableFuture<BaseSchemaSource> loadSchema(
+      final @NotNull LiloContext context, final @Nullable Object localContext) {
 
-    this.typeDefinitionRegistry = new SchemaParser().parse(this.definition);
-    final var graphQLSchema =
-        new SchemaGenerator().makeExecutableSchema(this.typeDefinitionRegistry, this.runtimeWiring);
-
-    this.graphQL = GraphQL.newGraphQL(graphQLSchema).build();
+    return CompletableFuture.supplyAsync(() -> loadSchema(DefinedSchemaSource.this));
   }
 }

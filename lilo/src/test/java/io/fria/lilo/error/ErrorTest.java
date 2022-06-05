@@ -7,11 +7,11 @@ import graphql.GraphQLError;
 import graphql.GraphQLException;
 import graphql.schema.idl.RuntimeWiring;
 import io.fria.lilo.DefinedSchemaSource;
-import io.fria.lilo.IntrospectionRetriever;
 import io.fria.lilo.Lilo;
 import io.fria.lilo.LiloContext;
 import io.fria.lilo.RemoteSchemaSource;
 import io.fria.lilo.SchemaSource;
+import io.fria.lilo.SyncIntrospectionRetriever;
 import io.fria.lilo.TestUtils;
 import java.util.List;
 import java.util.Map;
@@ -92,7 +92,7 @@ class ErrorTest {
     final var project1GraphQL = createGraphQL("/greetings/greeting1.graphqls", WIRING);
     final var project2GraphQL = createGraphQL("/greetings/greeting2.graphqls", WIRING);
     final var introspection1Retriever =
-        new IntrospectionRetriever() {
+        new SyncIntrospectionRetriever() {
           @Override
           public @NotNull String get(
               @NotNull final LiloContext liloContext,
