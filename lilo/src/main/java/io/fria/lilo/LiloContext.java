@@ -39,13 +39,13 @@ public class LiloContext {
 
   private final DataFetcherExceptionHandler dataFetcherExceptionHandler;
   private final IntrospectionFetchingMode introspectionFetchingMode;
-  private Map<String, SchemaSource> sourceMap;
+  private Map<String, BaseSchemaSource> sourceMap;
   private GraphQL graphQL;
 
   LiloContext(
       final @NotNull DataFetcherExceptionHandler dataFetcherExceptionHandler,
       final @NotNull IntrospectionFetchingMode introspectionFetchingMode,
-      final @NotNull SchemaSource... schemaSources) {
+      final @NotNull BaseSchemaSource... schemaSources) {
     this.dataFetcherExceptionHandler = Objects.requireNonNull(dataFetcherExceptionHandler);
     this.introspectionFetchingMode = Objects.requireNonNull(introspectionFetchingMode);
     this.sourceMap =
@@ -128,7 +128,8 @@ public class LiloContext {
     return this.graphQL;
   }
 
-  private @NotNull GraphQL createGraphQL(final @NotNull Map<String, SchemaSource> schemaSourceMap) {
+  private @NotNull GraphQL createGraphQL(
+      final @NotNull Map<String, BaseSchemaSource> schemaSourceMap) {
 
     final TypeDefinitionRegistry combinedRegistry = new TypeDefinitionRegistry();
     final RuntimeWiring.Builder runtimeWiringBuilder = RuntimeWiring.newRuntimeWiring();
@@ -144,7 +145,7 @@ public class LiloContext {
         .build();
   }
 
-  private @NotNull Map<String, SchemaSource> loadSources(
+  private @NotNull Map<String, BaseSchemaSource> loadSources(
       final @Nullable ExecutionInput executionInput) {
 
     final Object localContext = executionInput == null ? null : executionInput.getLocalContext();

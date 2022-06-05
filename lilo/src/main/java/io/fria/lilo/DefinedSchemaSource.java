@@ -7,12 +7,11 @@ import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import static io.fria.lilo.JsonUtils.toObj;
 
-public final class DefinedSchemaSource extends SchemaSource {
+public final class DefinedSchemaSource implements BaseSchemaSource {
 
   private final String schemaName;
   private final String definition;
@@ -30,7 +29,7 @@ public final class DefinedSchemaSource extends SchemaSource {
     this.runtimeWiring = runtimeWiring;
   }
 
-  public static @NotNull SchemaSource create(
+  public static @NotNull BaseSchemaSource create(
       final @NotNull String schemaName,
       final @NotNull String definition,
       final @NotNull RuntimeWiring runtimeWiring) {
@@ -44,15 +43,17 @@ public final class DefinedSchemaSource extends SchemaSource {
       final @NotNull GraphQLQuery query,
       final @Nullable Object localContext) {
 
-    return CompletableFuture.supplyAsync(() -> {
-      final var graphQLRequestOptional = toObj(query.getQuery(), GraphQLRequest.class);
+    return CompletableFuture.supplyAsync(
+        () -> {
+          final var graphQLRequestOptional = toObj(query.getQuery(), GraphQLRequest.class);
 
-      if (graphQLRequestOptional.isEmpty()) {
-        throw new IllegalArgumentException("Query request is invalid: Empty query");
-      }
+          if (graphQLRequestOptional.isEmpty()) {
+            throw new IllegalArgumentException("Query request is invalid: Empty query");
+          }
 
-      return DefinedSchemaSource.this.graphQL.execute(graphQLRequestOptional.get().toExecutionInput(localContext));
-    });
+          return DefinedSchemaSource.this.graphQL.execute(
+              graphQLRequestOptional.get().toExecutionInput(localContext));
+        });
   }
 
   @Override

@@ -7,6 +7,7 @@ import graphql.schema.idl.SchemaParser;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import static io.fria.lilo.JsonUtils.toObj;
@@ -98,6 +99,30 @@ public final class TestUtils {
         final @NotNull GraphQLQuery query,
         final @Nullable Object localContext) {
       return runQuery(this.graphQL, query.getQuery());
+    }
+
+    public void setGraphQL(final @NotNull GraphQL graphQL) {
+      this.graphQL = graphQL;
+    }
+  }
+
+  public static class TestAsyncQueryRetriever implements AsyncQueryRetriever {
+
+    private GraphQL graphQL;
+
+    public TestAsyncQueryRetriever(final @NotNull GraphQL graphQL) {
+      this.graphQL = graphQL;
+    }
+
+    @Override
+    public @NotNull CompletableFuture<String> get(
+        final @NotNull LiloContext liloContext,
+        final @NotNull SchemaSource schemaSource,
+        final @NotNull GraphQLQuery query,
+        final @Nullable Object localContext) {
+
+      return CompletableFuture.supplyAsync(
+          () -> runQuery(TestAsyncQueryRetriever.this.graphQL, query.getQuery()));
     }
 
     public void setGraphQL(final @NotNull GraphQL graphQL) {

@@ -30,7 +30,7 @@ import static io.fria.lilo.JsonUtils.toMap;
 import static io.fria.lilo.JsonUtils.toObj;
 import static io.fria.lilo.JsonUtils.toStr;
 
-public final class RemoteSchemaSource extends SchemaSource {
+public final class RemoteSchemaSource implements BaseSchemaSource {
 
   private static final Logger LOG = LoggerFactory.getLogger(RemoteSchemaSource.class);
   private static final String INTROSPECTION_REQUEST =
@@ -55,7 +55,7 @@ public final class RemoteSchemaSource extends SchemaSource {
     this.queryRetriever = queryRetriever;
   }
 
-  public static @NotNull SchemaSource create(
+  public static @NotNull BaseSchemaSource create(
       final @NotNull String schemaName,
       final @NotNull IntrospectionRetriever introspectionRetriever,
       final @NotNull QueryRetriever<?> queryRetriever) {
