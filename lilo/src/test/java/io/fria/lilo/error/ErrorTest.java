@@ -15,6 +15,7 @@ import io.fria.lilo.SyncIntrospectionRetriever;
 import io.fria.lilo.TestUtils;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;

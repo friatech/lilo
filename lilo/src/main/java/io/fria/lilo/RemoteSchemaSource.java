@@ -188,7 +188,7 @@ public final class RemoteSchemaSource implements BaseSchemaSource {
     }
   }
 
-  private @Nullable CompletableFuture<Object> fetchData(
+  private @NotNull CompletableFuture<Object> fetchData(
       final @NotNull DataFetchingEnvironment environment, final @NotNull LiloContext liloContext) {
 
     if (this.queryRetriever instanceof AsyncQueryRetriever) {
