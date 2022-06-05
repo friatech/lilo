@@ -183,8 +183,14 @@ public class LiloContext {
 
     final List<CompletableFuture<BaseSchemaSource>> futures =
         this.sourceMap.values().stream()
-            .filter(BaseSchemaSource::isSchemaNotLoaded)
-            .map(ss -> ss.loadSchema(LiloContext.this, localContext))
+            .map(
+                ss -> {
+                  if (ss.isSchemaNotLoaded()) {
+                    return ss.loadSchema(LiloContext.this, localContext);
+                  } else {
+                    return CompletableFuture.supplyAsync(() -> ss);
+                  }
+                })
             .collect(Collectors.toList());
 
     for (final CompletableFuture<BaseSchemaSource> future : futures) {
