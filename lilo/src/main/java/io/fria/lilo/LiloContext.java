@@ -44,13 +44,13 @@ public class LiloContext {
 
   private final DataFetcherExceptionHandler dataFetcherExceptionHandler;
   private final IntrospectionFetchingMode introspectionFetchingMode;
-  private Map<String, BaseSchemaSource> sourceMap;
+  private Map<String, SchemaSource> sourceMap;
   private GraphQL graphQL;
 
   LiloContext(
       final @NotNull DataFetcherExceptionHandler dataFetcherExceptionHandler,
       final @NotNull IntrospectionFetchingMode introspectionFetchingMode,
-      final @NotNull BaseSchemaSource... schemaSources) {
+      final @NotNull SchemaSource... schemaSources) {
     this.dataFetcherExceptionHandler = Objects.requireNonNull(dataFetcherExceptionHandler);
     this.introspectionFetchingMode = Objects.requireNonNull(introspectionFetchingMode);
     this.sourceMap = toSourceMap(Arrays.stream(schemaSources));
@@ -88,12 +88,12 @@ public class LiloContext {
     return runtimeWiringBuilder.build();
   }
 
-  private static boolean hasNotLoadedSchemas(final @NotNull Collection<BaseSchemaSource> values) {
-    return values.stream().anyMatch(BaseSchemaSource::isSchemaNotLoaded);
+  private static boolean hasNotLoadedSchemas(final @NotNull Collection<SchemaSource> values) {
+    return values.stream().anyMatch(SchemaSource::isSchemaNotLoaded);
   }
 
-  private static @NotNull Map<String, BaseSchemaSource> toSourceMap(
-      final @NotNull Stream<BaseSchemaSource> schemaSourcesStream) {
+  private static @NotNull Map<String, SchemaSource> toSourceMap(
+      final @NotNull Stream<SchemaSource> schemaSourcesStream) {
     return schemaSourcesStream.collect(Collectors.toMap(SchemaSource::getName, ss -> ss));
   }
 
@@ -161,7 +161,7 @@ public class LiloContext {
     return CompletableFuture.supplyAsync(() -> this.graphQL);
   }
 
-  private @NotNull GraphQL createGraphQL(final @NotNull List<BaseSchemaSource> schemaSourceList) {
+  private @NotNull GraphQL createGraphQL(final @NotNull List<SchemaSource> schemaSourceList) {
 
     final TypeDefinitionRegistry combinedRegistry = new TypeDefinitionRegistry();
     final RuntimeWiring.Builder runtimeWiringBuilder = RuntimeWiring.newRuntimeWiring();
@@ -177,14 +177,13 @@ public class LiloContext {
         .build();
   }
 
-  private @NotNull CompletableFuture<List<BaseSchemaSource>> loadSources(
+  private @NotNull CompletableFuture<List<SchemaSource>> loadSources(
       final @Nullable ExecutionInput executionInput) {
 
     final Object localContext = executionInput == null ? null : executionInput.getLocalContext();
-    CompletableFuture<List<BaseSchemaSource>> combined =
-        CompletableFuture.supplyAsync(ArrayList::new);
+    CompletableFuture<List<SchemaSource>> combined = CompletableFuture.supplyAsync(ArrayList::new);
 
-    final List<CompletableFuture<BaseSchemaSource>> futures =
+    final List<CompletableFuture<SchemaSource>> futures =
         this.sourceMap.values().stream()
             .map(
                 ss -> {
@@ -196,7 +195,7 @@ public class LiloContext {
                 })
             .collect(Collectors.toList());
 
-    for (final CompletableFuture<BaseSchemaSource> future : futures) {
+    for (final CompletableFuture<SchemaSource> future : futures) {
       combined =
           combined.thenCombine(
               future,

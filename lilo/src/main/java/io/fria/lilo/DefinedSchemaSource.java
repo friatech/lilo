@@ -11,7 +11,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import static io.fria.lilo.JsonUtils.toObj;
 
-public final class DefinedSchemaSource implements BaseSchemaSource {
+public final class DefinedSchemaSource implements SchemaSource {
 
   private final String schemaName;
   private final String definition;
@@ -29,7 +29,7 @@ public final class DefinedSchemaSource implements BaseSchemaSource {
     this.runtimeWiring = runtimeWiring;
   }
 
-  public static @NotNull BaseSchemaSource create(
+  public static @NotNull SchemaSource create(
       final @NotNull String schemaName,
       final @NotNull String definition,
       final @NotNull RuntimeWiring runtimeWiring) {
@@ -37,8 +37,7 @@ public final class DefinedSchemaSource implements BaseSchemaSource {
     return new DefinedSchemaSource(schemaName, definition, runtimeWiring);
   }
 
-  private static @NotNull BaseSchemaSource loadSchema(
-      final @NotNull DefinedSchemaSource schemaSource) {
+  private static @NotNull SchemaSource loadSchema(final @NotNull DefinedSchemaSource schemaSource) {
 
     schemaSource.typeDefinitionRegistry = new SchemaParser().parse(schemaSource.definition);
     final var graphQLSchema =
@@ -94,7 +93,7 @@ public final class DefinedSchemaSource implements BaseSchemaSource {
   }
 
   @Override
-  public @NotNull CompletableFuture<BaseSchemaSource> loadSchema(
+  public @NotNull CompletableFuture<SchemaSource> loadSchema(
       final @NotNull LiloContext context, final @Nullable Object localContext) {
 
     return CompletableFuture.supplyAsync(() -> loadSchema(DefinedSchemaSource.this));

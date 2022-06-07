@@ -47,7 +47,7 @@ final class SchemaMerger {
   }
 
   static void mergeSchemas(
-      final @NotNull Collection<BaseSchemaSource> schemaSources,
+      final @NotNull Collection<SchemaSource> schemaSources,
       final @NotNull TypeDefinitionRegistry combinedRegistry,
       final RuntimeWiring.@NotNull Builder runtimeWiringBuilder) {
 
@@ -56,7 +56,7 @@ final class SchemaMerger {
     final List<FieldDefinition> queryFieldDefinitions = new ArrayList<>();
     final List<FieldDefinition> mutationFieldDefinitions = new ArrayList<>();
 
-    for (final BaseSchemaSource schemaSource : schemaSources) {
+    for (final SchemaSource schemaSource : schemaSources) {
 
       if (schemaSource == null || schemaSource.isSchemaNotLoaded()) {
         continue;
