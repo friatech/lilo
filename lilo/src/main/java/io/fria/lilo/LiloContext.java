@@ -130,36 +130,6 @@ public class LiloContext {
     this.schemasAreNotLoaded = true;
   }
 
-  public @NotNull CompletableFuture<List<SchemaSource>> loadSources(
-      final @Nullable Object localContext) {
-
-    CompletableFuture<List<SchemaSource>> combined = CompletableFuture.supplyAsync(ArrayList::new);
-
-    final List<CompletableFuture<SchemaSource>> futures =
-        this.sourceMap.values().stream()
-            .map(
-                ss -> {
-                  if (ss.isSchemaNotLoaded()) {
-                    return ss.loadSchema(LiloContext.this, localContext);
-                  } else {
-                    return CompletableFuture.supplyAsync(() -> ss);
-                  }
-                })
-            .collect(Collectors.toList());
-
-    for (final CompletableFuture<SchemaSource> future : futures) {
-      combined =
-          combined.thenCombine(
-              future,
-              (combinedSchemaSources, baseSchemaSource) -> {
-                combinedSchemaSources.add(baseSchemaSource);
-                return combinedSchemaSources;
-              });
-    }
-
-    return combined;
-  }
-
   public @NotNull CompletableFuture<GraphQL> reloadGraphQL(final @Nullable Object localContext) {
 
     return this.loadSources(localContext)
@@ -206,6 +176,36 @@ public class LiloContext {
     return GraphQL.newGraphQL(graphQLSchema)
         .defaultDataFetcherExceptionHandler(this.dataFetcherExceptionHandler)
         .build();
+  }
+
+  private @NotNull CompletableFuture<List<SchemaSource>> loadSources(
+      final @Nullable Object localContext) {
+
+    CompletableFuture<List<SchemaSource>> combined = CompletableFuture.supplyAsync(ArrayList::new);
+
+    final List<CompletableFuture<SchemaSource>> futures =
+        this.sourceMap.values().stream()
+            .map(
+                ss -> {
+                  if (ss.isSchemaNotLoaded()) {
+                    return ss.loadSchema(LiloContext.this, localContext);
+                  } else {
+                    return CompletableFuture.supplyAsync(() -> ss);
+                  }
+                })
+            .collect(Collectors.toList());
+
+    for (final CompletableFuture<SchemaSource> future : futures) {
+      combined =
+          combined.thenCombine(
+              future,
+              (combinedSchemaSources, baseSchemaSource) -> {
+                combinedSchemaSources.add(baseSchemaSource);
+                return combinedSchemaSources;
+              });
+    }
+
+    return combined;
   }
 
   private boolean schemasAreNotLoaded() {
