@@ -13,7 +13,6 @@ import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -46,6 +45,7 @@ public class LiloContext {
   private final IntrospectionFetchingMode introspectionFetchingMode;
   private Map<String, SchemaSource> sourceMap;
   private GraphQL graphQL;
+  private boolean schemasAreNotLoaded = true;
 
   LiloContext(
       final @NotNull DataFetcherExceptionHandler dataFetcherExceptionHandler,
@@ -88,10 +88,6 @@ public class LiloContext {
     return runtimeWiringBuilder.build();
   }
 
-  private static boolean hasNotLoadedSchemas(final @NotNull Collection<SchemaSource> values) {
-    return values.stream().anyMatch(SchemaSource::isSchemaNotLoaded);
-  }
-
   private static @NotNull Map<String, SchemaSource> toSourceMap(
       final @NotNull Stream<SchemaSource> schemaSourcesStream) {
     return schemaSourcesStream.collect(Collectors.toMap(SchemaSource::getName, ss -> ss));
@@ -126,61 +122,17 @@ public class LiloContext {
     final SchemaSource schemaSource = this.sourceMap.get(schemaName);
     schemaSource.invalidate();
 
-    this.graphQL = null;
+    this.schemasAreNotLoaded = true;
   }
 
   public void invalidateAll() {
     this.sourceMap.values().forEach(SchemaSource::invalidate);
-    this.graphQL = null;
+    this.schemasAreNotLoaded = true;
   }
 
-  @NotNull
-  GraphQL getGraphQL(final @Nullable ExecutionInput executionInput) {
+  public @NotNull CompletableFuture<List<SchemaSource>> loadSources(
+      final @Nullable Object localContext) {
 
-    try {
-      return this.getGraphQLAsync(executionInput).get();
-    } catch (final Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  @NotNull
-  CompletableFuture<GraphQL> getGraphQLAsync(final @Nullable ExecutionInput executionInput) {
-
-    if (this.graphQL == null || hasNotLoadedSchemas(this.sourceMap.values())) {
-      return this.loadSources(executionInput)
-          .thenApply(
-              sourceMapClone -> {
-                LiloContext.this.graphQL = LiloContext.this.createGraphQL(sourceMapClone);
-                LiloContext.this.sourceMap = toSourceMap(sourceMapClone.stream());
-
-                return LiloContext.this.graphQL;
-              });
-    }
-
-    return CompletableFuture.supplyAsync(() -> this.graphQL);
-  }
-
-  private @NotNull GraphQL createGraphQL(final @NotNull List<SchemaSource> schemaSourceList) {
-
-    final TypeDefinitionRegistry combinedRegistry = new TypeDefinitionRegistry();
-    final RuntimeWiring.Builder runtimeWiringBuilder = RuntimeWiring.newRuntimeWiring();
-    SchemaMerger.mergeSchemas(schemaSourceList, combinedRegistry, runtimeWiringBuilder);
-
-    final RuntimeWiring runtimeWiring = finalizeWiring(combinedRegistry, runtimeWiringBuilder);
-
-    final GraphQLSchema graphQLSchema =
-        new SchemaGenerator().makeExecutableSchema(combinedRegistry, runtimeWiring);
-
-    return GraphQL.newGraphQL(graphQLSchema)
-        .defaultDataFetcherExceptionHandler(this.dataFetcherExceptionHandler)
-        .build();
-  }
-
-  private @NotNull CompletableFuture<List<SchemaSource>> loadSources(
-      final @Nullable ExecutionInput executionInput) {
-
-    final Object localContext = executionInput == null ? null : executionInput.getLocalContext();
     CompletableFuture<List<SchemaSource>> combined = CompletableFuture.supplyAsync(ArrayList::new);
 
     final List<CompletableFuture<SchemaSource>> futures =
@@ -206,5 +158,63 @@ public class LiloContext {
     }
 
     return combined;
+  }
+
+  public @NotNull CompletableFuture<GraphQL> reloadGraphQL(final @Nullable Object localContext) {
+
+    return this.loadSources(localContext)
+        .thenApply(
+            sourceMapClone -> {
+              LiloContext.this.graphQL = LiloContext.this.createGraphQL(sourceMapClone);
+              LiloContext.this.sourceMap = toSourceMap(sourceMapClone.stream());
+
+              return LiloContext.this.graphQL;
+            });
+  }
+
+  @NotNull
+  GraphQL getGraphQL(final @Nullable ExecutionInput executionInput) {
+
+    try {
+      return this.getGraphQLAsync(executionInput).get();
+    } catch (final Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @NotNull
+  CompletableFuture<GraphQL> getGraphQLAsync(final @Nullable ExecutionInput executionInput) {
+
+    if (this.schemasAreNotLoaded()) {
+      return this.reloadGraphQL(executionInput == null ? null : executionInput.getLocalContext());
+    }
+
+    return CompletableFuture.supplyAsync(() -> this.graphQL);
+  }
+
+  private @NotNull GraphQL createGraphQL(final @NotNull List<SchemaSource> schemaSourceList) {
+
+    final TypeDefinitionRegistry combinedRegistry = new TypeDefinitionRegistry();
+    final RuntimeWiring.Builder runtimeWiringBuilder = RuntimeWiring.newRuntimeWiring();
+    SchemaMerger.mergeSchemas(schemaSourceList, combinedRegistry, runtimeWiringBuilder);
+
+    final RuntimeWiring runtimeWiring = finalizeWiring(combinedRegistry, runtimeWiringBuilder);
+
+    final GraphQLSchema graphQLSchema =
+        new SchemaGenerator().makeExecutableSchema(combinedRegistry, runtimeWiring);
+
+    return GraphQL.newGraphQL(graphQLSchema)
+        .defaultDataFetcherExceptionHandler(this.dataFetcherExceptionHandler)
+        .build();
+  }
+
+  private boolean schemasAreNotLoaded() {
+
+    if (this.schemasAreNotLoaded) {
+      this.schemasAreNotLoaded =
+          this.sourceMap.values().stream().anyMatch(SchemaSource::isSchemaNotLoaded);
+    }
+
+    return this.schemasAreNotLoaded;
   }
 }
