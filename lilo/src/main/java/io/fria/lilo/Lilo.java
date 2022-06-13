@@ -56,6 +56,7 @@ public final class Lilo {
         new SourceDataFetcherExceptionHandler();
     private IntrospectionFetchingMode introspectionFetchingMode =
         IntrospectionFetchingMode.CACHE_UNTIL_INVALIDATION;
+    private boolean retrySchemaLoad = true;
 
     @SuppressWarnings("checkstyle:WhitespaceAround")
     private LiloBuilder() {}
@@ -71,6 +72,7 @@ public final class Lilo {
           new LiloContext(
               this.dataFetcherExceptionHandler,
               this.introspectionFetchingMode,
+              this.retrySchemaLoad,
               this.schemaSources.values().toArray(new SchemaSource[0])));
     }
 
@@ -83,6 +85,11 @@ public final class Lilo {
     public @NotNull LiloBuilder introspectionFetchingMode(
         final @NotNull IntrospectionFetchingMode introspectionFetchingMode) {
       this.introspectionFetchingMode = introspectionFetchingMode;
+      return this;
+    }
+
+    public @NotNull LiloBuilder retrySchemaLoad(final boolean retrySchemaLoad) {
+      this.retrySchemaLoad = retrySchemaLoad;
       return this;
     }
   }

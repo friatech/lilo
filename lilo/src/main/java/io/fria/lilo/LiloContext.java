@@ -13,6 +13,7 @@ import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -43,6 +44,7 @@ public class LiloContext {
 
   private final DataFetcherExceptionHandler dataFetcherExceptionHandler;
   private final IntrospectionFetchingMode introspectionFetchingMode;
+  private final boolean retrySchemaLoad;
   private Map<String, SchemaSource> sourceMap;
   private GraphQL graphQL;
   private boolean schemasAreNotLoaded = true;
@@ -50,9 +52,11 @@ public class LiloContext {
   LiloContext(
       final @NotNull DataFetcherExceptionHandler dataFetcherExceptionHandler,
       final @NotNull IntrospectionFetchingMode introspectionFetchingMode,
+      final boolean retrySchemaLoad,
       final @NotNull SchemaSource... schemaSources) {
     this.dataFetcherExceptionHandler = Objects.requireNonNull(dataFetcherExceptionHandler);
     this.introspectionFetchingMode = Objects.requireNonNull(introspectionFetchingMode);
+    this.retrySchemaLoad = retrySchemaLoad;
     this.sourceMap = toSourceMap(Arrays.stream(schemaSources));
   }
 
@@ -211,8 +215,19 @@ public class LiloContext {
   private boolean schemasAreNotLoaded() {
 
     if (this.schemasAreNotLoaded) {
-      this.schemasAreNotLoaded =
-          this.sourceMap.values().stream().anyMatch(SchemaSource::isSchemaNotLoaded);
+
+      final Collection<SchemaSource> sources = this.sourceMap.values();
+      final long notLoadedCount =
+          this.sourceMap.values().stream().filter(SchemaSource::isSchemaNotLoaded).count();
+      final int sourceCount = sources.size();
+
+      if (notLoadedCount == sourceCount) { // none of them are loaded
+        this.schemasAreNotLoaded = true;
+      } else if (notLoadedCount == 0) { // all of them are loaded
+        this.schemasAreNotLoaded = false;
+      } else { // if partially loaded then check the retry option
+        this.schemasAreNotLoaded = this.retrySchemaLoad;
+      }
     }
 
     return this.schemasAreNotLoaded;
