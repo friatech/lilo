@@ -3,9 +3,10 @@ package io.fria.lilo;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public interface QueryRetriever {
+interface QueryRetriever<T> {
+
   @NotNull
-  String get(
+  T get(
       @NotNull LiloContext liloContext,
       @NotNull SchemaSource schemaSource,
       @NotNull GraphQLQuery query,

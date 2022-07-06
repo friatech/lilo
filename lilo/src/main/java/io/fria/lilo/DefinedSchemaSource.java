@@ -6,6 +6,7 @@ import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
+import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import static io.fria.lilo.JsonUtils.toObj;
@@ -36,20 +37,34 @@ public final class DefinedSchemaSource implements SchemaSource {
     return new DefinedSchemaSource(schemaName, definition, runtimeWiring);
   }
 
+  private static @NotNull SchemaSource loadSchema(final @NotNull DefinedSchemaSource schemaSource) {
+
+    schemaSource.typeDefinitionRegistry = new SchemaParser().parse(schemaSource.definition);
+    final var graphQLSchema =
+        new SchemaGenerator()
+            .makeExecutableSchema(schemaSource.typeDefinitionRegistry, schemaSource.runtimeWiring);
+
+    schemaSource.graphQL = GraphQL.newGraphQL(graphQLSchema).build();
+    return schemaSource;
+  }
+
   @Override
-  public @NotNull ExecutionResult execute(
+  public @NotNull CompletableFuture<ExecutionResult> execute(
       final @NotNull LiloContext liloContext,
-      final @NotNull SchemaSource schemaSource,
       final @NotNull GraphQLQuery query,
       final @Nullable Object localContext) {
 
-    final var graphQLRequestOptional = toObj(query.getQuery(), GraphQLRequest.class);
+    return CompletableFuture.supplyAsync(
+        () -> {
+          final var graphQLRequestOptional = toObj(query.getQuery(), GraphQLRequest.class);
 
-    if (graphQLRequestOptional.isEmpty()) {
-      throw new IllegalArgumentException("Query request is invalid: Empty query");
-    }
+          if (graphQLRequestOptional.isEmpty()) {
+            throw new IllegalArgumentException("Query request is invalid: Empty query");
+          }
 
-    return this.graphQL.execute(graphQLRequestOptional.get().toExecutionInput(localContext));
+          return DefinedSchemaSource.this.graphQL.execute(
+              graphQLRequestOptional.get().toExecutionInput(localContext));
+        });
   }
 
   @Override
@@ -73,17 +88,14 @@ public final class DefinedSchemaSource implements SchemaSource {
   }
 
   @Override
-  public boolean isSchemaLoaded() {
-    return this.typeDefinitionRegistry != null;
+  public boolean isSchemaNotLoaded() {
+    return this.typeDefinitionRegistry == null;
   }
 
   @Override
-  public void loadSchema(final @NotNull LiloContext context, final @Nullable Object localContext) {
+  public @NotNull CompletableFuture<SchemaSource> loadSchema(
+      final @NotNull LiloContext context, final @Nullable Object localContext) {
 
-    this.typeDefinitionRegistry = new SchemaParser().parse(this.definition);
-    final var graphQLSchema =
-        new SchemaGenerator().makeExecutableSchema(this.typeDefinitionRegistry, this.runtimeWiring);
-
-    this.graphQL = GraphQL.newGraphQL(graphQLSchema).build();
+    return CompletableFuture.supplyAsync(() -> loadSchema(DefinedSchemaSource.this));
   }
 }

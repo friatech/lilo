@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -39,15 +41,15 @@ public final class RemoteSchemaSource implements SchemaSource {
               .build());
 
   private final String schemaName;
-  private final IntrospectionRetriever introspectionRetriever;
-  private final QueryRetriever queryRetriever;
+  private final IntrospectionRetriever<?> introspectionRetriever;
+  private final QueryRetriever<?> queryRetriever;
   private TypeDefinitionRegistry typeDefinitionRegistry;
   private RuntimeWiring runtimeWiring;
 
   private RemoteSchemaSource(
       final @NotNull String schemaName,
-      final @NotNull IntrospectionRetriever introspectionRetriever,
-      final @NotNull QueryRetriever queryRetriever) {
+      final @NotNull IntrospectionRetriever<?> introspectionRetriever,
+      final @NotNull QueryRetriever<?> queryRetriever) {
     this.schemaName = schemaName;
     this.introspectionRetriever = introspectionRetriever;
     this.queryRetriever = queryRetriever;
@@ -55,8 +57,8 @@ public final class RemoteSchemaSource implements SchemaSource {
 
   public static @NotNull SchemaSource create(
       final @NotNull String schemaName,
-      final @NotNull IntrospectionRetriever introspectionRetriever,
-      final @NotNull QueryRetriever queryRetriever) {
+      final @NotNull IntrospectionRetriever<?> introspectionRetriever,
+      final @NotNull QueryRetriever<?> queryRetriever) {
 
     return new RemoteSchemaSource(
         Objects.requireNonNull(schemaName),
@@ -64,21 +66,51 @@ public final class RemoteSchemaSource implements SchemaSource {
         Objects.requireNonNull(queryRetriever));
   }
 
-  @Override
-  public @NotNull ExecutionResult execute(
-      final @NotNull LiloContext liloContext,
-      final @NotNull SchemaSource schemaSource,
-      final @NotNull GraphQLQuery query,
-      final @Nullable Object localContext) {
+  private static @Nullable Object fetchData(
+      final CompletableFuture<ExecutionResult> graphQLResultFuture) {
+    final ExecutionResult graphQLResult;
 
-    final var queryResult = this.queryRetriever.get(liloContext, schemaSource, query, localContext);
-    final var graphQLResultOptional = toObj(queryResult, GraphQLResult.class);
+    try {
+      graphQLResult = graphQLResultFuture.get();
+    } catch (final InterruptedException | ExecutionException e) {
+      throw new RuntimeException(e);
+    }
+
+    final List<GraphQLError> errors = graphQLResult.getErrors();
+
+    if (errors != null && !errors.isEmpty()) {
+      throw new SourceDataFetcherException(errors);
+    }
+
+    return ((Map<String, Object>) graphQLResult.getData()).values().iterator().next();
+  }
+
+  private static @NotNull ExecutionResult toExecutionResult(final @NotNull String queryResult) {
+
+    final Optional<GraphQLResult> graphQLResultOptional = toObj(queryResult, GraphQLResult.class);
 
     if (graphQLResultOptional.isEmpty()) {
       throw new IllegalArgumentException("DataFetcher caught an empty response");
     }
 
     return graphQLResultOptional.get();
+  }
+
+  @Override
+  public @NotNull CompletableFuture<ExecutionResult> execute(
+      final @NotNull LiloContext liloContext,
+      final @NotNull GraphQLQuery query,
+      final @Nullable Object localContext) {
+
+    if (this.queryRetriever instanceof AsyncQueryRetriever) {
+      final AsyncQueryRetriever queryRetriever = (AsyncQueryRetriever) this.queryRetriever;
+      final var queryResult = queryRetriever.get(liloContext, this, query, localContext);
+      return queryResult.thenApply(RemoteSchemaSource::toExecutionResult);
+    } else {
+      final SyncQueryRetriever queryRetriever = (SyncQueryRetriever) this.queryRetriever;
+      final var queryResult = queryRetriever.get(liloContext, this, query, localContext);
+      return CompletableFuture.supplyAsync(() -> RemoteSchemaSource.toExecutionResult(queryResult));
+    }
   }
 
   @Override
@@ -89,7 +121,7 @@ public final class RemoteSchemaSource implements SchemaSource {
   @Override
   public @NotNull RuntimeWiring getRuntimeWiring() {
 
-    if (!this.isSchemaLoaded()) {
+    if (this.isSchemaNotLoaded()) {
       throw new IllegalArgumentException(this.schemaName + " has not been loaded yet!");
     }
 
@@ -99,7 +131,7 @@ public final class RemoteSchemaSource implements SchemaSource {
   @Override
   public @NotNull TypeDefinitionRegistry getTypeDefinitionRegistry() {
 
-    if (!this.isSchemaLoaded()) {
+    if (this.isSchemaNotLoaded()) {
       throw new IllegalArgumentException(this.schemaName + " has not been loaded yet!");
     }
 
@@ -112,25 +144,74 @@ public final class RemoteSchemaSource implements SchemaSource {
   }
 
   @Override
-  public boolean isSchemaLoaded() {
-    return this.typeDefinitionRegistry != null;
+  public boolean isSchemaNotLoaded() {
+    return this.typeDefinitionRegistry == null;
   }
 
   @Override
-  public void loadSchema(
+  public @NotNull CompletableFuture<SchemaSource> loadSchema(
       final @NotNull LiloContext liloContext, final @Nullable Object localContext) {
 
-    final String introspectionResponse;
+    if (this.introspectionRetriever instanceof AsyncIntrospectionRetriever) {
+      final AsyncIntrospectionRetriever introspectionRetriever =
+          (AsyncIntrospectionRetriever) this.introspectionRetriever;
 
-    try {
-      introspectionResponse =
-          this.introspectionRetriever.get(liloContext, this, INTROSPECTION_REQUEST, localContext);
-    } catch (final Exception e) {
-      LOG.error("Could not load introspection for {}", this.schemaName);
-      LOG.debug("Introspection fetching exception", e);
-      return;
+      return introspectionRetriever
+          .get(liloContext, this, INTROSPECTION_REQUEST, localContext)
+          .thenApply(res -> this.fetchIntrospection(res, liloContext))
+          .exceptionally(
+              e -> {
+                LOG.error(
+                    "Could not load introspection for {}", RemoteSchemaSource.this.schemaName);
+                LOG.debug("Introspection fetching exception", e);
+                return RemoteSchemaSource.this;
+              });
+    } else {
+      final SyncIntrospectionRetriever introspectionRetriever =
+          (SyncIntrospectionRetriever) this.introspectionRetriever;
+
+      return CompletableFuture.supplyAsync(
+          () -> {
+            final String introspectionResponse;
+
+            try {
+              introspectionResponse =
+                  introspectionRetriever.get(
+                      liloContext, RemoteSchemaSource.this, INTROSPECTION_REQUEST, localContext);
+            } catch (final Exception e) {
+              LOG.error("Could not load introspection for {}", RemoteSchemaSource.this.schemaName);
+              LOG.debug("Introspection fetching exception", e);
+              return RemoteSchemaSource.this;
+            }
+
+            return RemoteSchemaSource.this.fetchIntrospection(introspectionResponse, liloContext);
+          });
     }
+  }
 
+  private @NotNull CompletableFuture<Object> fetchData(
+      final @NotNull DataFetchingEnvironment environment, final @NotNull LiloContext liloContext) {
+
+    if (this.queryRetriever instanceof AsyncQueryRetriever) {
+      final var query = QueryTransformer.extractQuery(environment);
+      final var graphQLResultFuture =
+          RemoteSchemaSource.this.execute(liloContext, query, environment.getLocalContext());
+
+      return graphQLResultFuture.thenApply(executionResult -> fetchData(graphQLResultFuture));
+    } else {
+      return CompletableFuture.supplyAsync(
+          () -> {
+            final var query = QueryTransformer.extractQuery(environment);
+            final var graphQLResultFuture =
+                RemoteSchemaSource.this.execute(liloContext, query, environment.getLocalContext());
+
+            return fetchData(graphQLResultFuture);
+          });
+    }
+  }
+
+  private @NotNull SchemaSource fetchIntrospection(
+      final @NotNull String introspectionResponse, final @NotNull LiloContext liloContext) {
     final var introspectionResultOptional = toMap(introspectionResponse);
 
     if (introspectionResultOptional.isEmpty()) {
@@ -157,20 +238,8 @@ public final class RemoteSchemaSource implements SchemaSource {
 
     this.runtimeWiring = runtimeWiringBuilder.build();
     this.typeDefinitionRegistry = typeDefinitionRegistry;
-  }
 
-  private @Nullable Object fetchData(
-      final @NotNull DataFetchingEnvironment environment, final @NotNull LiloContext liloContext) {
-
-    final var query = QueryTransformer.extractQuery(environment);
-    final var graphQLResult = this.execute(liloContext, this, query, environment.getLocalContext());
-    final List<GraphQLError> errors = graphQLResult.getErrors();
-
-    if (errors != null && !errors.isEmpty()) {
-      throw new SourceDataFetcherException(errors);
-    }
-
-    return ((Map<String, Object>) graphQLResult.getData()).values().iterator().next();
+    return this;
   }
 
   private @NotNull Optional<TypeRuntimeWiring> typeWiring(
@@ -231,7 +300,7 @@ public final class RemoteSchemaSource implements SchemaSource {
     }
 
     @Override
-    public Map<String, Object> toSpecification() {
+    public @NotNull Map<String, Object> toSpecification() {
 
       return ExecutionResultImpl.newExecutionResult()
           .data(this.data)

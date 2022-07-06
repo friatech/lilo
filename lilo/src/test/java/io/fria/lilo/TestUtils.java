@@ -7,6 +7,7 @@ import graphql.schema.idl.SchemaParser;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import static io.fria.lilo.JsonUtils.toObj;
@@ -61,7 +62,7 @@ public final class TestUtils {
     return toStr(graphQL.execute(graphQLRequest.toExecutionInput()));
   }
 
-  public static class TestIntrospectionRetriever implements IntrospectionRetriever {
+  public static class TestIntrospectionRetriever implements SyncIntrospectionRetriever {
 
     private GraphQL graphQL;
 
@@ -83,7 +84,41 @@ public final class TestUtils {
     }
   }
 
-  public static class TestQueryRetriever implements QueryRetriever {
+  public static class TestAsyncIntrospectionRetriever implements AsyncIntrospectionRetriever {
+
+    private final int wait;
+    private GraphQL graphQL;
+
+    public TestAsyncIntrospectionRetriever(final @NotNull GraphQL graphQL, final int wait) {
+      this.graphQL = graphQL;
+      this.wait = wait;
+    }
+
+    @Override
+    public @NotNull CompletableFuture<String> get(
+        final @NotNull LiloContext liloContext,
+        final @NotNull SchemaSource schemaSource,
+        final @NotNull String query,
+        final @Nullable Object localContext) {
+
+      return CompletableFuture.supplyAsync(
+          () -> {
+            try {
+              Thread.sleep(this.wait);
+            } catch (final InterruptedException e) {
+              throw new RuntimeException(e);
+            }
+
+            return runQuery(TestAsyncIntrospectionRetriever.this.graphQL, query);
+          });
+    }
+
+    public void setGraphQL(final @NotNull GraphQL graphQL) {
+      this.graphQL = graphQL;
+    }
+  }
+
+  public static class TestQueryRetriever implements SyncQueryRetriever {
 
     private GraphQL graphQL;
 
@@ -98,6 +133,30 @@ public final class TestUtils {
         final @NotNull GraphQLQuery query,
         final @Nullable Object localContext) {
       return runQuery(this.graphQL, query.getQuery());
+    }
+
+    public void setGraphQL(final @NotNull GraphQL graphQL) {
+      this.graphQL = graphQL;
+    }
+  }
+
+  public static class TestAsyncQueryRetriever implements AsyncQueryRetriever {
+
+    private GraphQL graphQL;
+
+    public TestAsyncQueryRetriever(final @NotNull GraphQL graphQL) {
+      this.graphQL = graphQL;
+    }
+
+    @Override
+    public @NotNull CompletableFuture<String> get(
+        final @NotNull LiloContext liloContext,
+        final @NotNull SchemaSource schemaSource,
+        final @NotNull GraphQLQuery query,
+        final @Nullable Object localContext) {
+
+      return CompletableFuture.supplyAsync(
+          () -> runQuery(TestAsyncQueryRetriever.this.graphQL, query.getQuery()));
     }
 
     public void setGraphQL(final @NotNull GraphQL graphQL) {

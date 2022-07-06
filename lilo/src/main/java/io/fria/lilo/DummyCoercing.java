@@ -8,21 +8,20 @@ import org.jetbrains.annotations.NotNull;
 
 public class DummyCoercing implements Coercing<Object, Object> {
 
-  @NotNull
   @Override
-  public Object parseLiteral(final @NotNull Object input) throws CoercingParseLiteralException {
+  public @NotNull Object parseLiteral(final @NotNull Object input)
+      throws CoercingParseLiteralException {
     return input;
   }
 
-  @NotNull
   @Override
-  public Object parseValue(final @NotNull Object input) throws CoercingParseValueException {
+  public @NotNull Object parseValue(final @NotNull Object input)
+      throws CoercingParseValueException {
     return input;
   }
 
-  @NotNull
   @Override
-  public Object serialize(final @NotNull Object dataFetcherResult)
+  public @NotNull Object serialize(final @NotNull Object dataFetcherResult)
       throws CoercingSerializeException {
     return dataFetcherResult;
   }

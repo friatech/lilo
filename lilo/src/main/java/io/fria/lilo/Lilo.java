@@ -7,6 +7,7 @@ import io.fria.lilo.error.SourceDataFetcherExceptionHandler;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.NotNull;
 
 public final class Lilo {
@@ -35,6 +36,19 @@ public final class Lilo {
     return this.context.getGraphQL(executionInput).execute(executionInput);
   }
 
+  public @NotNull CompletableFuture<ExecutionResult> stitchAsync(
+      final @NotNull ExecutionInput executionInput) {
+
+    if (IntrospectionFetchingMode.FETCH_BEFORE_EVERY_REQUEST
+        == this.context.getIntrospectionFetchingMode()) {
+      this.context.invalidateAll();
+    }
+
+    return this.context
+        .getGraphQLAsync(executionInput)
+        .thenCompose(graphQL -> graphQL.executeAsync(executionInput));
+  }
+
   public static final class LiloBuilder {
 
     private final Map<String, SchemaSource> schemaSources = new HashMap<>();
@@ -42,6 +56,7 @@ public final class Lilo {
         new SourceDataFetcherExceptionHandler();
     private IntrospectionFetchingMode introspectionFetchingMode =
         IntrospectionFetchingMode.CACHE_UNTIL_INVALIDATION;
+    private boolean retrySchemaLoad = true;
 
     @SuppressWarnings("checkstyle:WhitespaceAround")
     private LiloBuilder() {}
@@ -57,6 +72,7 @@ public final class Lilo {
           new LiloContext(
               this.dataFetcherExceptionHandler,
               this.introspectionFetchingMode,
+              this.retrySchemaLoad,
               this.schemaSources.values().toArray(new SchemaSource[0])));
     }
 
@@ -69,6 +85,11 @@ public final class Lilo {
     public @NotNull LiloBuilder introspectionFetchingMode(
         final @NotNull IntrospectionFetchingMode introspectionFetchingMode) {
       this.introspectionFetchingMode = introspectionFetchingMode;
+      return this;
+    }
+
+    public @NotNull LiloBuilder retrySchemaLoad(final boolean retrySchemaLoad) {
+      this.retrySchemaLoad = retrySchemaLoad;
       return this;
     }
   }

@@ -4,27 +4,27 @@
   <modelVersion>4.0.0</modelVersion>
 
   <artifactId>basic-stitching-sample</artifactId>
-  <version>22.5.1</version>
+  <version>22.7.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>basic-stitching-sample</name>
   <description>Basic Lilo usage</description>
 
   <modules>
-    <module>lilo-gateway</module>
-    <module>server1</module>
-    <module>server2</module>
+    <module>bss-lilo-gateway</module>
+    <module>bss-server1</module>
+    <module>bss-server2</module>
   </modules>
 
   <parent>
     <groupId>io.fria.lilo</groupId>
     <artifactId>lilo-samples</artifactId>
-    <version>22.5.1</version>
+    <version>22.7.0-SNAPSHOT</version>
   </parent>
 
   <properties>
     <java.version>11</java.version>
-    <spring.boot.version>2.7.0-RC1</spring.boot.version>
+    <spring.boot.version>2.7.0</spring.boot.version>
   </properties>
 
   <dependencies>
@@ -44,26 +44,4 @@
       </plugin>
     </plugins>
   </build>
-
-  <repositories>
-    <repository>
-      <id>spring-milestones</id>
-      <name>Spring Milestones</name>
-      <url>https://repo.spring.io/milestone</url>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
-    </repository>
-  </repositories>
-
-  <pluginRepositories>
-    <pluginRepository>
-      <id>spring-milestones</id>
-      <name>Spring Milestones</name>
-      <url>https://repo.spring.io/milestone</url>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
-    </pluginRepository>
-  </pluginRepositories>
 </project>

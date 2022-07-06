@@ -3,6 +3,8 @@ package io.fria.lilo.defined;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
+import graphql.scalar.GraphqlStringCoercing;
+import graphql.schema.GraphQLScalarType;
 import graphql.schema.idl.RuntimeWiring;
 import io.fria.lilo.DefinedSchemaSource;
 import io.fria.lilo.Lilo;
@@ -26,6 +28,11 @@ class DefinedSchemaTest {
               newTypeWiring("Query")
                   .dataFetcher("greeting1", env -> "Hello greeting1")
                   .dataFetcher("greeting2", env -> "Hello greeting2"))
+          .scalar(
+              GraphQLScalarType.newScalar()
+                  .name("Text")
+                  .coercing(new GraphqlStringCoercing())
+                  .build())
           .build();
 
   @Test
@@ -35,7 +42,7 @@ class DefinedSchemaTest {
     final ExecutionInput executionInput =
         ExecutionInput.newExecutionInput().query("{greeting1\ngreeting2}").build();
 
-    final GraphQL combinedGraphQL = createGraphQL("/greetings/combined.graphqls", WIRING);
+    final GraphQL combinedGraphQL = createGraphQL("/defined/combined.graphqls", WIRING);
     final ExecutionResult result = combinedGraphQL.execute(executionInput);
     final Map<String, Object> expected = result.getData();
     Assertions.assertNotNull(expected);
@@ -43,7 +50,7 @@ class DefinedSchemaTest {
 
     // Stitching result ----------------------------------------------------
 
-    final var project2GraphQL = createGraphQL("/greetings/greeting2.graphqls", WIRING);
+    final var project2GraphQL = createGraphQL("/defined/greeting2.graphqls", WIRING);
     final var introspection2Retriever = new TestUtils.TestIntrospectionRetriever(project2GraphQL);
     final var query2Retriever = new TestUtils.TestQueryRetriever(project2GraphQL);
 
@@ -51,7 +58,7 @@ class DefinedSchemaTest {
         Lilo.builder()
             .addSource(
                 DefinedSchemaSource.create(
-                    SCHEMA1_NAME, loadResource("/greetings/greeting1.graphqls"), WIRING))
+                    SCHEMA1_NAME, loadResource("/defined/greeting1.graphqls"), WIRING))
             .addSource(
                 RemoteSchemaSource.create(SCHEMA2_NAME, introspection2Retriever, query2Retriever))
             .build();
