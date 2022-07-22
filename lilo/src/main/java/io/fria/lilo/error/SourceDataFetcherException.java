@@ -2,8 +2,10 @@ package io.fria.lilo.error;
 
 import graphql.GraphQLError;
 import graphql.GraphQLException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -23,13 +25,11 @@ public class SourceDataFetcherException extends GraphQLException {
       return null;
     }
 
-    final String[] strings = errors.get(0).getMessage().split(":");
+    final String[] strings = errors.get(0).getMessage().split(" : ");
 
-    if (strings.length > 1) {
-      return strings[strings.length - 1].strip();
-    }
-
-    return strings[0].strip();
+    return Arrays.stream(strings).distinct()
+      .filter(e -> !e.startsWith("Exception while fetching data"))
+      .collect(Collectors.joining(" : "));
   }
 
   public @NotNull List<? extends GraphQLError> getErrors() {
