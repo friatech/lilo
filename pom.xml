@@ -6,7 +6,7 @@
 
   <groupId>io.fria</groupId>
   <artifactId>lilo-parent</artifactId>
-  <version>22.9.0</version>
+  <version>22.11.0</version>
   <packaging>pom</packaging>
 
   <name>lilo-parent</name>
