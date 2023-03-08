@@ -1,5 +1,11 @@
 package io.fria.lilo;
 
+import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
+import static io.fria.lilo.JsonUtils.getMap;
+import static io.fria.lilo.JsonUtils.toMap;
+import static io.fria.lilo.JsonUtils.toObj;
+import static io.fria.lilo.JsonUtils.toStr;
+
 import graphql.ExecutionResult;
 import graphql.ExecutionResultImpl;
 import graphql.GraphQLError;
@@ -24,12 +30,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
-import static io.fria.lilo.JsonUtils.getMap;
-import static io.fria.lilo.JsonUtils.toMap;
-import static io.fria.lilo.JsonUtils.toObj;
-import static io.fria.lilo.JsonUtils.toStr;
 
+@SuppressWarnings("HiddenField")
 public final class RemoteSchemaSource implements SchemaSource {
 
   private static final Logger LOG = LoggerFactory.getLogger(RemoteSchemaSource.class);

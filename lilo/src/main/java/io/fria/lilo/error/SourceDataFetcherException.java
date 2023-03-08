@@ -27,9 +27,10 @@ public class SourceDataFetcherException extends GraphQLException {
 
     final String[] strings = errors.get(0).getMessage().split(" : ");
 
-    return Arrays.stream(strings).distinct()
-      .filter(e -> !e.startsWith("Exception while fetching data"))
-      .collect(Collectors.joining(" : "));
+    return Arrays.stream(strings)
+        .distinct()
+        .filter(e -> !e.startsWith("Exception while fetching data"))
+        .collect(Collectors.joining(" : "));
   }
 
   public @NotNull List<? extends GraphQLError> getErrors() {

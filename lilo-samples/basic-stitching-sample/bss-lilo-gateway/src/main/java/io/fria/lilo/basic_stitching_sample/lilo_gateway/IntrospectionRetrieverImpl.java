@@ -4,11 +4,11 @@ import io.fria.lilo.LiloContext;
 import io.fria.lilo.SchemaSource;
 import io.fria.lilo.SyncIntrospectionRetriever;
 import java.util.Objects;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.lang.NonNull;
-import org.springframework.lang.Nullable;
 import org.springframework.web.client.RestTemplate;
 
 class IntrospectionRetrieverImpl implements SyncIntrospectionRetriever {
@@ -16,7 +16,7 @@ class IntrospectionRetrieverImpl implements SyncIntrospectionRetriever {
   private final String schemaUrl;
   private final RestTemplate restTemplate;
 
-  IntrospectionRetrieverImpl(final @NonNull String schemaUrl) {
+  IntrospectionRetrieverImpl(final @NotNull String schemaUrl) {
     this.schemaUrl = schemaUrl + "/graphql";
     this.restTemplate =
         new RestTemplateBuilder()
@@ -25,10 +25,10 @@ class IntrospectionRetrieverImpl implements SyncIntrospectionRetriever {
   }
 
   @Override
-  public @NonNull String get(
-      final @NonNull LiloContext liloContext,
-      final @NonNull SchemaSource schemaSource,
-      final @NonNull String query,
+  public @NotNull String get(
+      final @NotNull LiloContext liloContext,
+      final @NotNull SchemaSource schemaSource,
+      final @NotNull String query,
       final @Nullable Object localContext) {
 
     return Objects.requireNonNull(

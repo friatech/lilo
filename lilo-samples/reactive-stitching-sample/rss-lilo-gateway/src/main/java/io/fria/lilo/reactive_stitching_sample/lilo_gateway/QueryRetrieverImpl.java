@@ -5,11 +5,11 @@ import io.fria.lilo.GraphQLQuery;
 import io.fria.lilo.LiloContext;
 import io.fria.lilo.SchemaSource;
 import java.util.concurrent.CompletableFuture;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.lang.NonNull;
-import org.springframework.lang.Nullable;
 import org.springframework.web.reactive.function.client.WebClient;
 
 class QueryRetrieverImpl implements AsyncQueryRetriever {
@@ -17,7 +17,7 @@ class QueryRetrieverImpl implements AsyncQueryRetriever {
   private final String schemaUrl;
   private final WebClient webClient;
 
-  QueryRetrieverImpl(final @NonNull String schemaUrl) {
+  QueryRetrieverImpl(final @NotNull String schemaUrl) {
     this.schemaUrl = schemaUrl + "/graphql";
     this.webClient =
         WebClient.builder()
@@ -26,10 +26,10 @@ class QueryRetrieverImpl implements AsyncQueryRetriever {
   }
 
   @Override
-  public @NonNull CompletableFuture<String> get(
-      final @NonNull LiloContext liloContext,
-      final @NonNull SchemaSource schemaSource,
-      final @NonNull GraphQLQuery graphQLQuery,
+  public @NotNull CompletableFuture<String> get(
+      final @NotNull LiloContext liloContext,
+      final @NotNull SchemaSource schemaSource,
+      final @NotNull GraphQLQuery graphQLQuery,
       final @Nullable Object localContext) {
 
     return this.webClient

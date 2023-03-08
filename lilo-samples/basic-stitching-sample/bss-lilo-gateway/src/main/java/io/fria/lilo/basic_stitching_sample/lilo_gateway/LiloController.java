@@ -4,7 +4,7 @@ import io.fria.lilo.GraphQLRequest;
 import io.fria.lilo.Lilo;
 import io.fria.lilo.RemoteSchemaSource;
 import java.util.Map;
-import org.springframework.lang.NonNull;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -39,7 +39,7 @@ public class LiloController {
 
   @ResponseBody
   @PostMapping("/graphql")
-  public @NonNull Map<String, Object> stitch(@RequestBody final @NonNull GraphQLRequest request) {
+  public @NotNull Map<String, Object> stitch(@RequestBody final @NotNull GraphQLRequest request) {
     return this.lilo.stitch(request.toExecutionInput()).toSpecification();
   }
 }

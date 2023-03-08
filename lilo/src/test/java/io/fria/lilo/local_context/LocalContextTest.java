@@ -1,5 +1,12 @@
 package io.fria.lilo.local_context;
 
+import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
+import static io.fria.lilo.JsonUtils.toStr;
+import static io.fria.lilo.TestUtils.createGraphQL;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import graphql.ExecutionInput;
 import graphql.schema.idl.RuntimeWiring;
 import io.fria.lilo.GraphQLRequest;
@@ -10,12 +17,6 @@ import io.fria.lilo.SyncQueryRetriever;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
-import static io.fria.lilo.JsonUtils.toStr;
-import static io.fria.lilo.TestUtils.createGraphQL;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 class LocalContextTest {
 

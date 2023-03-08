@@ -1,5 +1,9 @@
 package io.fria.lilo.complex;
 
+import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
+import static io.fria.lilo.TestUtils.createGraphQL;
+import static io.fria.lilo.TestUtils.loadResource;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
@@ -19,10 +23,8 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
-import static io.fria.lilo.TestUtils.createGraphQL;
-import static io.fria.lilo.TestUtils.loadResource;
 
+@SuppressWarnings("unused")
 class ComplexQueryTest {
 
   private static final String SCHEMA1_NAME = "project1";

@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <artifactId>lilo</artifactId>
-  <version>22.11.0</version>
+  <version>23.3.0</version>
 
   <name>lilo-graphql</name>
   <description>Lilo GraphQL stitching library</description>
@@ -14,7 +14,7 @@
   <parent>
     <groupId>io.fria</groupId>
     <artifactId>lilo-parent</artifactId>
-    <version>22.11.0</version>
+    <version>23.3.0</version>
   </parent>
 
   <licenses>
@@ -43,17 +43,17 @@
   <properties>
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
-    <error-prone.version>2.13.1</error-prone.version>
-    <checkstyle.version>10.1</checkstyle.version>
-    <slf4j.version>2.0.3</slf4j.version>
-    <junit.version>5.8.2</junit.version>
+    <error-prone.version>2.18.0</error-prone.version>
+    <checkstyle.version>10.8.0</checkstyle.version>
+    <slf4j.version>2.0.6</slf4j.version>
+    <junit.version>5.9.2</junit.version>
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>com.graphql-java</groupId>
       <artifactId>graphql-java</artifactId>
-      <version>19.2</version>
+      <version>20.0</version>
       <exclusions>
         <exclusion>
           <groupId>org.slf4j</groupId>
@@ -71,27 +71,27 @@
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
-      <version>2.13.4.2</version>
+      <version>2.14.2</version>
     </dependency>
 
     <dependency>
       <groupId>org.jetbrains</groupId>
       <artifactId>annotations</artifactId>
-      <version>23.0.0</version>
+      <version>24.0.1</version>
       <scope>compile</scope>
     </dependency>
 
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
-      <version>5.9.0</version>
+      <version>${junit.version}</version>
       <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-junit-jupiter</artifactId>
-      <version>4.8.0</version>
+      <version>5.1.1</version>
       <scope>test</scope>
     </dependency>
 

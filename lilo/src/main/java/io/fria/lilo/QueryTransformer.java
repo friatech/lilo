@@ -1,5 +1,7 @@
 package io.fria.lilo;
 
+import static io.fria.lilo.JsonUtils.toStr;
+
 import graphql.language.AstPrinter;
 import graphql.language.Definition;
 import graphql.language.Document;
@@ -22,7 +24,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import static io.fria.lilo.JsonUtils.toStr;
 
 final class QueryTransformer {
 
