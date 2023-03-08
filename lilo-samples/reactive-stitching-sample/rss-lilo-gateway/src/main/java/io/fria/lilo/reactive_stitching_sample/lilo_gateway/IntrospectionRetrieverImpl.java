@@ -4,11 +4,11 @@ import io.fria.lilo.AsyncIntrospectionRetriever;
 import io.fria.lilo.LiloContext;
 import io.fria.lilo.SchemaSource;
 import java.util.concurrent.CompletableFuture;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.lang.NonNull;
-import org.springframework.lang.Nullable;
 import org.springframework.web.reactive.function.client.WebClient;
 
 class IntrospectionRetrieverImpl implements AsyncIntrospectionRetriever {
@@ -16,7 +16,7 @@ class IntrospectionRetrieverImpl implements AsyncIntrospectionRetriever {
   private final String schemaUrl;
   private final WebClient webClient;
 
-  IntrospectionRetrieverImpl(final @NonNull String schemaUrl) {
+  IntrospectionRetrieverImpl(final @NotNull String schemaUrl) {
     this.schemaUrl = schemaUrl + "/graphql";
     this.webClient =
         WebClient.builder()
@@ -25,10 +25,10 @@ class IntrospectionRetrieverImpl implements AsyncIntrospectionRetriever {
   }
 
   @Override
-  public @NonNull CompletableFuture<String> get(
-      final @NonNull LiloContext liloContext,
-      final @NonNull SchemaSource schemaSource,
-      final @NonNull String query,
+  public @NotNull CompletableFuture<String> get(
+      final @NotNull LiloContext liloContext,
+      final @NotNull SchemaSource schemaSource,
+      final @NotNull String query,
       final @Nullable Object localContext) {
 
     return this.webClient

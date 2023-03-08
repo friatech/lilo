@@ -5,11 +5,11 @@ import io.fria.lilo.LiloContext;
 import io.fria.lilo.SchemaSource;
 import io.fria.lilo.SyncQueryRetriever;
 import java.util.Objects;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.lang.NonNull;
-import org.springframework.lang.Nullable;
 import org.springframework.web.client.RestTemplate;
 
 class QueryRetrieverImpl implements SyncQueryRetriever {
@@ -17,7 +17,7 @@ class QueryRetrieverImpl implements SyncQueryRetriever {
   private final String schemaUrl;
   private final RestTemplate restTemplate;
 
-  QueryRetrieverImpl(final @NonNull String schemaUrl) {
+  QueryRetrieverImpl(final @NotNull String schemaUrl) {
     this.schemaUrl = schemaUrl + "/graphql";
     this.restTemplate =
         new RestTemplateBuilder() //
@@ -26,10 +26,10 @@ class QueryRetrieverImpl implements SyncQueryRetriever {
   }
 
   @Override
-  public @NonNull String get(
-      final @NonNull LiloContext liloContext,
-      final @NonNull SchemaSource schemaSource,
-      final @NonNull GraphQLQuery graphQLQuery,
+  public @NotNull String get(
+      final @NotNull LiloContext liloContext,
+      final @NotNull SchemaSource schemaSource,
+      final @NotNull GraphQLQuery graphQLQuery,
       final @Nullable Object localContext) {
 
     return Objects.requireNonNull(

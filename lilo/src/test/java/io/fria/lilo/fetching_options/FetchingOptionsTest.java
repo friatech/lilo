@@ -1,5 +1,14 @@
 package io.fria.lilo.fetching_options;
 
+import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
+import static io.fria.lilo.JsonUtils.toStr;
+import static io.fria.lilo.TestUtils.createGraphQL;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import graphql.ExecutionInput;
 import graphql.GraphQL;
 import graphql.schema.idl.RuntimeWiring;
@@ -11,14 +20,6 @@ import io.fria.lilo.SyncIntrospectionRetriever;
 import io.fria.lilo.SyncQueryRetriever;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
-import static io.fria.lilo.JsonUtils.toStr;
-import static io.fria.lilo.TestUtils.createGraphQL;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 class FetchingOptionsTest {
 

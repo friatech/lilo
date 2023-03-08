@@ -1,5 +1,7 @@
 package io.fria.lilo;
 
+import static io.fria.lilo.JsonUtils.toObj;
+
 import graphql.ExecutionResult;
 import graphql.GraphQL;
 import graphql.schema.idl.RuntimeWiring;
@@ -9,7 +11,6 @@ import graphql.schema.idl.TypeDefinitionRegistry;
 import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import static io.fria.lilo.JsonUtils.toObj;
 
 public final class DefinedSchemaSource implements SchemaSource {
 

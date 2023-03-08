@@ -6,7 +6,7 @@
 
   <groupId>io.fria</groupId>
   <artifactId>lilo-parent</artifactId>
-  <version>22.11.0</version>
+  <version>23.3.0</version>
   <packaging>pom</packaging>
 
   <name>lilo-parent</name>
@@ -44,17 +44,19 @@
   <properties>
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
-    <error-prone.version>2.13.1</error-prone.version>
-    <checkstyle.version>10.1</checkstyle.version>
-    <slf4j.version>1.7.36</slf4j.version>
-    <junit.version>5.8.2</junit.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <error-prone.version>2.18.0</error-prone.version>
+    <checkstyle.version>10.8.0</checkstyle.version>
+    <slf4j.version>2.0.6</slf4j.version>
+    <junit.version>5.9.2</junit.version>
   </properties>
 
   <build>
     <plugins>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.10.1</version>
+        <version>3.11.0</version>
         <configuration>
           <source>${maven.compiler.source}</source>
           <target>${maven.compiler.target}</target>
@@ -93,7 +95,7 @@
 
       <plugin>
         <artifactId>maven-javadoc-plugin</artifactId>
-        <version>3.3.2</version>
+        <version>3.5.0</version>
         <executions>
           <execution>
             <id>attach-sources</id>
@@ -106,7 +108,7 @@
 
       <plugin>
         <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.1.2</version>
+        <version>3.2.1</version>
         <dependencies>
           <dependency>
             <groupId>com.puppycrawl.tools</groupId>
@@ -127,7 +129,6 @@
           <consoleOutput>true</consoleOutput>
           <configLocation>config/checkstyle.xml</configLocation>
           <includeTestSourceDirectory>false</includeTestSourceDirectory>
-          <encoding>UTF-8</encoding>
           <excludes>**/module-info.java</excludes>
         </configuration>
       </plugin>
@@ -141,6 +142,33 @@
             <phase>verify</phase>
             <goals>
               <goal>sign</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+        <version>4.7.2.1</version>
+        <dependencies>
+          <!-- overwrite dependency on spotbugs if you want to specify the version of spotbugs -->
+          <dependency>
+            <groupId>com.github.spotbugs</groupId>
+            <artifactId>spotbugs</artifactId>
+            <version>4.7.3</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+
+      <plugin>
+        <groupId>com.spotify.fmt</groupId>
+        <artifactId>fmt-maven-plugin</artifactId>
+        <version>2.19</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>format</goal>
             </goals>
           </execution>
         </executions>

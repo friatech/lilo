@@ -1,5 +1,8 @@
 package io.fria.lilo.dynamic_loading;
 
+import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
+import static io.fria.lilo.TestUtils.createGraphQL;
+
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.introspection.IntrospectionQuery;
@@ -11,8 +14,6 @@ import io.fria.lilo.TestUtils;
 import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
-import static io.fria.lilo.TestUtils.createGraphQL;
 
 class ReloadSchemaTest {
 

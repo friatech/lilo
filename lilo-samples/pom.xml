@@ -6,7 +6,7 @@
 
   <groupId>io.fria.lilo</groupId>
   <artifactId>lilo-samples</artifactId>
-  <version>22.11.0</version>
+  <version>23.3.0</version>
   <packaging>pom</packaging>
 
   <name>lilo-samples</name>
@@ -18,9 +18,25 @@
     <module>reactive-stitching-sample</module>
   </modules>
 
+  <dependencies>
+    <dependency>
+      <groupId>org.jetbrains</groupId>
+      <artifactId>annotations</artifactId>
+      <version>23.0.0</version>
+      <scope>compile</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>2.0.6</version>
+      <scope>runtime</scope>
+    </dependency>
+  </dependencies>
+
   <parent>
     <groupId>io.fria</groupId>
     <artifactId>lilo-parent</artifactId>
-    <version>22.11.0</version>
+    <version>23.3.0</version>
   </parent>
 </project>

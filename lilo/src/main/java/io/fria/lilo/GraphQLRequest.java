@@ -139,7 +139,7 @@ public class GraphQLRequest {
       return true;
     }
 
-    if (o == null || this.getClass() != o.getClass()) {
+    if (!(o instanceof GraphQLRequest)) {
       return false;
     }
 

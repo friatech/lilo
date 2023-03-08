@@ -1,5 +1,9 @@
 package io.fria.lilo.crud;
 
+import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
+import static io.fria.lilo.TestUtils.createGraphQL;
+import static io.fria.lilo.TestUtils.loadResource;
+
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
@@ -13,9 +17,6 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
-import static io.fria.lilo.TestUtils.createGraphQL;
-import static io.fria.lilo.TestUtils.loadResource;
 
 class CrudTest {
 

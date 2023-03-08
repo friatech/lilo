@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <artifactId>reactive-stitching-sample</artifactId>
-  <version>22.11.0</version>
+  <version>23.3.0</version>
   <packaging>pom</packaging>
 
   <name>reactive-stitching-sample</name>
@@ -19,12 +19,12 @@
   <parent>
     <groupId>io.fria.lilo</groupId>
     <artifactId>lilo-samples</artifactId>
-    <version>22.11.0</version>
+    <version>23.3.0</version>
   </parent>
 
   <properties>
     <java.version>11</java.version>
-    <spring.boot.version>2.7.5</spring.boot.version>
+    <spring.boot.version>2.7.9</spring.boot.version>
   </properties>
 
   <dependencies>

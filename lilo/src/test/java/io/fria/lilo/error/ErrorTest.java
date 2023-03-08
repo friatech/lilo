@@ -1,5 +1,9 @@
 package io.fria.lilo.error;
 
+import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
+import static io.fria.lilo.TestUtils.createGraphQL;
+import static io.fria.lilo.TestUtils.loadResource;
+
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
@@ -19,9 +23,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
-import static io.fria.lilo.TestUtils.createGraphQL;
-import static io.fria.lilo.TestUtils.loadResource;
 
 class ErrorTest {
 
