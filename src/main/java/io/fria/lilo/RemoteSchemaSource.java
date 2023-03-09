@@ -31,7 +31,6 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@SuppressWarnings("HiddenField")
 public final class RemoteSchemaSource implements SchemaSource {
 
   private static final Logger LOG = LoggerFactory.getLogger(RemoteSchemaSource.class);
@@ -69,7 +68,7 @@ public final class RemoteSchemaSource implements SchemaSource {
   }
 
   private static @Nullable Object fetchData(
-      final CompletableFuture<ExecutionResult> graphQLResultFuture) {
+      final @NotNull CompletableFuture<ExecutionResult> graphQLResultFuture) {
     final ExecutionResult graphQLResult;
 
     try {
@@ -99,6 +98,7 @@ public final class RemoteSchemaSource implements SchemaSource {
   }
 
   @Override
+  @SuppressWarnings("HiddenField")
   public @NotNull CompletableFuture<ExecutionResult> execute(
       final @NotNull LiloContext liloContext,
       final @NotNull GraphQLQuery query,
@@ -151,6 +151,7 @@ public final class RemoteSchemaSource implements SchemaSource {
   }
 
   @Override
+  @SuppressWarnings("HiddenField")
   public @NotNull CompletableFuture<SchemaSource> loadSchema(
       final @NotNull LiloContext liloContext, final @Nullable Object localContext) {
 
@@ -212,6 +213,7 @@ public final class RemoteSchemaSource implements SchemaSource {
     }
   }
 
+  @SuppressWarnings("HiddenField")
   private @NotNull SchemaSource fetchIntrospection(
       final @NotNull String introspectionResponse, final @NotNull LiloContext liloContext) {
     final var introspectionResultOptional = toMap(introspectionResponse);
@@ -244,6 +246,7 @@ public final class RemoteSchemaSource implements SchemaSource {
     return this;
   }
 
+  @SuppressWarnings("HiddenField")
   private @NotNull Optional<TypeRuntimeWiring> typeWiring(
       final @NotNull TypeDefinitionRegistry typeDefinitionRegistry,
       final @NotNull LiloContext liloContext,

@@ -4,13 +4,18 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>io.fria</groupId>
-  <artifactId>lilo</artifactId>
+  <groupId>io.fria.lilo</groupId>
+  <artifactId>lilo-parent</artifactId>
   <version>23.3.1</version>
+  <packaging>pom</packaging>
 
-  <name>lilo</name>
-  <description>Lilo GraphQL stitching library</description>
+  <name>lilo-parent</name>
+  <description>Lilo GraphQL stitching library parent pom</description>
   <url>https://github.com/friatech/lilo</url>
+
+  <modules>
+    <module>lilo-samples</module>
+  </modules>
 
   <licenses>
     <license>
@@ -36,71 +41,15 @@
   </developers>
 
   <properties>
-    <java.version>11</java.version>
-    <maven.compiler.source>11</maven.compiler.source>
-    <maven.compiler.target>11</maven.compiler.target>
+    <java.version>17</java.version>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <error-prone.version>2.18.0</error-prone.version>
     <checkstyle.version>10.8.0</checkstyle.version>
     <spotbugs.version>4.7.3</spotbugs.version>
-    <slf4j.version>2.0.6</slf4j.version>
-    <junit.version>5.9.2</junit.version>
   </properties>
-
-  <dependencies>
-    <dependency>
-      <groupId>com.graphql-java</groupId>
-      <artifactId>graphql-java</artifactId>
-      <version>20.0</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.slf4j</groupId>
-          <artifactId>slf4j-api</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-      <version>${slf4j.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-databind</artifactId>
-      <version>2.14.2</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.jetbrains</groupId>
-      <artifactId>annotations</artifactId>
-      <version>24.0.1</version>
-      <scope>compile</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter</artifactId>
-      <version>${junit.version}</version>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>org.mockito</groupId>
-      <artifactId>mockito-junit-jupiter</artifactId>
-      <version>5.1.1</version>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-simple</artifactId>
-      <version>${slf4j.version}</version>
-      <scope>test</scope>
-    </dependency>
-  </dependencies>
 
   <build>
     <plugins>
@@ -184,20 +133,6 @@
       </plugin>
 
       <plugin>
-        <artifactId>maven-gpg-plugin</artifactId>
-        <version>3.0.1</version>
-        <executions>
-          <execution>
-            <id>sign-artifacts</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>sign</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-
-      <plugin>
         <groupId>com.github.spotbugs</groupId>
         <artifactId>spotbugs-maven-plugin</artifactId>
         <version>4.7.2.1</version>
@@ -224,15 +159,4 @@
       </plugin>
     </plugins>
   </build>
-
-  <distributionManagement>
-    <snapshotRepository>
-      <id>ossrh</id>
-      <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
-    </snapshotRepository>
-    <repository>
-      <id>ossrh</id>
-      <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-    </repository>
-  </distributionManagement>
 </project>

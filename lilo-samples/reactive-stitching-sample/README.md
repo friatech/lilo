@@ -17,6 +17,8 @@ server2 provides `greeting2` query.
 
 # Running
 
+Examples require Java 17+ to run
+
 Running gateway:
 
 ```bash
