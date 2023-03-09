@@ -4,21 +4,78 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
-  <parent>
-    <groupId>io.fria.lilo</groupId>
-    <artifactId>basic-stitching-sample</artifactId>
-    <version>23.3.0</version>
-  </parent>
-
   <modelVersion>4.0.0</modelVersion>
 
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.0.4</version>
+    <relativePath/>
+  </parent>
+
   <artifactId>bss-server1</artifactId>
+
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <scm>
+    <connection>scm:git:git://github.com/friatech/lilo.git</connection>
+    <developerConnection>scm:git:ssh://github.com:friatech/lilo.git</developerConnection>
+    <url>https://github.com/friatech/lilo/tree/main</url>
+  </scm>
+
+  <developers>
+    <developer>
+      <name>Fırat KÜÇÜK</name>
+      <email>firat@fria.io</email>
+      <organization>Fria Tech</organization>
+      <organizationUrl>https://fria.io</organizationUrl>
+    </developer>
+  </developers>
 
   <dependencies>
     <dependency>
       <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+      <exclusions>
+        <exclusion>
+          <groupId>org.yaml</groupId>
+          <artifactId>snakeyaml</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <!-- snakeyaml dependency overridden because of serialization vulnerabilities -->
+    <dependency>
+      <groupId>org.yaml</groupId>
+      <artifactId>snakeyaml</artifactId>
+      <version>2.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-graphql</artifactId>
-      <version>${spring.boot.version}</version>
+      <version>3.0.4</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.jetbrains</groupId>
+      <artifactId>annotations</artifactId>
+      <version>23.0.0</version>
     </dependency>
   </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
 </project>

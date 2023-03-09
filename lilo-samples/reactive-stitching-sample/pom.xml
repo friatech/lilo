@@ -3,45 +3,40 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
+  <groupId>io.fria.lilo</groupId>
   <artifactId>reactive-stitching-sample</artifactId>
-  <version>23.3.0</version>
+  <version>23.3.1</version>
   <packaging>pom</packaging>
 
   <name>reactive-stitching-sample</name>
   <description>Reactive Lilo usage</description>
+
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <scm>
+    <connection>scm:git:git://github.com/friatech/lilo.git</connection>
+    <developerConnection>scm:git:ssh://github.com:friatech/lilo.git</developerConnection>
+    <url>https://github.com/friatech/lilo/tree/main</url>
+  </scm>
+
+  <developers>
+    <developer>
+      <name>Fırat KÜÇÜK</name>
+      <email>firat@fria.io</email>
+      <organization>Fria Tech</organization>
+      <organizationUrl>https://fria.io</organizationUrl>
+    </developer>
+  </developers>
 
   <modules>
     <module>rss-lilo-gateway</module>
     <module>rss-server1</module>
     <module>rss-server2</module>
   </modules>
-
-  <parent>
-    <groupId>io.fria.lilo</groupId>
-    <artifactId>lilo-samples</artifactId>
-    <version>23.3.0</version>
-  </parent>
-
-  <properties>
-    <java.version>11</java.version>
-    <spring.boot.version>2.7.9</spring.boot.version>
-  </properties>
-
-  <dependencies>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-webflux</artifactId>
-      <version>${spring.boot.version}</version>
-    </dependency>
-  </dependencies>
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-maven-plugin</artifactId>
-        <version>${spring.boot.version}</version>
-      </plugin>
-    </plugins>
-  </build>
 </project>

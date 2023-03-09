@@ -82,12 +82,14 @@ public final class Lilo {
       return this;
     }
 
+    @SuppressWarnings("HiddenField")
     public @NotNull LiloBuilder introspectionFetchingMode(
         final @NotNull IntrospectionFetchingMode introspectionFetchingMode) {
       this.introspectionFetchingMode = introspectionFetchingMode;
       return this;
     }
 
+    @SuppressWarnings("HiddenField")
     public @NotNull LiloBuilder retrySchemaLoad(final boolean retrySchemaLoad) {
       this.retrySchemaLoad = retrySchemaLoad;
       return this;
