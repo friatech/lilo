@@ -1,5 +1,9 @@
 # Lilo
-Lilo is a super-fast GraphQL stitching library. Project is heavily inspired by Atlassian Braid, but it seems no more maintained.
+
+![How GraphQL Stitching works](resources/lilo-and-stitch.webp)
+
+**Lilo** is a super-fast GraphQL stitching library. Project is heavily inspired by [Atlassian Braid](https://bitbucket.org/atlassian/graphql-braid), but it seems no more maintained.
+We focused simplicity and easy to use while designing **Lilo** and also tried to provide plenty of samples in the codebase. Please don't forget to check `/lilo-samples` directory.
 
 ## Installation
 
@@ -11,7 +15,7 @@ Add dependencies to your `pom.xml` file.
   <dependency>
     <groupId>io.fria</groupId>
     <artifactId>lilo</artifactId>
-    <version>23.3.1</version>
+    <version>23.4.0</version>
   </dependency>
   ...
 </dependencies>
@@ -20,10 +24,66 @@ Add dependencies to your `pom.xml` file.
 If you're using gradle add the dependency to your `build.gradle` file.
 
 ```groovy
-implementation 'io.fria:lilo:23.3.1'
+implementation 'io.fria:lilo:23.4.0'
 ```
 
 ## Basic Usage
+
+Here is the story, Alice has 2 graphql microservices and she wants to make her gateway to dispatch
+the graphql requests to their respective microservices.
+
+```
+  +----------------+
+  |                |
+  | microservice A | <---------+
+  |                |           |            +----------------+
+  +----------------+           |            |                |        o~
+                               +----------- |    Gateway     | <---- /|\
+  +----------------+           |            |                |       / \
+  |                |           |            +----------------+
+  | microservice B | <---------+
+  |                |
+  +----------------+
+
+```
+
+A basic working example for that scenario would be:
+
+```java
+final Lilo lilo = Lilo.builder()
+    .addSource(
+        RemoteSchemaSource.create(
+            "SERVER_1",
+            new MyIntrospectionRetriever("https://server1/graphql"),
+            new MyQueryRetriever("https://server1/graphql")
+        )
+    )
+    .addSource(
+        RemoteSchemaSource.create(
+            "SERVER_2",
+            new MyIntrospectionRetriever("https://server2/graphql"),
+            new MyQueryRetriever("https://server2/graphql")
+        )
+    )
+    .build();
+```
+
+For further details you can examine the `basic-stitching-example` in `lilo-samples` folder.
+
+If Gateway distributes the messages to microservice A and also contains an embedded schema then the architecture can
+be like something like this:
+
+```
+
+  +----------------+                       +----------------+
+  |                |                       |                |        o~
+  | microservice A |---------------------- |    Gateway     | <---- /|\
+  |                |                       |                |       / \
+  +----------------+                       +----------------+
+                                                  A    |
+                                                  |    |
+                                                  +<---+
+```
 
 ```java
 final Lilo lilo = Lilo.builder()
@@ -76,3 +136,8 @@ final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
 ```
 
 The localContext object is now accessible from your `IntrospectionRetriever` and `QueryRetriever`.
+
+## Alternatives to Lilo
+
+- [Atlassian Braid](https://bitbucket.org/atlassian/graphql-braid)
+- [GraphQuilt Orchestrator](https://github.com/graph-quilt/graphql-orchestrator-java)
