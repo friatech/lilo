@@ -3,7 +3,7 @@ package io.fria.lilo;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-interface QueryRetriever<T> {
+public interface QueryRetriever<T> {
 
   @NotNull
   T get(
