@@ -15,7 +15,7 @@ Add dependencies to your `pom.xml` file.
   <dependency>
     <groupId>io.fria</groupId>
     <artifactId>lilo</artifactId>
-    <version>23.4.1-SNAPSHOT</version>
+    <version>23.4.1</version>
   </dependency>
   ...
 </dependencies>
@@ -24,7 +24,7 @@ Add dependencies to your `pom.xml` file.
 If you're using gradle add the dependency to your `build.gradle` file.
 
 ```groovy
-implementation 'io.fria:lilo:23.4.1-SNAPSHOT'
+implementation 'io.fria:lilo:23.4.1'
 ```
 
 ## Basic Usage
