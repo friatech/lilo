@@ -5,6 +5,7 @@ import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 import graphql.ExecutionInput;
 import graphql.GraphQL;
 import graphql.execution.DataFetcherExceptionHandler;
+import graphql.execution.instrumentation.Instrumentation;
 import graphql.language.InterfaceTypeDefinition;
 import graphql.language.UnionTypeDefinition;
 import graphql.schema.GraphQLScalarType;
@@ -46,6 +47,7 @@ public class LiloContext {
   private final DataFetcherExceptionHandler dataFetcherExceptionHandler;
   private final IntrospectionFetchingMode introspectionFetchingMode;
   private final boolean retrySchemaLoad;
+  private final Instrumentation instrumentation;
   private Map<String, SchemaSource> sourceMap;
   private GraphQL graphQL;
   private boolean schemasAreNotLoaded = true;
@@ -54,10 +56,12 @@ public class LiloContext {
       final @NotNull DataFetcherExceptionHandler dataFetcherExceptionHandler,
       final @NotNull IntrospectionFetchingMode introspectionFetchingMode,
       final boolean retrySchemaLoad,
+      final @Nullable Instrumentation instrumentation,
       final @NotNull SchemaSource... schemaSources) {
     this.dataFetcherExceptionHandler = Objects.requireNonNull(dataFetcherExceptionHandler);
     this.introspectionFetchingMode = Objects.requireNonNull(introspectionFetchingMode);
     this.retrySchemaLoad = retrySchemaLoad;
+    this.instrumentation = instrumentation;
     this.sourceMap = toSourceMap(Arrays.stream(schemaSources));
   }
 
@@ -178,9 +182,15 @@ public class LiloContext {
     final GraphQLSchema graphQLSchema =
         new SchemaGenerator().makeExecutableSchema(combinedRegistry, runtimeWiring);
 
-    return GraphQL.newGraphQL(graphQLSchema)
-        .defaultDataFetcherExceptionHandler(this.dataFetcherExceptionHandler)
-        .build();
+    final GraphQL.Builder builder =
+        GraphQL.newGraphQL(graphQLSchema)
+            .defaultDataFetcherExceptionHandler(this.dataFetcherExceptionHandler);
+
+    if (this.instrumentation != null) {
+      builder.instrumentation(this.instrumentation);
+    }
+
+    return builder.build();
   }
 
   private @NotNull CompletableFuture<List<SchemaSource>> loadSources(

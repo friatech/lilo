@@ -9,6 +9,9 @@ import graphql.ExecutionResult;
 import graphql.GraphQL;
 import graphql.GraphQLError;
 import graphql.GraphQLException;
+import graphql.execution.instrumentation.Instrumentation;
+import graphql.execution.instrumentation.InstrumentationState;
+import graphql.execution.instrumentation.parameters.InstrumentationExecutionParameters;
 import graphql.schema.idl.RuntimeWiring;
 import io.fria.lilo.DefinedSchemaSource;
 import io.fria.lilo.Lilo;
@@ -19,6 +22,9 @@ import io.fria.lilo.SyncIntrospectionRetriever;
 import io.fria.lilo.TestUtils;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
@@ -155,5 +161,47 @@ class ErrorTest {
     Assertions.assertNotNull(stitchedErrors);
     Assertions.assertEquals(1, stitchedErrors.size());
     Assertions.assertEquals(expected.getMessage(), stitchedErrors.get(0).getMessage());
+  }
+
+  @Test
+  void instrumentationTest() throws InterruptedException {
+
+    // Combined result -----------------------------------------------------
+    final ExecutionInput executionInput =
+        ExecutionInput.newExecutionInput().query("{greeting2}").build();
+
+    // Stitching result ----------------------------------------------------
+    final var project1GraphQL = createGraphQL("/greetings/greeting1.graphqls", WIRING);
+    final var project2GraphQL = createGraphQL("/greetings/greeting2.graphqls", WIRING);
+    final var introspection1Retriever = new TestUtils.TestIntrospectionRetriever(project1GraphQL);
+    final var introspection2Retriever = new TestUtils.TestIntrospectionRetriever(project2GraphQL);
+    final var query1Retriever = new TestUtils.TestQueryRetriever(project1GraphQL);
+    final var query2Retriever = new TestUtils.TestQueryRetriever(project2GraphQL);
+
+    final CountDownLatch countDownLatch = new CountDownLatch(1);
+
+    final Lilo lilo =
+        Lilo.builder()
+            .addSource(
+                RemoteSchemaSource.create(SCHEMA1_NAME, introspection1Retriever, query1Retriever))
+            .addSource(
+                RemoteSchemaSource.create(SCHEMA2_NAME, introspection2Retriever, query2Retriever))
+            .instrumentation(
+                new Instrumentation() {
+                  @Override
+                  public @NotNull CompletableFuture<ExecutionResult> instrumentExecutionResult(
+                      final ExecutionResult executionResult,
+                      final InstrumentationExecutionParameters parameters,
+                      final InstrumentationState state) {
+                    countDownLatch.countDown();
+                    return Instrumentation.super.instrumentExecutionResult(
+                        executionResult, parameters, state);
+                  }
+                })
+            .build();
+
+    lilo.stitch(executionInput);
+    countDownLatch.await(5, TimeUnit.SECONDS);
+    Assertions.assertEquals(0, countDownLatch.getCount());
   }
 }
