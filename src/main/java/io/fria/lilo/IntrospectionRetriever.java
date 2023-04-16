@@ -3,7 +3,7 @@ package io.fria.lilo;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-interface IntrospectionRetriever<T> {
+public interface IntrospectionRetriever<T> {
 
   @NotNull
   T get(
