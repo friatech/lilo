@@ -3,12 +3,14 @@ package io.fria.lilo;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.execution.DataFetcherExceptionHandler;
+import graphql.execution.instrumentation.Instrumentation;
 import io.fria.lilo.error.SourceDataFetcherExceptionHandler;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public final class Lilo {
 
@@ -57,6 +59,7 @@ public final class Lilo {
     private IntrospectionFetchingMode introspectionFetchingMode =
         IntrospectionFetchingMode.CACHE_UNTIL_INVALIDATION;
     private boolean retrySchemaLoad = true;
+    private Instrumentation instrumentation;
 
     @SuppressWarnings("checkstyle:WhitespaceAround")
     private LiloBuilder() {}
@@ -73,12 +76,19 @@ public final class Lilo {
               this.dataFetcherExceptionHandler,
               this.introspectionFetchingMode,
               this.retrySchemaLoad,
+              this.instrumentation,
               this.schemaSources.values().toArray(new SchemaSource[0])));
     }
 
     public @NotNull LiloBuilder defaultDataFetcherExceptionHandler(
         final @NotNull DataFetcherExceptionHandler defaultDataFetcherExceptionHandler) {
       this.dataFetcherExceptionHandler = defaultDataFetcherExceptionHandler;
+      return this;
+    }
+
+    @SuppressWarnings("HiddenField")
+    public @NotNull LiloBuilder instrumentation(final @Nullable Instrumentation instrumentation) {
+      this.instrumentation = instrumentation;
       return this;
     }
 
