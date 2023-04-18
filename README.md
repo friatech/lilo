@@ -1,13 +1,14 @@
 # Lilo
 
-![How GraphQL Stitching works](resources/lilo-and-stitch.webp)
+![Lilo and Stitch](resources/lilo-and-stitch.webp)
 
 **Lilo** is a super-fast GraphQL stitching library. Project is heavily inspired by [Atlassian Braid](https://bitbucket.org/atlassian/graphql-braid).
-We focused simplicity and easy to use while designing **Lilo** and also tried to provide plenty of samples in the codebase. Please don't forget to check `/lilo-samples` directory.
+**Lilo** focus on simplicity. You can find plenty of samples in the codebase and we aim to add more and more in every release.
+Please do not forget to check `/lilo-samples` directory for more sample project.
 
 ## Installation
 
-Add **Lilo** dependency to your `pom.xml` file.
+Just add a single **Lilo** dependency to your `pom.xml` file.
 
 ```xml
 <dependencies>
@@ -30,20 +31,20 @@ implementation 'io.fria:lilo:23.4.2'
 ## Basic Usage
 
 Here is the story, Alice has 2 graphql microservices and she wants to make her gateway to dispatch
-the graphql requests to their respective microservices. microservice A provides a GraphQL query for user listing,
-and microservice B provides a GraphQL mutation for user creation. So Alice can use both query and mutation from
-gateway directly. Lilo stitches the GraphQL schemas and provides a combined schema.
+the graphql requests to their respective microservices. `Microservice A` provides a GraphQL query for user listing,
+and `Microservice B` provides a GraphQL mutation for user creation. So Alice can use both query and mutation via
+just sending requests to the `Gateway` directly. **Lilo** stitches the GraphQL schemas and provides a combined schema.
 
 ```
   +----------------+
   |                |
-  | microservice A | <---------+
+  | Microservice A | <---------+
   |                |           |            +----------------+
   +----------------+           |            |                |        o~
                                +----------- |    Gateway     | <---- /|\
   +----------------+           |            |                |       / \
   |                |           |            +----------------+
-  | microservice B | <---------+
+  | Microservice B | <---------+
   |                |
   +----------------+
 
@@ -58,9 +59,10 @@ final Lilo lilo = Lilo.builder()
     .build();
 ```
 
-For further details you can examine the `01-spring-boot-hello-world` example in `lilo-samples` folder.
+But for complete working example you need to serve the stitching logic from a graphql endpoint. (Probably `/graphql`)
+Please examine the `01-spring-boot-hello-world` example in `lilo-samples` folder.
 
-But in most cases, we need authentication or some sort of header manipulation. In that case, creating a custom
+In most cases, we need an authentication or some sort of header manipulation. In that case, creating a custom
 introspection and query retrievers might help us to modify outgoing requests or incoming responses. Following
 example shows a very basic example for custom retrievers.
 
@@ -83,14 +85,14 @@ example shows a very basic example for custom retrievers.
 
 For further details you can examine the `02-spring-boot-basic-stitching` example in `lilo-samples` folder.
 
-If Gateway distributes the messages to microservice A and also contains an embedded schema then the architecture can
-be like something like this:
+If Gateway distributes the messages to `Microservice A` and also contains an embedded schema then the architecture might
+be something like this:
 
 ```
 
   +----------------+                       +----------------+
   |                |                       |                |        o~
-  | microservice A |---------------------- |    Gateway     | <---- /|\
+  | Microservice A |---------------------- |    Gateway     | <---- /|\
   |                |                       |                |       / \
   +----------------+                       +----------------+
                                                   A    |
@@ -118,27 +120,24 @@ final Lilo lilo = Lilo.builder()
 ```
 
 We need to provide an `IntrospectionRetriever` and `QueryRetriever`. Those can fetch the query result from
-a remote source or local source, or you can implement an RSocket communication via the target server.
+a remote source and/or local source.
 
-After every thing is properly set you can run your implementation similar to this:
+After source definitions are properly set you can run your implementation similar to this:
 
 ```java
 
 final GraphQLRequest graphQLRequest = GraphQLRequest.builder()
-    .query(incomingQuery)
-    .operationName(incomingOperationName)
-    .variables(incomingVariables)
+    .query(incomingGraphQlQuery)
+    .operationName(incomingGraphQlOperationName)
+    .variables(incomingGraphQlVariables)
     .build();
 
 final Map<String, Object> resultMap = lilo.stitch(graphQLRequest.toExecutionInput()).toSpecification();
-
-// You can serialize to JSON and return map as String, following is the Jackson example of serializing
-final String JsonResult = new ObjectMapper().writeValueAsString(resultMap);
 ```
 
 ## Parameter passing
 
-Sometimes an HTTP header or a JWT token should be passed to the retrievers. You can pass a local context object
+Sometimes an HTTP header or a JWT token must be passed to the retrievers. You can pass a local context object
 inside the execution input.
 
 ```java
@@ -150,7 +149,7 @@ final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
 
 The localContext object is now accessible from your `IntrospectionRetriever` and `QueryRetriever`.
 
-## Alternatives to Lilo
+## Lilo's sisters
 
 - [Atlassian Braid](https://bitbucket.org/atlassian/graphql-braid)
 - [GraphQuilt Orchestrator](https://github.com/graph-quilt/graphql-orchestrator-java)

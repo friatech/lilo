@@ -1,60 +1,58 @@
-In this example there is one gateway and 2 different servers. server1 provides `greeting1` query and
-server2 provides `greeting2` query. On implementation part it demonstrates to use custom retrievers.
+In this example there is one gateway and 2 different servers. `Server 1` provides `greeting1` query and
+server2 provides `greeting2` query.
 
 ```
-                                              -----------
-                -----------                   |         |
-                |         | --- stitches ---> | Server1 |
-                |         |                   |         |
-                |         |                   -----------
+                                              ------------
+                -----------                   |          |
+                |         | --- stitches ---> | Server 1 |
+                |         |                   |          |
+                |         |                   ------------
 --- REQUEST --> | Gateway |
-                |         |                   -----------
-                |         |                   |         |
-                |         | --- stitches ---> | Local   |
-                -----------                   | Schema  |
-                                              -----------
+                |         |                   ------------
+                |         |                   |          |
+                |         | --- stitches ---> | Local    |
+                -----------                   | Schema   |
+                                              ------------
 ```
 
 # Running
 
 Examples require Java 17+ to run
 
-Running gateway:
+Better to compile the whole project first:
 
-```bash
- ./mvnw -pl lilo-gateway spring-boot:run
+```shell
+./mvnw clean compile package
 ```
 
-Running server1:
+Running Gateway project on port 8080:
 
-```bash
- ./mvnw -pl server1 spring-boot:run
+```shell
+./mvnw -pl lilo-gateway spring-boot:run
 ```
 
-Running server2:
+Running Server 2 project on port 8081:
 
-```bash
- ./mvnw -pl server2 spring-boot:run
+```shell
+./mvnw -pl server1 spring-boot:run
 ```
 
 # Testing
 
-```bash
+```shell
 curl -X POST \
     -H 'content-type: application/json' \
     -d '{"query":"{\ngreeting1\ngreeting2\n}","variables":null}' \
     http://localhost:8080/graphql
 ```
 
-# Test Cases
+Expected result:
 
-- Start Gateway, Server 1, Server 2
-  - greeting1 and greeting2 should return success result
-- Start Gateway, Server 2
-  - Only greeting2 should return successful result
-  - Start Server1
-  - greeting1 and greeting2 should return success result
-  - Stop Server1
-  - Only greeting2 should return successful result
-  - Start Server1
-  - greeting1 and greeting2 should return success result
+```json
+{
+  "data": {
+    "greeting1": "Hello from Server 1",
+    "greeting2": "Hello from Server 2"
+  }
+}
+```

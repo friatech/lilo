@@ -18,6 +18,7 @@
     <module>02-spring-boot-basic-stitching</module>
     <module>03-spring-boot-local-stitching</module>
     <module>04-spring-boot-reactive-stitching</module>
+    <module>05-spring-boot-basic-authentication</module>
   </modules>
 
   <licenses>

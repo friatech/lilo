@@ -24,6 +24,6 @@ public class GreetingController {
 
   @QueryMapping
   public @NotNull String greeting1() {
-    return "Hello world";
+    return "Hello from Server 1";
   }
 }

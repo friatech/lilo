@@ -14,7 +14,7 @@
   </parent>
 
   <artifactId>spring-boot-local-stitching-server1</artifactId>
-  <name>02-spring-boot-local-stitching Server 1</name>
+  <name>03-spring-boot-local-stitching Server 1</name>
 
   <licenses>
     <license>
@@ -61,7 +61,6 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-graphql</artifactId>
-      <version>3.0.5</version>
     </dependency>
 
     <dependency>

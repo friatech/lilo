@@ -30,10 +30,10 @@ import reactor.core.publisher.Mono;
 @Controller
 public class LiloController {
 
-  private static final String SERVER1_NAME = "SERVER1";
-  private static final String SERVER1_BASE_URL = "http://localhost:8081";
-  private static final String SERVER2_NAME = "SERVER2";
-  private static final String SERVER2_BASE_URL = "http://localhost:8082";
+  private static final String SOURCE1_NAME = "SERVER1";
+  private static final String SOURCE1_BASE_URL = "http://localhost:8081";
+  private static final String SOURCE2_NAME = "SERVER2";
+  private static final String SOURCE2_BASE_URL = "http://localhost:8082";
 
   private final Lilo lilo;
 
@@ -43,14 +43,14 @@ public class LiloController {
         Lilo.builder()
             .addSource(
                 RemoteSchemaSource.create(
-                    SERVER1_NAME,
-                    new IntrospectionRetrieverImpl(SERVER1_BASE_URL),
-                    new QueryRetrieverImpl(SERVER1_BASE_URL)))
+                    SOURCE1_NAME,
+                    new IntrospectionRetrieverImpl(SOURCE1_BASE_URL),
+                    new QueryRetrieverImpl(SOURCE1_BASE_URL)))
             .addSource(
                 RemoteSchemaSource.create(
-                    SERVER2_NAME,
-                    new IntrospectionRetrieverImpl(SERVER2_BASE_URL),
-                    new QueryRetrieverImpl(SERVER2_BASE_URL)))
+                    SOURCE2_NAME,
+                    new IntrospectionRetrieverImpl(SOURCE2_BASE_URL),
+                    new QueryRetrieverImpl(SOURCE2_BASE_URL)))
             .build();
   }
 

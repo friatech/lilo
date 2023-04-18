@@ -15,10 +15,18 @@
  */
 package io.fria.lilo.samples.spring_boot_local_stitching.lilo_gateway;
 
+import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
+
+import graphql.schema.idl.RuntimeWiring;
+import io.fria.lilo.DefinedSchemaSource;
 import io.fria.lilo.GraphQLRequest;
 import io.fria.lilo.Lilo;
 import io.fria.lilo.RemoteSchemaSource;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.util.Map;
+import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,28 +36,36 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @Controller
 public class LiloController {
 
-  private static final String SERVER1_NAME = "SERVER1";
-  private static final String SERVER1_BASE_URL = "http://localhost:8081";
-  private static final String SERVER2_NAME = "SERVER2";
-  private static final String SERVER2_BASE_URL = "http://localhost:8082";
+  private static final String SOURCE1_NAME = "SERVER1";
+  private static final String SOURCE1_BASE_URL = "http://localhost:8081";
+  private static final String SOURCE2_NAME = "LOCAL_SCHEMA";
 
   private final Lilo lilo;
 
-  public LiloController() {
+  public LiloController() throws IOException {
 
-    this.lilo =
-        Lilo.builder()
-            .addSource(
-                RemoteSchemaSource.create(
-                    SERVER1_NAME,
-                    new IntrospectionRetrieverImpl(SERVER1_BASE_URL),
-                    new QueryRetrieverImpl(SERVER1_BASE_URL)))
-            .addSource(
-                RemoteSchemaSource.create(
-                    SERVER2_NAME,
-                    new IntrospectionRetrieverImpl(SERVER2_BASE_URL),
-                    new QueryRetrieverImpl(SERVER2_BASE_URL)))
-            .build();
+    try (final InputStream resourceAsStream =
+        LiloController.class.getResourceAsStream("/graphql/source2.graphqls")) {
+      final String schemaDefinition =
+          new String(
+              Objects.requireNonNull(resourceAsStream).readAllBytes(), Charset.defaultCharset());
+
+      final RuntimeWiring wiring =
+          RuntimeWiring.newRuntimeWiring()
+              .type(
+                  newTypeWiring("Query").dataFetcher("greeting2", env -> "Hello from local schema"))
+              .build();
+
+      this.lilo =
+          Lilo.builder()
+              .addSource(
+                  RemoteSchemaSource.create(
+                      SOURCE1_NAME,
+                      new IntrospectionRetrieverImpl(SOURCE1_BASE_URL),
+                      new QueryRetrieverImpl(SOURCE1_BASE_URL)))
+              .addSource(DefinedSchemaSource.create(SOURCE2_NAME, schemaDefinition, wiring))
+              .build();
+    }
   }
 
   @ResponseBody
