@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>io.fria.lilo.samples.spring-boot-basic-stitching</groupId>
+  <artifactId>spring-boot-basic-stitching-parent</artifactId>
+  <version>23.4.2</version>
+  <packaging>pom</packaging>
+
+  <name>02-spring-boot-basic-stitching</name>
+  <description>Basic Lilo usage with Spring Boot</description>
+
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <scm>
+    <connection>scm:git:git://github.com/friatech/lilo.git</connection>
+    <developerConnection>scm:git:ssh://github.com:friatech/lilo.git</developerConnection>
+    <url>https://github.com/friatech/lilo/tree/main</url>
+  </scm>
+
+  <developers>
+    <developer>
+      <name>Fırat KÜÇÜK</name>
+      <email>firat@fria.io</email>
+      <organization>Fria Tech</organization>
+      <organizationUrl>https://fria.io</organizationUrl>
+    </developer>
+  </developers>
+
+  <modules>
+    <module>lilo-gateway</module>
+    <module>server1</module>
+    <module>server2</module>
+  </modules>
+</project>
