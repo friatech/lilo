@@ -6,7 +6,7 @@
 
   <groupId>io.fria</groupId>
   <artifactId>lilo</artifactId>
-  <version>23.4.2</version>
+  <version>23.6.0</version>
 
   <name>lilo</name>
   <description>Lilo GraphQL stitching library</description>
@@ -43,9 +43,9 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <slf4j.version>2.0.7</slf4j.version>
-    <junit.version>5.9.2</junit.version>
-    <error-prone.version>2.18.0</error-prone.version>
-    <checkstyle.version>10.9.3</checkstyle.version>
+    <junit.version>5.9.3</junit.version>
+    <error-prone.version>2.20.0</error-prone.version>
+    <checkstyle.version>10.12.0</checkstyle.version>
     <spotbugs.version>4.7.3</spotbugs.version>
   </properties>
 
@@ -53,7 +53,7 @@
     <dependency>
       <groupId>com.graphql-java</groupId>
       <artifactId>graphql-java</artifactId>
-      <version>20.2</version>
+      <version>20.4</version>
       <exclusions>
         <exclusion>
           <groupId>org.slf4j</groupId>
@@ -71,7 +71,7 @@
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
-      <version>2.14.2</version>
+      <version>2.15.2</version>
     </dependency>
 
     <dependency>
@@ -91,7 +91,7 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-junit-jupiter</artifactId>
-      <version>5.2.0</version>
+      <version>5.4.0</version>
       <scope>test</scope>
     </dependency>
 
@@ -128,13 +128,13 @@
 
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.0.0</version>
+        <version>3.1.2</version>
       </plugin>
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.2.1</version>
+        <version>3.3.0</version>
         <executions>
           <execution>
             <id>enforce-versions</id>
@@ -157,7 +157,7 @@
 
       <plugin>
         <artifactId>maven-source-plugin</artifactId>
-        <version>3.2.1</version>
+        <version>3.3.0</version>
         <executions>
           <execution>
             <id>attach-sources</id>
@@ -183,7 +183,7 @@
 
       <plugin>
         <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.2.1</version>
+        <version>3.3.0</version>
         <dependencies>
           <dependency>
             <groupId>com.puppycrawl.tools</groupId>
@@ -210,7 +210,7 @@
 
       <plugin>
         <artifactId>maven-gpg-plugin</artifactId>
-        <version>3.0.1</version>
+        <version>3.1.0</version>
         <executions>
           <execution>
             <id>sign-artifacts</id>
@@ -225,7 +225,7 @@
       <plugin>
         <groupId>com.github.spotbugs</groupId>
         <artifactId>spotbugs-maven-plugin</artifactId>
-        <version>4.7.3.3</version>
+        <version>4.7.3.4</version>
         <dependencies>
           <dependency>
             <groupId>com.github.spotbugs</groupId>
@@ -238,7 +238,7 @@
       <plugin>
         <groupId>com.spotify.fmt</groupId>
         <artifactId>fmt-maven-plugin</artifactId>
-        <version>2.19</version>
+        <version>2.20</version>
         <executions>
           <execution>
             <goals>

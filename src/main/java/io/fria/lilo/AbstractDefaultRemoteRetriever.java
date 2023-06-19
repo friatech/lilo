@@ -26,6 +26,8 @@ import org.jetbrains.annotations.NotNull;
 
 public abstract class AbstractDefaultRemoteRetriever {
 
+  private static final int RESPONSE_STREAM_BUFFER_SIZE = 4096;
+
   protected String retrieve(final @NotNull String schemaUrl, final @NotNull String query) {
 
     final byte[] response;
@@ -46,7 +48,7 @@ public abstract class AbstractDefaultRemoteRetriever {
 
       final InputStream responseInputStream = conn.getInputStream();
       final ByteArrayOutputStream responseOutputStream = new ByteArrayOutputStream();
-      final byte[] buffer = new byte[4096];
+      final byte[] buffer = new byte[RESPONSE_STREAM_BUFFER_SIZE];
 
       int bytesRead;
 
@@ -61,6 +63,6 @@ public abstract class AbstractDefaultRemoteRetriever {
       throw new RuntimeException(e);
     }
 
-    return new String(response);
+    return new String(response, StandardCharsets.UTF_8);
   }
 }
