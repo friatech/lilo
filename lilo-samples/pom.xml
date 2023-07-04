@@ -6,7 +6,7 @@
 
   <groupId>io.fria.lilo.samples</groupId>
   <artifactId>lilo-samples</artifactId>
-  <version>23.6.0</version>
+  <version>23.7.0</version>
   <packaging>pom</packaging>
 
   <name>lilo-samples</name>
@@ -100,7 +100,6 @@
       </plugin>
 
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
         <version>3.2.1</version>
         <executions>

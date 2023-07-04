@@ -5,7 +5,7 @@
 
   <groupId>io.fria.lilo.samples.spring-boot-basic-authentication</groupId>
   <artifactId>spring-boot-basic-authentication-parent</artifactId>
-  <version>23.6.0</version>
+  <version>23.7.0</version>
   <packaging>pom</packaging>
 
   <name>05-spring-boot-basic-authentication</name>

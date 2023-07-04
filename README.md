@@ -16,7 +16,7 @@ Just add a single **Lilo** dependency to your `pom.xml` file.
   <dependency>
     <groupId>io.fria</groupId>
     <artifactId>lilo</artifactId>
-    <version>23.6.0</version>
+    <version>23.7.0</version>
   </dependency>
   ...
 </dependencies>
@@ -148,6 +148,12 @@ final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
 ```
 
 The localContext object is now accessible from your `IntrospectionRetriever` and `QueryRetriever`.
+
+## Additional Resources
+
+You can watch `Tame Your Spring Microservices With GraphQL Stitching Using Lilo` presentation.
+
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/5GQpxqORlr0/0.jpg)](https://www.youtube.com/watch?v=5GQpxqORlr0)
 
 ## Lilo's sisters
 
