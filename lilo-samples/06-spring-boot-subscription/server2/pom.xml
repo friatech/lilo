@@ -13,8 +13,8 @@
     <relativePath/>
   </parent>
 
-  <artifactId>spring-boot-local-stitching-lilo-gateway</artifactId>
-  <name>03-spring-local-basic-stitching Lilo Gateway</name>
+  <artifactId>spring-boot-subscription-server2</artifactId>
+  <name>06-spring-boot-subscription Server 2</name>
 
   <licenses>
     <license>
@@ -39,24 +39,10 @@
     </developer>
   </developers>
 
-  <repositories>
-    <repository>
-      <id>central</id>
-      <name>maven central</name>
-      <url>https://repo1.maven.org/maven2/</url>
-    </repository>
-
-    <repository>
-      <id>maven-atlassian-com</id>
-      <name>Atlassian Public Repository</name>
-      <url>https://packages.atlassian.com/maven/public</url>
-    </repository>
-  </repositories>
-
   <dependencies>
     <dependency>
       <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-web</artifactId>
+      <artifactId>spring-boot-starter-webflux</artifactId>
       <exclusions>
         <exclusion>
           <groupId>org.yaml</groupId>
@@ -73,15 +59,14 @@
     </dependency>
 
     <dependency>
-      <groupId>org.jetbrains</groupId>
-      <artifactId>annotations</artifactId>
-      <version>24.0.1</version>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-graphql</artifactId>
     </dependency>
 
     <dependency>
-      <groupId>io.fria</groupId>
-      <artifactId>lilo</artifactId>
-      <version>23.6.1</version>
+      <groupId>org.jetbrains</groupId>
+      <artifactId>annotations</artifactId>
+      <version>24.0.1</version>
     </dependency>
   </dependencies>
 

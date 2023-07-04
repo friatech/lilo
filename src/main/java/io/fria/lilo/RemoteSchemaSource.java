@@ -263,6 +263,8 @@ public final class RemoteSchemaSource implements SchemaSource {
         .ifPresent(runtimeWiringBuilder::type);
     this.typeWiring(typeDefinitionRegistry, liloContext, operationTypeNames.getMutation())
         .ifPresent(runtimeWiringBuilder::type);
+    this.typeWiring(typeDefinitionRegistry, liloContext, operationTypeNames.getSubscription())
+        .ifPresent(runtimeWiringBuilder::type);
 
     this.runtimeWiring = runtimeWiringBuilder.build();
     this.typeDefinitionRegistry = typeDefinitionRegistry;

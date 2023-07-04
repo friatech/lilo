@@ -6,7 +6,7 @@
 
   <groupId>io.fria.lilo.samples</groupId>
   <artifactId>lilo-samples</artifactId>
-  <version>23.6.0</version>
+  <version>23.6.1</version>
   <packaging>pom</packaging>
 
   <name>lilo-samples</name>
@@ -19,6 +19,7 @@
     <module>03-spring-boot-local-stitching</module>
     <module>04-spring-boot-reactive-stitching</module>
     <module>05-spring-boot-basic-authentication</module>
+    <module>06-spring-boot-subscription</module>
   </modules>
 
   <licenses>

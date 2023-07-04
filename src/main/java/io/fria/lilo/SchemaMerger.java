@@ -48,7 +48,7 @@ final class SchemaMerger {
         typeDefinitionRegistry.schemaDefinition();
 
     if (schemaDefinitionOptional.isEmpty()) {
-      return new OperationTypeNames("Query", "Mutation");
+      return new OperationTypeNames("Query", "Mutation", "Subscription");
     }
 
     final SchemaDefinition schemaDefinition = schemaDefinitionOptional.get();
@@ -58,7 +58,8 @@ final class SchemaMerger {
             .collect(
                 Collectors.toMap(OperationTypeDefinition::getName, d -> d.getTypeName().getName()));
 
-    return new OperationTypeNames(names.get("query"), names.get("mutation"));
+    return new OperationTypeNames(
+        names.get("query"), names.get("mutation"), names.get("subscription"));
   }
 
   static void mergeSchemas(
@@ -68,8 +69,11 @@ final class SchemaMerger {
 
     String queryTypeName = null;
     String mutationTypeName = null;
+    String subscriptionTypeName = null;
+
     final List<FieldDefinition> queryFieldDefinitions = new ArrayList<>();
     final List<FieldDefinition> mutationFieldDefinitions = new ArrayList<>();
+    final List<FieldDefinition> subscriptionFieldDefinitions = new ArrayList<>();
 
     for (final SchemaSource schemaSource : schemaSources) {
 
@@ -82,6 +86,7 @@ final class SchemaMerger {
 
       queryTypeName = checkName(queryTypeName, operationTypeNames.query);
       mutationTypeName = checkName(mutationTypeName, operationTypeNames.mutation);
+      subscriptionTypeName = checkName(subscriptionTypeName, operationTypeNames.subscription);
 
       final RuntimeWiring sourceWiring = schemaSource.getRuntimeWiring();
       final Map<String, Map<String, DataFetcher>> dataFetchers = sourceWiring.getDataFetchers();
@@ -94,9 +99,16 @@ final class SchemaMerger {
           sourceRegistry,
           runtimeWiringBuilder,
           dataFetchers);
+      mergeFieldDefinitions(
+          subscriptionTypeName,
+          subscriptionFieldDefinitions,
+          sourceRegistry,
+          runtimeWiringBuilder,
+          dataFetchers);
 
       // Add types other than Query and Mutation to combined registry
-      excludeTypes(sourceRegistry, queryTypeName, mutationTypeName).forEach(combinedRegistry::add);
+      excludeTypes(sourceRegistry, queryTypeName, mutationTypeName, subscriptionTypeName)
+          .forEach(combinedRegistry::add);
 
       // Add all directive definitions
       sourceRegistry.getDirectiveDefinitions().values().forEach(combinedRegistry::add);
@@ -107,12 +119,14 @@ final class SchemaMerger {
 
     addType(queryTypeName, queryFieldDefinitions, combinedRegistry);
     addType(mutationTypeName, mutationFieldDefinitions, combinedRegistry);
-    addSchema(queryTypeName, mutationTypeName, combinedRegistry);
+    addType(subscriptionTypeName, subscriptionFieldDefinitions, combinedRegistry);
+    addSchema(queryTypeName, mutationTypeName, subscriptionTypeName, combinedRegistry);
   }
 
   private static void addSchema(
       final @Nullable String queryTypeName,
       final @Nullable String mutationTypeName,
+      final @Nullable String subscriptionTypeName,
       final @NotNull TypeDefinitionRegistry combinedRegistry) {
 
     final SchemaDefinition.Builder builder = SchemaDefinition.newSchemaDefinition();
@@ -130,6 +144,15 @@ final class SchemaMerger {
           OperationTypeDefinition.newOperationTypeDefinition()
               .name("mutation")
               .typeName(TypeName.newTypeName(mutationTypeName).build())
+              .build());
+    }
+
+    if (subscriptionTypeName != null
+        && combinedRegistry.getType(subscriptionTypeName).isPresent()) {
+      builder.operationTypeDefinition(
+          OperationTypeDefinition.newOperationTypeDefinition()
+              .name("subscription")
+              .typeName(TypeName.newTypeName(subscriptionTypeName).build())
               .build());
     }
 
@@ -169,10 +192,15 @@ final class SchemaMerger {
   private static @NotNull List<SDLDefinition> excludeTypes(
       final @NotNull TypeDefinitionRegistry sourceRegistry,
       final @Nullable String queryTypeName,
-      final @Nullable String mutationTypeName) {
+      final @Nullable String mutationTypeName,
+      final @Nullable String subscriptionTypeName) {
 
     return sourceRegistry.types().values().stream()
-        .filter(t -> !t.getName().equals(queryTypeName) && !t.getName().equals(mutationTypeName))
+        .filter(
+            t ->
+                !t.getName().equals(queryTypeName)
+                    && !t.getName().equals(mutationTypeName)
+                    && !t.getName().equals(subscriptionTypeName))
         .collect(Collectors.toList());
   }
 
@@ -203,10 +231,20 @@ final class SchemaMerger {
 
     private final String query;
     private final String mutation;
+    private final String subscription;
 
-    OperationTypeNames(final @NotNull String query, final @Nullable String mutation) {
+    OperationTypeNames(
+        final @NotNull String query,
+        final @Nullable String mutation,
+        final @Nullable String subscription) {
       this.query = query;
       this.mutation = mutation;
+      this.subscription = subscription;
+    }
+
+    @NotNull
+    String getQuery() {
+      return this.query;
     }
 
     @Nullable
@@ -214,9 +252,9 @@ final class SchemaMerger {
       return this.mutation;
     }
 
-    @NotNull
-    String getQuery() {
-      return this.query;
+    @Nullable
+    String getSubscription() {
+      return this.subscription;
     }
   }
 }

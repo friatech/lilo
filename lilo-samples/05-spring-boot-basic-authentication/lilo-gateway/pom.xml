@@ -81,13 +81,7 @@
     <dependency>
       <groupId>io.fria</groupId>
       <artifactId>lilo</artifactId>
-      <version>23.6.0</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.atlassian.braid</groupId>
-      <artifactId>graphql-braid</artifactId>
-      <version>0.23.15</version>
+      <version>23.6.1</version>
     </dependency>
   </dependencies>
 

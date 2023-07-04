@@ -3,13 +3,13 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>io.fria.lilo.samples.spring-boot-hello-world</groupId>
-  <artifactId>spring-boot-hello-world-parent</artifactId>
+  <groupId>io.fria.lilo.samples.spring-boot-basic-stitching</groupId>
+  <artifactId>spring-boot-subscription-parent</artifactId>
   <version>23.6.1</version>
   <packaging>pom</packaging>
 
-  <name>01-spring-boot-hello-world</name>
-  <description>Lilo hello world Spring Boot sample</description>
+  <name>06-spring-boot-subscription</name>
+  <description>GraphQL subscription with Spring Boot</description>
 
   <licenses>
     <license>
