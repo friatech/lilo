@@ -43,6 +43,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.reactivestreams.Publisher;
+import org.reactivestreams.Subscriber;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -107,7 +109,20 @@ public final class RemoteSchemaSource implements SchemaSource {
       throw new SourceDataFetcherException(errors);
     }
 
-    return ((Map<String, Object>) graphQLResult.getData()).values().iterator().next();
+    final Map<String, Object> resultData = graphQLResult.getData();
+
+    if (resultData.containsKey("upstreamPublisher")) {
+      return new Publisher<Object>() {
+        @Override
+        public void subscribe(final Subscriber<? super Object> subscriber) {
+          System.out.println(resultData);
+          System.out.println(graphQLResultFuture);
+          subscriber.onNext("vada");
+        }
+      };
+    }
+
+    return resultData.values().iterator().next();
   }
 
   private static @NotNull ExecutionResult toExecutionResult(final @NotNull String queryResult) {

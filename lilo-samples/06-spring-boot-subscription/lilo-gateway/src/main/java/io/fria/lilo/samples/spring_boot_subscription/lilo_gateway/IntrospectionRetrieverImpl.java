@@ -21,22 +21,20 @@ import io.fria.lilo.SyncIntrospectionRetriever;
 import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 class IntrospectionRetrieverImpl implements SyncIntrospectionRetriever {
 
   private final String schemaUrl;
-  private final RestTemplate restTemplate;
+  private final WebClient webClient;
 
   IntrospectionRetrieverImpl(final @NotNull String schemaUrl) {
     this.schemaUrl = schemaUrl + "/graphql";
-    this.restTemplate =
-        new RestTemplateBuilder()
-            .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-            .build();
+    this.webClient = WebClient.builder()
+        .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+        .build();
   }
 
   @Override
@@ -46,7 +44,11 @@ class IntrospectionRetrieverImpl implements SyncIntrospectionRetriever {
       final @NotNull String query,
       final @Nullable Object localContext) {
 
-    return Objects.requireNonNull(
-        this.restTemplate.postForObject(this.schemaUrl, query, String.class));
+    return Objects.requireNonNull(this.webClient.post()
+        .uri(this.schemaUrl)
+        .bodyValue(query)
+        .retrieve()
+        .bodyToMono(String.class)
+        .block());
   }
 }
