@@ -43,7 +43,7 @@ public class SubscriptionRetrieverImpl extends AbstractWebSocketHandler
   private final @NotNull WebSocketClient webSocketClient;
   private final LiloSubscriptionDefaultClientHandler liloHandler =
       new LiloSubscriptionDefaultClientHandler();
-  private final Sinks.Many<String> sink = Sinks.many().unicast().onBackpressureBuffer();
+  private final Sinks.Many<Object> sink = Sinks.many().unicast().onBackpressureBuffer();
   private WebSocketSession session;
   private boolean readyForQuerySending;
 
@@ -92,7 +92,7 @@ public class SubscriptionRetrieverImpl extends AbstractWebSocketHandler
   }
 
   @Override
-  public @NotNull Publisher<String> subscribe(
+  public @NotNull Publisher<Object> subscribe(
       @NotNull final LiloContext liloContext,
       @NotNull final SchemaSource schemaSource,
       @Nullable final Object localContext) {
@@ -101,7 +101,8 @@ public class SubscriptionRetrieverImpl extends AbstractWebSocketHandler
   }
 
   @Override
-  protected void handleTextMessage(final @NotNull WebSocketSession session, final @NotNull TextMessage message) {
+  protected void handleTextMessage(
+      final @NotNull WebSocketSession session, final @NotNull TextMessage message) {
 
     final GraphQLSubscriptionMessage subscriptionMessage =
         this.liloHandler.convertToSubscriptionMessage(message.getPayload());
@@ -109,7 +110,7 @@ public class SubscriptionRetrieverImpl extends AbstractWebSocketHandler
     if ("connection_ack".equals(subscriptionMessage.getType())) {
       this.readyForQuerySending = true;
     } else if ("next".equals(subscriptionMessage.getType())) {
-      this.sink.tryEmitNext((String) subscriptionMessage.getPayload());
+      this.sink.tryEmitNext(subscriptionMessage.getPayload());
     }
   }
 }

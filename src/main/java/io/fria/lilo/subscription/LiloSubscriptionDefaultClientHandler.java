@@ -24,12 +24,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.jetbrains.annotations.NotNull;
 
-public class LiloSubscriptionDefaultClientHandler implements LiloSubscriptionHandler {
-
-  @Override
-  public @NotNull Object handleMessage(final @NotNull String wsMessage) {
-    return null;
-  }
+public class LiloSubscriptionDefaultClientHandler {
 
   public void startHandShaking(final @NotNull SubscriptionMessageSender subscriptionMessageSender)
       throws IOException {

@@ -19,12 +19,11 @@ import io.fria.lilo.GraphQLRequest;
 import io.fria.lilo.JsonUtils;
 import io.fria.lilo.Lilo;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class LiloSubscriptionDefaultServerHandler implements LiloSubscriptionHandler {
+public class LiloSubscriptionDefaultServerHandler {
 
   private final Lilo lilo;
 
@@ -32,26 +31,7 @@ public class LiloSubscriptionDefaultServerHandler implements LiloSubscriptionHan
     this.lilo = lilo;
   }
 
-  @Override
-  public @NotNull Object handleMessage(final @NotNull String wsMessage) {
-
-    final GraphQLSubscriptionMessage response = this.createResponse(wsMessage);
-
-    if (response == null) {
-      throw new IllegalArgumentException("Incorrect message content");
-    }
-
-    if ("next".equals(response.getType())) {
-      final Map<String, Object> payload = (Map<String, Object>) response.getPayload();
-      final Map<String, Object> data = (Map<String, Object>) payload.get("data");
-      // TODO: data inside data. that's suspicious
-      return data.get("data");
-    }
-
-    return JsonUtils.toStr(response);
-  }
-
-  private @Nullable GraphQLSubscriptionMessage createResponse(final @NotNull String wsMessage) {
+  public @Nullable GraphQLSubscriptionMessage createResponse(final @NotNull String wsMessage) {
     final Optional<GraphQLSubscriptionMessage> requestOptional =
         JsonUtils.toObj(wsMessage, GraphQLSubscriptionMessage.class);
 

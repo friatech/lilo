@@ -15,17 +15,19 @@
  */
 package io.fria.lilo.samples.spring_boot_subscription.lilo_gateway;
 
+import graphql.execution.reactive.SubscriptionPublisher;
+import io.fria.lilo.JsonUtils;
 import io.fria.lilo.Lilo;
+import io.fria.lilo.subscription.GraphQLSubscriptionMessage;
 import io.fria.lilo.subscription.LiloSubscriptionDefaultServerHandler;
 import java.io.IOException;
+import java.util.Map;
 import org.jetbrains.annotations.NotNull;
-import org.reactivestreams.Publisher;
-import org.reactivestreams.Subscriber;
-import org.reactivestreams.Subscription;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
+import reactor.core.publisher.Flux;
 
 @Component
 public class MyWebSocketHandler extends AbstractWebSocketHandler {
@@ -43,32 +45,34 @@ public class MyWebSocketHandler extends AbstractWebSocketHandler {
       final @NotNull WebSocketSession session, final @NotNull TextMessage message)
       throws IOException {
 
-    final Object response = this.defaultHandler.handleMessage(message.getPayload());
+    final GraphQLSubscriptionMessage response =
+        this.defaultHandler.createResponse(message.getPayload());
 
-    if (response instanceof String) {
-      session.sendMessage(new TextMessage((String) response));
-    } else if (response instanceof Publisher) {
-      final Publisher publisher = (Publisher) response;
-      publisher.subscribe(
-          new Subscriber() {
-            @Override
-            public void onComplete() {}
+    if (response == null) {
+      throw new IllegalArgumentException("Incorrect message content");
+    }
 
-            @Override
-            public void onError(final Throwable throwable) {}
+    if ("next".equals(response.getType())) {
+      final Map<String, Object> payload = (Map<String, Object>) response.getPayload();
+      final Map<String, Object> data = (Map<String, Object>) payload.get("data");
+      // TODO: data inside data. that's suspicious
 
-            @Override
-            public void onNext(final Object o) {
-              try {
-                session.sendMessage(new TextMessage((String) o));
-              } catch (final IOException e) {
-                throw new RuntimeException(e);
-              }
+      final SubscriptionPublisher publisher = (SubscriptionPublisher) data.get("data");
+      final Flux<Object> upstreamPublisher = (Flux<Object>) publisher.getUpstreamPublisher();
+      upstreamPublisher.subscribe(
+          o -> {
+            final GraphQLSubscriptionMessage subscriptionMessage = new GraphQLSubscriptionMessage();
+            subscriptionMessage.setId(response.getId());
+            subscriptionMessage.setType("next");
+            subscriptionMessage.setPayload(o);
+            try {
+              session.sendMessage(new TextMessage(JsonUtils.toStr(subscriptionMessage)));
+            } catch (final IOException e) {
+              throw new RuntimeException(e);
             }
-
-            @Override
-            public void onSubscribe(final Subscription subscription) {}
           });
+    } else {
+      session.sendMessage(new TextMessage(JsonUtils.toStr(response)));
     }
   }
 }

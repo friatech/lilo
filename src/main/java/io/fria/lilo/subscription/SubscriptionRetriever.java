@@ -36,7 +36,7 @@ public interface SubscriptionRetriever {
       @Nullable Object localContext);
 
   @NotNull
-  Publisher<String> subscribe(
+  Publisher<Object> subscribe(
       @NotNull LiloContext liloContext,
       @NotNull SchemaSource schemaSource,
       @Nullable Object localContext);

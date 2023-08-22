@@ -45,7 +45,6 @@ import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.reactivestreams.Publisher;
-import org.reactivestreams.Subscriber;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -128,20 +127,7 @@ public final class RemoteSchemaSource implements SchemaSource {
       throw new SourceDataFetcherException(errors);
     }
 
-    final Map<String, Object> resultData = graphQLResult.getData();
-
-    if (resultData.containsKey("upstreamPublisher")) {
-      return new Publisher<Object>() {
-        @Override
-        public void subscribe(final Subscriber<? super Object> subscriber) {
-          System.out.println(resultData);
-          System.out.println(graphQLResultFuture);
-          subscriber.onNext("vada");
-        }
-      };
-    }
-
-    return resultData.values().iterator().next();
+    return ((Map<String, Object>) graphQLResult.getData()).values().iterator().next();
   }
 
   private static @NotNull ExecutionResult toExecutionResult(final @NotNull String queryResult) {
@@ -341,7 +327,10 @@ public final class RemoteSchemaSource implements SchemaSource {
             if (query.getOperationType() == OperationDefinition.Operation.SUBSCRIPTION) {
               if (this.subscriptionRetriever != null) {
                 this.subscriptionRetriever.sendQuery(liloContext, this, query, e.getLocalContext());
-                return this.subscriptionRetriever.subscribe(liloContext, this, e.getLocalContext());
+                final Publisher<Object> publisher =
+                    this.subscriptionRetriever.subscribe(liloContext, this, e.getLocalContext());
+
+                return publisher;
               } else {
                 // TODO: Better exception handling
                 throw new Exception("");
