@@ -24,11 +24,12 @@ import org.jetbrains.annotations.Nullable;
 
 public class GraphQLQuery {
 
-  private final String query;
-  private final OperationDefinition.Operation operationType;
-  private final Field queryNode;
-  private final Map<String, Object> arguments;
-  private final Map<String, Object> variables;
+  private @NotNull final String query;
+  private @NotNull final GraphQLRequest request;
+  private @NotNull final OperationDefinition.Operation operationType;
+  private @NotNull final Field queryNode;
+  private @NotNull final Map<String, Object> arguments;
+  private @Nullable final Map<String, Object> variables;
 
   public GraphQLQuery(
       final @NotNull String query,
@@ -37,6 +38,7 @@ public class GraphQLQuery {
       final @NotNull Map<String, Object> arguments,
       final @Nullable Map<String, Object> variables) {
     this.query = Objects.requireNonNull(query);
+    this.request = JsonUtils.toObj(query, GraphQLRequest.class).orElseThrow();
     this.operationType = Objects.requireNonNull(operationType);
     this.queryNode = Objects.requireNonNull(queryNode);
     this.arguments = arguments;
@@ -61,6 +63,10 @@ public class GraphQLQuery {
 
   public @NotNull Field getQueryNode() {
     return this.queryNode;
+  }
+
+  public @NotNull GraphQLRequest getRequest() {
+    return this.request;
   }
 
   public @Nullable Map<String, Object> getVariables() {

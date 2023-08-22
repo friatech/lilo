@@ -5,7 +5,7 @@
 
   <groupId>io.fria.lilo.samples.spring-boot-local-stitching</groupId>
   <artifactId>spring-boot-local-stitching-parent</artifactId>
-  <version>23.6.1</version>
+  <version>23.8.0</version>
   <packaging>pom</packaging>
 
   <name>03-spring-boot-local-stitching</name>

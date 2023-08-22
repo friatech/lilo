@@ -6,7 +6,7 @@
 
   <groupId>io.fria.lilo.samples</groupId>
   <artifactId>lilo-samples</artifactId>
-  <version>23.6.1</version>
+  <version>23.8.0</version>
   <packaging>pom</packaging>
 
   <name>lilo-samples</name>
