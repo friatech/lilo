@@ -1,9 +1,8 @@
 package io.fria.lilo.samples.spring_boot_subscription.lilo_gateway;
 
 import io.fria.lilo.Lilo;
-import io.fria.lilo.subscription.LiloSubscriptionDefaultHandler;
+import io.fria.lilo.subscription.LiloSubscriptionDefaultServerHandler;
 import java.io.IOException;
-import java.util.concurrent.Flow;
 import org.jetbrains.annotations.NotNull;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
@@ -16,18 +15,18 @@ import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 @Component
 public class MyWebSocketHandler extends AbstractWebSocketHandler {
 
-  private final Lilo lilo;
+  private final Lilo                                 lilo;
+  private final LiloSubscriptionDefaultServerHandler defaultHandler;
 
   public MyWebSocketHandler(final @NotNull Lilo lilo) {
     this.lilo = lilo;
+    this.defaultHandler = new LiloSubscriptionDefaultServerHandler(this.lilo);
   }
 
   @Override
   protected void handleTextMessage(final @NotNull WebSocketSession session, final @NotNull TextMessage message) throws IOException {
 
-    final LiloSubscriptionDefaultHandler handler = new LiloSubscriptionDefaultHandler(this.lilo);
-
-    final Object response = handler.handleMessage(message.getPayload());
+    final Object response = this.defaultHandler.handleMessage(message.getPayload());
 
     if (response instanceof String) {
       session.sendMessage(new TextMessage((String) response));

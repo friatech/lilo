@@ -22,32 +22,34 @@ import io.fria.lilo.SyncQueryRetriever;
 import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 class QueryRetrieverImpl implements SyncQueryRetriever {
 
-  private final String schemaUrl;
-  private final RestTemplate restTemplate;
+    private final String    schemaUrl;
+    private final WebClient webClient;
 
-  QueryRetrieverImpl(final @NotNull String schemaUrl) {
-    this.schemaUrl = schemaUrl + "/graphql";
-    this.restTemplate =
-        new RestTemplateBuilder() //
-            .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE) //
-            .build(); //
-  }
+    QueryRetrieverImpl(final @NotNull String schemaUrl) {
+        this.schemaUrl = schemaUrl + "/graphql";
+        this.webClient = WebClient.builder()
+            .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+            .build();
+    }
 
-  @Override
-  public @NotNull String get(
-      final @NotNull LiloContext liloContext,
-      final @NotNull SchemaSource schemaSource,
-      final @NotNull GraphQLQuery graphQLQuery,
-      final @Nullable Object localContext) {
+    @Override
+    public @NotNull String get(
+        final @NotNull LiloContext liloContext,
+        final @NotNull SchemaSource schemaSource,
+        final @NotNull GraphQLQuery graphQLQuery,
+        final @Nullable Object localContext) {
 
-    return Objects.requireNonNull(
-        this.restTemplate.postForObject(this.schemaUrl, graphQLQuery.getQuery(), String.class));
-  }
+        return Objects.requireNonNull(this.webClient.post()
+            .uri(this.schemaUrl)
+            .bodyValue(graphQLQuery.getQuery())
+            .retrieve()
+            .bodyToMono(String.class)
+            .block());
+    }
 }

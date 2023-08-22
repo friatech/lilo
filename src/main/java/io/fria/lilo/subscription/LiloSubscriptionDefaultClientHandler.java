@@ -9,11 +9,11 @@ import java.util.Optional;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class LiloSubscriptionDefaultHandler implements LiloSubscriptionHandler {
+public class LiloSubscriptionDefaultClientHandler implements LiloSubscriptionHandler {
 
   private final Lilo lilo;
 
-  public LiloSubscriptionDefaultHandler(final @NotNull Lilo lilo) {
+  public LiloSubscriptionDefaultClientHandler(final @NotNull Lilo lilo) {
     this.lilo = lilo;
   }
 
@@ -46,9 +46,9 @@ public class LiloSubscriptionDefaultHandler implements LiloSubscriptionHandler {
 
     final GraphQLSubscriptionMessage request = requestOptional.get();
 
-    if ("connection_init".equals(request.getType())) {
+    if ("connection_ack".equals(request.getType())) {
       final GraphQLSubscriptionMessage response = new GraphQLSubscriptionMessage();
-      response.setType("connection_ack");
+      response.setType("subscribe");
       response.setPayload(new HashMap<>());
       return response;
     } else if ("subscribe".equals(request.getType())) {

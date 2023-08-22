@@ -1,0 +1,11 @@
+scalar Text
+
+type Query {
+    greeting1: Text!
+    greeting2: Text!
+}
+
+type Subscription {
+    greeting1Subscription: Text!
+    greeting2Subscription: Text!
+}

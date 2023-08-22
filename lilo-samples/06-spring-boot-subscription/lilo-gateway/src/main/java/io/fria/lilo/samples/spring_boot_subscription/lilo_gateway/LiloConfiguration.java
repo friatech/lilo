@@ -22,12 +22,14 @@ public class LiloConfiguration {
         RemoteSchemaSource.create(
           SOURCE1_NAME,
           new IntrospectionRetrieverImpl(SOURCE1_BASE_URL),
-          new QueryRetrieverImpl(SOURCE1_BASE_URL)))
+          new QueryRetrieverImpl(SOURCE1_BASE_URL),
+          new SubscriptionRetrieverImpl(SOURCE1_BASE_URL)))
       .addSource(
         RemoteSchemaSource.create(
           SOURCE2_NAME,
           new IntrospectionRetrieverImpl(SOURCE2_BASE_URL),
-          new QueryRetrieverImpl(SOURCE2_BASE_URL)))
+          new QueryRetrieverImpl(SOURCE2_BASE_URL),
+          new SubscriptionRetrieverImpl(SOURCE2_BASE_URL)))
       .build();
   }
 }

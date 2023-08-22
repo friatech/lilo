@@ -27,13 +27,14 @@ import graphql.GraphQLError;
 import graphql.introspection.IntrospectionResultToSchema;
 import graphql.language.FieldDefinition;
 import graphql.language.ObjectTypeDefinition;
-import graphql.schema.DataFetchingEnvironment;
+import graphql.language.OperationDefinition;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import graphql.schema.idl.TypeRuntimeWiring;
 import io.fria.lilo.error.LiloGraphQLError;
 import io.fria.lilo.error.SourceDataFetcherException;
+import io.fria.lilo.subscription.SubscriptionRetriever;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -61,16 +62,19 @@ public final class RemoteSchemaSource implements SchemaSource {
   private final String schemaName;
   private final IntrospectionRetriever<?> introspectionRetriever;
   private final QueryRetriever<?> queryRetriever;
+  private final SubscriptionRetriever subscriptionRetriever;
   private TypeDefinitionRegistry typeDefinitionRegistry;
   private RuntimeWiring runtimeWiring;
 
   private RemoteSchemaSource(
       final @NotNull String schemaName,
       final @NotNull IntrospectionRetriever<?> introspectionRetriever,
-      final @NotNull QueryRetriever<?> queryRetriever) {
+      final @NotNull QueryRetriever<?> queryRetriever,
+      final @Nullable SubscriptionRetriever subscriptionRetriever) {
     this.schemaName = schemaName;
     this.introspectionRetriever = introspectionRetriever;
     this.queryRetriever = queryRetriever;
+    this.subscriptionRetriever = subscriptionRetriever;
   }
 
   public static @NotNull SchemaSource create(
@@ -79,7 +83,8 @@ public final class RemoteSchemaSource implements SchemaSource {
     return new RemoteSchemaSource(
         Objects.requireNonNull(schemaName),
         new DefaultRemoteIntrospectionRetriever(schemaUrl),
-        new DefaultRemoteQueryRetriever(schemaUrl));
+        new DefaultRemoteQueryRetriever(schemaUrl),
+        new DefaultRemoteSubscriptionRetriever(schemaUrl));
   }
 
   public static @NotNull SchemaSource create(
@@ -90,7 +95,21 @@ public final class RemoteSchemaSource implements SchemaSource {
     return new RemoteSchemaSource(
         Objects.requireNonNull(schemaName),
         Objects.requireNonNull(introspectionRetriever),
-        Objects.requireNonNull(queryRetriever));
+        Objects.requireNonNull(queryRetriever),
+        null);
+  }
+
+  public static @NotNull SchemaSource create(
+      final @NotNull String schemaName,
+      final @NotNull IntrospectionRetriever<?> introspectionRetriever,
+      final @NotNull QueryRetriever<?> queryRetriever,
+      final @Nullable SubscriptionRetriever subscriptionRetriever) {
+
+    return new RemoteSchemaSource(
+        Objects.requireNonNull(schemaName),
+        Objects.requireNonNull(introspectionRetriever),
+        Objects.requireNonNull(queryRetriever),
+        subscriptionRetriever);
   }
 
   private static @Nullable Object fetchData(
@@ -194,6 +213,11 @@ public final class RemoteSchemaSource implements SchemaSource {
   public @NotNull CompletableFuture<SchemaSource> loadSchema(
       final @NotNull LiloContext liloContext, final @Nullable Object localContext) {
 
+    // TODO: Maybe there should be async and sync retrievers
+    if (this.subscriptionRetriever != null) {
+      this.subscriptionRetriever.connect(liloContext, this, localContext);
+    }
+
     if (this.introspectionRetriever instanceof AsyncIntrospectionRetriever) {
       final AsyncIntrospectionRetriever introspectionRetriever =
           (AsyncIntrospectionRetriever) this.introspectionRetriever;
@@ -232,20 +256,20 @@ public final class RemoteSchemaSource implements SchemaSource {
   }
 
   private @NotNull CompletableFuture<Object> fetchData(
-      final @NotNull DataFetchingEnvironment environment, final @NotNull LiloContext liloContext) {
+      final @NotNull GraphQLQuery query,
+      final @NotNull LiloContext liloContext,
+      final @Nullable Object localContext) {
 
     if (this.queryRetriever instanceof AsyncQueryRetriever) {
-      final var query = QueryTransformer.extractQuery(environment);
       final var graphQLResultFuture =
-          RemoteSchemaSource.this.execute(liloContext, query, environment.getLocalContext());
+          RemoteSchemaSource.this.execute(liloContext, query, localContext);
 
       return graphQLResultFuture.thenApply(executionResult -> fetchData(graphQLResultFuture));
     } else {
       return CompletableFuture.supplyAsync(
           () -> {
-            final var query = QueryTransformer.extractQuery(environment);
             final var graphQLResultFuture =
-                RemoteSchemaSource.this.execute(liloContext, query, environment.getLocalContext());
+                RemoteSchemaSource.this.execute(liloContext, query, localContext);
 
             return fetchData(graphQLResultFuture);
           });
@@ -308,7 +332,23 @@ public final class RemoteSchemaSource implements SchemaSource {
     final List<FieldDefinition> fields = typeDefinition.getFieldDefinitions();
 
     for (final FieldDefinition field : fields) {
-      typeWiringBuilder.dataFetcher(field.getName(), e -> this.fetchData(e, liloContext));
+      typeWiringBuilder.dataFetcher(
+          field.getName(),
+          e -> {
+            final var query = QueryTransformer.extractQuery(e);
+
+            // TODO: There's a problem here
+            if (query.getOperationType() == OperationDefinition.Operation.SUBSCRIPTION) {
+              return new Publisher<>() {
+                @Override
+                public void subscribe(final Subscriber<? super Object> s) {
+                  System.out.println("vada");
+                }
+              };
+            } else {
+              return this.fetchData(query, liloContext, e.getLocalContext());
+            }
+          });
     }
 
     return Optional.of(typeWiringBuilder.build());
