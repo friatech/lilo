@@ -237,4 +237,3 @@ merged graphQL olusturulur.
 
 TODO: createGraphQL static metod olabilir ayrica baska bir utility class'da da olabilir.
 
-TODO: orneklerde SOURCE_BASE_URL var daha sonra gereksiz bir bicimde graphql ekleniyor. Bunu SOURCE_SCHEMA_URL yapabiliriz.

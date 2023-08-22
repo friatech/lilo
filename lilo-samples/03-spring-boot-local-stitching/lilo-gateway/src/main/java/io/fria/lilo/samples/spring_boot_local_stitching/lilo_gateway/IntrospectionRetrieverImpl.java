@@ -32,7 +32,7 @@ class IntrospectionRetrieverImpl implements SyncIntrospectionRetriever {
   private final RestTemplate restTemplate;
 
   IntrospectionRetrieverImpl(final @NotNull String schemaUrl) {
-    this.schemaUrl = schemaUrl + "/graphql";
+    this.schemaUrl = schemaUrl;
     this.restTemplate =
         new RestTemplateBuilder()
             .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)

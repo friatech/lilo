@@ -32,9 +32,10 @@ class IntrospectionRetrieverImpl implements SyncIntrospectionRetriever {
 
   IntrospectionRetrieverImpl(final @NotNull String schemaUrl) {
     this.schemaUrl = schemaUrl;
-    this.webClient = WebClient.builder()
-        .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-        .build();
+    this.webClient =
+        WebClient.builder()
+            .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+            .build();
   }
 
   @Override
@@ -44,11 +45,13 @@ class IntrospectionRetrieverImpl implements SyncIntrospectionRetriever {
       final @NotNull String query,
       final @Nullable Object localContext) {
 
-    return Objects.requireNonNull(this.webClient.post()
-        .uri(this.schemaUrl)
-        .bodyValue(query)
-        .retrieve()
-        .bodyToMono(String.class)
-        .block());
+    return Objects.requireNonNull(
+        this.webClient
+            .post()
+            .uri(this.schemaUrl)
+            .bodyValue(query)
+            .retrieve()
+            .bodyToMono(String.class)
+            .block());
   }
 }

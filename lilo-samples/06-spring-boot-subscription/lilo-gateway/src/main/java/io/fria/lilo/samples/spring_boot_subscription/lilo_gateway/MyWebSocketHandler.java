@@ -15,7 +15,7 @@ import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 @Component
 public class MyWebSocketHandler extends AbstractWebSocketHandler {
 
-  private final Lilo                                 lilo;
+  private final Lilo lilo;
   private final LiloSubscriptionDefaultServerHandler defaultHandler;
 
   public MyWebSocketHandler(final @NotNull Lilo lilo) {
@@ -24,7 +24,9 @@ public class MyWebSocketHandler extends AbstractWebSocketHandler {
   }
 
   @Override
-  protected void handleTextMessage(final @NotNull WebSocketSession session, final @NotNull TextMessage message) throws IOException {
+  protected void handleTextMessage(
+      final @NotNull WebSocketSession session, final @NotNull TextMessage message)
+      throws IOException {
 
     final Object response = this.defaultHandler.handleMessage(message.getPayload());
 
@@ -32,29 +34,26 @@ public class MyWebSocketHandler extends AbstractWebSocketHandler {
       session.sendMessage(new TextMessage((String) response));
     } else if (response instanceof Publisher) {
       final Publisher publisher = (Publisher) response;
-      publisher.subscribe(new Subscriber() {
-        @Override
-        public void onSubscribe(final Subscription subscription) {
+      publisher.subscribe(
+          new Subscriber() {
+            @Override
+            public void onSubscribe(final Subscription subscription) {}
 
-        }
+            @Override
+            public void onNext(final Object o) {
+              try {
+                session.sendMessage(new TextMessage((String) o));
+              } catch (final IOException e) {
+                throw new RuntimeException(e);
+              }
+            }
 
-        @Override
-        public void onNext(final Object o) {
-          try {
-            session.sendMessage(new TextMessage((String) o));
-          } catch (final IOException e) {
-            throw new RuntimeException(e);
-          }
-        }
+            @Override
+            public void onError(final Throwable throwable) {}
 
-        @Override
-        public void onError(final Throwable throwable) {
-        }
-
-        @Override
-        public void onComplete() {
-        }
-      });
+            @Override
+            public void onComplete() {}
+          });
     }
   }
 }

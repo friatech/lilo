@@ -33,20 +33,28 @@ public class WebSocketConfig implements WebSocketConfigurer {
       throw new RuntimeException(e);
     }
 
-    registry.addHandler(new MyWebSocketHandler(this.lilo), "/graphql")
-      .addInterceptors(new HandshakeInterceptor() {
-        @Override
-        public boolean beforeHandshake(final ServerHttpRequest request, final ServerHttpResponse response, final WebSocketHandler wsHandler, final Map<String, Object> attributes) {
-          response.getHeaders().add("Sec-WebSocket-Protocol", "graphql-transport-ws");
-          return true;
-        }
+    registry
+        .addHandler(new MyWebSocketHandler(this.lilo), "/graphql")
+        .addInterceptors(
+            new HandshakeInterceptor() {
+              @Override
+              public boolean beforeHandshake(
+                  final ServerHttpRequest request,
+                  final ServerHttpResponse response,
+                  final WebSocketHandler wsHandler,
+                  final Map<String, Object> attributes) {
+                response.getHeaders().add("Sec-WebSocket-Protocol", "graphql-transport-ws");
+                return true;
+              }
 
-        @Override
-        public void afterHandshake(final ServerHttpRequest request, final ServerHttpResponse response, final WebSocketHandler wsHandler, final Exception exception) {
-
-        }
-      })
-      .setHandshakeHandler(new DefaultHandshakeHandler())
-      .setAllowedOrigins("*");
+              @Override
+              public void afterHandshake(
+                  final ServerHttpRequest request,
+                  final ServerHttpResponse response,
+                  final WebSocketHandler wsHandler,
+                  final Exception exception) {}
+            })
+        .setHandshakeHandler(new DefaultHandshakeHandler())
+        .setAllowedOrigins("*");
   }
 }

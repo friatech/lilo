@@ -28,28 +28,31 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 class QueryRetrieverImpl implements SyncQueryRetriever {
 
-    private final String    schemaUrl;
-    private final WebClient webClient;
+  private final String schemaUrl;
+  private final WebClient webClient;
 
-    QueryRetrieverImpl(final @NotNull String schemaUrl) {
-        this.schemaUrl = schemaUrl;
-        this.webClient = WebClient.builder()
+  QueryRetrieverImpl(final @NotNull String schemaUrl) {
+    this.schemaUrl = schemaUrl;
+    this.webClient =
+        WebClient.builder()
             .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
             .build();
-    }
+  }
 
-    @Override
-    public @NotNull String get(
-        final @NotNull LiloContext liloContext,
-        final @NotNull SchemaSource schemaSource,
-        final @NotNull GraphQLQuery graphQLQuery,
-        final @Nullable Object localContext) {
+  @Override
+  public @NotNull String get(
+      final @NotNull LiloContext liloContext,
+      final @NotNull SchemaSource schemaSource,
+      final @NotNull GraphQLQuery graphQLQuery,
+      final @Nullable Object localContext) {
 
-        return Objects.requireNonNull(this.webClient.post()
+    return Objects.requireNonNull(
+        this.webClient
+            .post()
             .uri(this.schemaUrl)
             .bodyValue(graphQLQuery.getQuery())
             .retrieve()
             .bodyToMono(String.class)
             .block());
-    }
+  }
 }
