@@ -31,7 +31,7 @@ class IntrospectionRetrieverImpl implements SyncIntrospectionRetriever {
   private final WebClient webClient;
 
   IntrospectionRetrieverImpl(final @NotNull String schemaUrl) {
-    this.schemaUrl = schemaUrl + "/graphql";
+    this.schemaUrl = schemaUrl;
     this.webClient = WebClient.builder()
         .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
         .build();

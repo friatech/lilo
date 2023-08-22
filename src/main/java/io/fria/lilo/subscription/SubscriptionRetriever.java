@@ -14,10 +14,15 @@ public interface SubscriptionRetriever {
       @NotNull SchemaSource schemaSource,
       @Nullable Object localContext);
 
+  void sendQuery(
+      @NotNull LiloContext liloContext,
+      @NotNull SchemaSource schemaSource,
+      @NotNull GraphQLQuery query,
+      @Nullable Object localContext);
+
   @NotNull
   Publisher<String> subscribe(
       @NotNull LiloContext liloContext,
       @NotNull SchemaSource schemaSource,
-      @NotNull GraphQLQuery query,
       @Nullable Object localContext);
 }

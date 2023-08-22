@@ -59,11 +59,11 @@ public final class RemoteSchemaSource implements SchemaSource {
               .operationName("IntrospectionQuery")
               .build());
 
-  private final String schemaName;
-  private final IntrospectionRetriever<?> introspectionRetriever;
-  private final QueryRetriever<?> queryRetriever;
-  private final SubscriptionRetriever subscriptionRetriever;
-  private TypeDefinitionRegistry typeDefinitionRegistry;
+  private @NotNull final String schemaName;
+  private @NotNull final IntrospectionRetriever<?> introspectionRetriever;
+  private @NotNull final QueryRetriever<?> queryRetriever;
+  private @Nullable final SubscriptionRetriever subscriptionRetriever;
+  private @Nullable TypeDefinitionRegistry typeDefinitionRegistry;
   private RuntimeWiring runtimeWiring;
 
   private RemoteSchemaSource(
@@ -339,12 +339,13 @@ public final class RemoteSchemaSource implements SchemaSource {
 
             // TODO: There's a problem here
             if (query.getOperationType() == OperationDefinition.Operation.SUBSCRIPTION) {
-              return new Publisher<>() {
-                @Override
-                public void subscribe(final Subscriber<? super Object> s) {
-                  System.out.println("vada");
-                }
-              };
+              if (this.subscriptionRetriever != null) {
+                this.subscriptionRetriever.sendQuery(liloContext, this, query, e.getLocalContext());
+                return this.subscriptionRetriever.subscribe(liloContext, this, e.getLocalContext());
+              } else {
+                // TODO: Better exception handling
+                throw new Exception("");
+              }
             } else {
               return this.fetchData(query, liloContext, e.getLocalContext());
             }

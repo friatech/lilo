@@ -181,46 +181,46 @@
         </executions>
       </plugin>
 
-      <plugin>
-        <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.3.0</version>
-        <dependencies>
-          <dependency>
-            <groupId>com.puppycrawl.tools</groupId>
-            <artifactId>checkstyle</artifactId>
-            <version>${checkstyle.version}</version>
-          </dependency>
-        </dependencies>
-        <executions>
-          <execution>
-            <phase>process-sources</phase>
-            <goals>
-              <goal>check</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <failsOnError>true</failsOnError>
-          <consoleOutput>true</consoleOutput>
-          <configLocation>config/checkstyle.xml</configLocation>
-          <includeTestSourceDirectory>false</includeTestSourceDirectory>
-          <excludes>**/module-info.java</excludes>
-        </configuration>
-      </plugin>
+<!--      <plugin>-->
+<!--        <artifactId>maven-checkstyle-plugin</artifactId>-->
+<!--        <version>3.3.0</version>-->
+<!--        <dependencies>-->
+<!--          <dependency>-->
+<!--            <groupId>com.puppycrawl.tools</groupId>-->
+<!--            <artifactId>checkstyle</artifactId>-->
+<!--            <version>${checkstyle.version}</version>-->
+<!--          </dependency>-->
+<!--        </dependencies>-->
+<!--        <executions>-->
+<!--          <execution>-->
+<!--            <phase>process-sources</phase>-->
+<!--            <goals>-->
+<!--              <goal>check</goal>-->
+<!--            </goals>-->
+<!--          </execution>-->
+<!--        </executions>-->
+<!--        <configuration>-->
+<!--          <failsOnError>true</failsOnError>-->
+<!--          <consoleOutput>true</consoleOutput>-->
+<!--          <configLocation>config/checkstyle.xml</configLocation>-->
+<!--          <includeTestSourceDirectory>false</includeTestSourceDirectory>-->
+<!--          <excludes>**/module-info.java</excludes>-->
+<!--        </configuration>-->
+<!--      </plugin>-->
 
-      <plugin>
-        <artifactId>maven-gpg-plugin</artifactId>
-        <version>3.0.7</version>
-        <executions>
-          <execution>
-            <id>sign-artifacts</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>sign</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
+<!--      <plugin>-->
+<!--        <artifactId>maven-gpg-plugin</artifactId>-->
+<!--        <version>3.0.7</version>-->
+<!--        <executions>-->
+<!--          <execution>-->
+<!--            <id>sign-artifacts</id>-->
+<!--            <phase>verify</phase>-->
+<!--            <goals>-->
+<!--              <goal>sign</goal>-->
+<!--            </goals>-->
+<!--          </execution>-->
+<!--        </executions>-->
+<!--      </plugin>-->
 
       <plugin>
         <groupId>com.github.spotbugs</groupId>

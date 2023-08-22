@@ -35,7 +35,7 @@ public class MyWebSocketHandler extends AbstractWebSocketHandler {
       publisher.subscribe(new Subscriber() {
         @Override
         public void onSubscribe(final Subscription subscription) {
-          System.out.println("xxxxxxxxxxxxxxx");
+
         }
 
         @Override
@@ -49,16 +49,12 @@ public class MyWebSocketHandler extends AbstractWebSocketHandler {
 
         @Override
         public void onError(final Throwable throwable) {
-          System.out.println("zzzzzzzzzzzzzzz");
         }
 
         @Override
         public void onComplete() {
-          System.out.println("aaaaaaaaaaaaaaa");
         }
       });
     }
-
-
   }
 }

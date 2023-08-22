@@ -21,10 +21,16 @@ public class DefaultRemoteSubscriptionRetriever implements SubscriptionRetriever
       @Nullable final Object localContext) {}
 
   @Override
-  public @NotNull Publisher<String> subscribe(
+  public void sendQuery(
       @NotNull final LiloContext liloContext,
       @NotNull final SchemaSource schemaSource,
       @NotNull final GraphQLQuery query,
+      @Nullable final Object localContext) {}
+
+  @Override
+  public @NotNull Publisher<String> subscribe(
+      @NotNull final LiloContext liloContext,
+      @NotNull final SchemaSource schemaSource,
       @Nullable final Object localContext) {
     return null;
   }

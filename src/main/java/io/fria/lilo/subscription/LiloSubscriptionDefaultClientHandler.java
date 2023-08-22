@@ -1,76 +1,51 @@
 package io.fria.lilo.subscription;
 
-import io.fria.lilo.GraphQLRequest;
+import io.fria.lilo.GraphQLQuery;
 import io.fria.lilo.JsonUtils;
-import io.fria.lilo.Lilo;
+import java.io.IOException;
 import java.util.HashMap;
-import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 public class LiloSubscriptionDefaultClientHandler implements LiloSubscriptionHandler {
 
-  private final Lilo lilo;
-
-  public LiloSubscriptionDefaultClientHandler(final @NotNull Lilo lilo) {
-    this.lilo = lilo;
-  }
+  public LiloSubscriptionDefaultClientHandler() {}
 
   @Override
   public @NotNull Object handleMessage(final @NotNull String wsMessage) {
-
-    final GraphQLSubscriptionMessage response = this.createResponse(wsMessage);
-
-    if (response == null) {
-      throw new IllegalArgumentException("Incorrect message content");
-    }
-
-    if ("next".equals(response.getType())) {
-      final Map<String, Object> payload = (Map<String, Object>) response.getPayload();
-      final Map<String, Object> data = (Map<String, Object>) payload.get("data");
-      // TODO: data inside data. that's suspicious
-      return data.get("data");
-    }
-
-    return JsonUtils.toStr(response);
+    return null;
   }
 
-  private @Nullable GraphQLSubscriptionMessage createResponse(final @NotNull String wsMessage) {
+  public void startHandShaking(final @NotNull SubscriptionMessageSender subscriptionMessageSender)
+      throws IOException {
+
+    final GraphQLSubscriptionMessage initMessage = new GraphQLSubscriptionMessage();
+    initMessage.setType("connection_init");
+    initMessage.setPayload(new HashMap<>());
+
+    Objects.requireNonNull(subscriptionMessageSender).send(JsonUtils.toStr(initMessage));
+  }
+
+  public GraphQLSubscriptionMessage convertToSubscriptionMessage(
+      final @NotNull String jsonMessage) {
+
     final Optional<GraphQLSubscriptionMessage> requestOptional =
-        JsonUtils.toObj(wsMessage, GraphQLSubscriptionMessage.class);
+        JsonUtils.toObj(jsonMessage, GraphQLSubscriptionMessage.class);
 
-    if (requestOptional.isEmpty()) {
-      return null;
-    }
+    return requestOptional.orElse(null);
+  }
 
-    final GraphQLSubscriptionMessage request = requestOptional.get();
+  public void sendQuery(
+      final @NotNull GraphQLQuery query,
+      final @NotNull SubscriptionMessageSender subscriptionMessageSender)
+      throws IOException {
+    final GraphQLSubscriptionMessage response = new GraphQLSubscriptionMessage();
+    response.setId(UUID.randomUUID().toString());
+    response.setType("subscribe");
 
-    if ("connection_ack".equals(request.getType())) {
-      final GraphQLSubscriptionMessage response = new GraphQLSubscriptionMessage();
-      response.setType("subscribe");
-      response.setPayload(new HashMap<>());
-      return response;
-    } else if ("subscribe".equals(request.getType())) {
-      final Optional<GraphQLRequest> graphQLRequest =
-          JsonUtils.toObj(JsonUtils.toStr(request.getPayload()), GraphQLRequest.class);
-
-      if (graphQLRequest.isEmpty()) {
-        return null;
-      }
-
-      final GraphQLSubscriptionMessage response = new GraphQLSubscriptionMessage();
-      response.setId(request.getId());
-      response.setType("next");
-
-      final HashMap<Object, Object> payloadMap = new HashMap<>();
-      payloadMap.put(
-          "data", this.lilo.stitch(graphQLRequest.get().toExecutionInput()).toSpecification());
-      response.setPayload(payloadMap);
-
-      return response;
-    }
-
-    return null;
+    response.setPayload(Objects.requireNonNull(query.getQuery()));
+    Objects.requireNonNull(subscriptionMessageSender).send(JsonUtils.toStr(response));
   }
 }

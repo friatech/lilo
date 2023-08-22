@@ -9,10 +9,12 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class LiloConfiguration {
 
-  private static final String SOURCE1_NAME     = "SERVER1";
-  private static final String SOURCE1_BASE_URL = "http://localhost:8081";
-  private static final String SOURCE2_NAME     = "SERVER2";
-  private static final String SOURCE2_BASE_URL = "http://localhost:8082";
+  private static final String SOURCE1_NAME           = "SERVER1";
+  private static final String SOURCE1_GRAPHQL_URL    = "http://localhost:8081/graphql";
+  private static final String SOURCE1_GRAPHQL_WS_URL = "ws://localhost:8081/graphql";
+  private static final String SOURCE2_NAME           = "SERVER2";
+  private static final String SOURCE2_GRAPHQL_URL    = "http://localhost:8082/graphql";
+  private static final String SOURCE2_GRAPHQL_WS_URL = "ws://localhost:8082/graphql";
 
   @Bean
   public @NotNull Lilo lilo() {
@@ -21,15 +23,15 @@ public class LiloConfiguration {
       .addSource(
         RemoteSchemaSource.create(
           SOURCE1_NAME,
-          new IntrospectionRetrieverImpl(SOURCE1_BASE_URL),
-          new QueryRetrieverImpl(SOURCE1_BASE_URL),
-          new SubscriptionRetrieverImpl(SOURCE1_BASE_URL)))
-      .addSource(
-        RemoteSchemaSource.create(
-          SOURCE2_NAME,
-          new IntrospectionRetrieverImpl(SOURCE2_BASE_URL),
-          new QueryRetrieverImpl(SOURCE2_BASE_URL),
-          new SubscriptionRetrieverImpl(SOURCE2_BASE_URL)))
+          new IntrospectionRetrieverImpl(SOURCE1_GRAPHQL_URL),
+          new QueryRetrieverImpl(SOURCE1_GRAPHQL_URL),
+          new SubscriptionRetrieverImpl(SOURCE1_GRAPHQL_WS_URL)))
+//      .addSource(
+//        RemoteSchemaSource.create(
+//          SOURCE2_NAME,
+//          new IntrospectionRetrieverImpl(SOURCE2_GRAPHQL_URL),
+//          new QueryRetrieverImpl(SOURCE2_GRAPHQL_URL),
+//          new SubscriptionRetrieverImpl(SOURCE2_GRAPHQL_WS_URL)))
       .build();
   }
 }
