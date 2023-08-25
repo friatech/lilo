@@ -149,6 +149,12 @@ final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
 
 The localContext object is now accessible from your `IntrospectionRetriever` and `QueryRetriever`.
 
+## Additional Resources
+
+You can watch `Tame Your Spring Microservices With GraphQL Stitching Using Lilo` presentation.
+
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/5GQpxqORlr0/0.jpg)](https://www.youtube.com/watch?v=5GQpxqORlr0)
+
 ## Lilo's sisters
 
 - [Atlassian Braid](https://bitbucket.org/atlassian/graphql-braid)
