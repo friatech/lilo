@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.reactivestreams.Publisher;
+import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.WebSocketSession;
@@ -55,37 +56,55 @@ public class SubscriptionRetrieverImpl implements SubscriptionRetriever {
       @NotNull final GraphQLQuery query,
       @Nullable final Object localContext) {
 
-    final Sinks.Many<Object> sink = Sinks.many().unicast().onBackpressureBuffer();
+    final Sinks.Many<Object> sink = Sinks.many().multicast().onBackpressureBuffer();
+    WebSocketSession session;
 
     try {
       final WebSocketHttpHeaders httpHeaders = new WebSocketHttpHeaders();
       httpHeaders.add("Sec-WebSocket-Protocol", "graphql-transport-ws");
-      final WebSocketSession session =
+      session =
           this.webSocketClient
               .execute(
                   new AbstractWebSocketHandler() {
+
+                    @Override
+                    public void afterConnectionClosed(
+                        final WebSocketSession session, final CloseStatus status) {
+                      sink.tryEmitComplete();
+                    }
+
                     @Override
                     protected void handleTextMessage(
-                        final @NotNull WebSocketSession session, final @NotNull TextMessage message)
-                        throws Exception {
+                        final @NotNull WebSocketSession session,
+                        final @NotNull TextMessage message) {
 
-                      final GraphQLSubscriptionMessage subscriptionMessage =
-                          SubscriptionRetrieverImpl.this.liloHandler.convertToSubscriptionMessage(
-                              message.getPayload());
+                      try {
+                        final GraphQLSubscriptionMessage subscriptionMessage =
+                            SubscriptionRetrieverImpl.this.liloHandler.convertToSubscriptionMessage(
+                                message.getPayload());
 
-                      if ("connection_ack".equals(subscriptionMessage.getType())) {
-                        SubscriptionRetrieverImpl.this.liloHandler.sendQuery(
-                            query, m -> session.sendMessage(new TextMessage(m)));
-                      } else if ("next".equals(subscriptionMessage.getType())) {
-                        sink.tryEmitNext(subscriptionMessage.getPayload());
+                        if ("connection_ack".equals(subscriptionMessage.getType())) {
+                          SubscriptionRetrieverImpl.this.liloHandler.sendQuery(
+                              query, m -> session.sendMessage(new TextMessage(m)));
+                        } else if ("next".equals(subscriptionMessage.getType())) {
+                          sink.tryEmitNext(subscriptionMessage.getPayload());
+                        }
+                      } catch (final Exception e) {
+                        throw new RuntimeException(e);
                       }
                     }
                   },
                   httpHeaders,
                   new URI(this.subscriptionWsUrl))
               .get();
-      this.liloHandler.startHandShaking(m -> session.sendMessage(new TextMessage(m)));
-    } catch (final URISyntaxException | InterruptedException | ExecutionException | IOException e) {
+
+      if (session != null) {
+        final WebSocketSession finalSession = session;
+        this.liloHandler.startHandShaking(m -> finalSession.sendMessage(new TextMessage(m)));
+      }
+    } catch (final ExecutionException e) {
+      // pass
+    } catch (final URISyntaxException | InterruptedException | IOException e) {
       throw new RuntimeException(e);
     }
 

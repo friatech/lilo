@@ -49,7 +49,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
     }
 
     registry
-        .addHandler(new MyWebSocketHandler(this.lilo), "/graphql")
+        .addHandler(new GraphQlSubscriptionWebSocketHandler(this.lilo), "/graphql")
         .addInterceptors(
             new HandshakeInterceptor() {
               @Override
