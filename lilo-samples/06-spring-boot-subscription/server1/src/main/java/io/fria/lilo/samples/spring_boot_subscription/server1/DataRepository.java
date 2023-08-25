@@ -15,39 +15,39 @@
  */
 package io.fria.lilo.samples.spring_boot_subscription.server1;
 
-import org.springframework.boot.CommandLineRunner;
+import org.jetbrains.annotations.NotNull;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Repository;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
 @Repository
-public class DataRepository implements CommandLineRunner {
+public class DataRepository {
 
-  private static final String[] GREETINGS = {"Hi!", "Bonjour!", "Hola!", "Ciao!", "Zdravo!"};
+  private static final int SERVER_ID = 10_000;
+  private static final int MAX_CONCURRENT_SESSION = 10;
+  private static final int MESSAGE_COUNT_LIMIT = 1000;
+  private static final int DELAY_BETWEEN_PUSHES = 1000;
 
-  private final Sinks.Many<String> dataSink;
+  private int concurrentSessionId;
 
-  public DataRepository() {
-    this.dataSink = Sinks.many().unicast().onBackpressureBuffer();
-  }
+  @Async
+  public void generateData(final @NotNull Sinks.Many<String> dataSink) {
 
-  public Flux<String> getGreetingsStream() {
-    return this.dataSink.asFlux();
-  }
+    final int sessionNumber =
+        SERVER_ID + (++this.concurrentSessionId % MAX_CONCURRENT_SESSION * 1000);
 
-  @Override
-  public void run(final String... args) {
+    try {
+      dataSink.tryEmitNext("Hello " + sessionNumber);
 
-    int counter = 0;
-
-    while (true) {
-      this.dataSink.tryEmitNext(GREETINGS[counter++ % GREETINGS.length]);
-
-      try {
-        Thread.sleep(5_000);
-      } catch (final InterruptedException e) {
-        throw new RuntimeException(e);
+      for (int i = 0; i < MESSAGE_COUNT_LIMIT; i++) {
+        final int streamValue = sessionNumber + i;
+        Thread.sleep(DELAY_BETWEEN_PUSHES);
+        dataSink.tryEmitNext(streamValue + "");
       }
+    } catch (final InterruptedException e) {
+      dataSink.tryEmitError(e);
+    } finally {
+      dataSink.tryEmitComplete();
     }
   }
 }

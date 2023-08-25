@@ -18,7 +18,9 @@ package io.fria.lilo.samples.spring_boot_subscription.server2;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync;
 
+@EnableAsync
 @SpringBootApplication
 public class Server2Application {
 

@@ -20,13 +20,14 @@ import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.graphql.data.method.annotation.SubscriptionMapping;
 import org.springframework.stereotype.Controller;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Sinks;
 
 @Controller
 public class GreetingController {
 
-  private final DataRepository repository;
+  private @NotNull final DataRepository repository;
 
-  public GreetingController(final DataRepository repository) {
+  public GreetingController(final @NotNull DataRepository repository) {
     this.repository = repository;
   }
 
@@ -37,6 +38,11 @@ public class GreetingController {
 
   @SubscriptionMapping
   public @NotNull Flux<String> greeting2Subscription() {
-    return this.repository.getGreetingsStream();
+
+    final Sinks.Many<String> dataSink = Sinks.many().unicast().onBackpressureBuffer();
+
+    this.repository.generateData(dataSink);
+
+    return dataSink.asFlux();
   }
 }
