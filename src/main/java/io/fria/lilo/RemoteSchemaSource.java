@@ -44,7 +44,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -199,11 +198,6 @@ public final class RemoteSchemaSource implements SchemaSource {
   public @NotNull CompletableFuture<SchemaSource> loadSchema(
       final @NotNull LiloContext liloContext, final @Nullable Object localContext) {
 
-    // TODO: Maybe there should be async and sync retrievers
-    if (this.subscriptionRetriever != null) {
-      this.subscriptionRetriever.connect(liloContext, this, localContext);
-    }
-
     if (this.introspectionRetriever instanceof AsyncIntrospectionRetriever) {
       final AsyncIntrospectionRetriever introspectionRetriever =
           (AsyncIntrospectionRetriever) this.introspectionRetriever;
@@ -321,22 +315,19 @@ public final class RemoteSchemaSource implements SchemaSource {
       typeWiringBuilder.dataFetcher(
           field.getName(),
           e -> {
+            final Object localContext = e.getLocalContext();
             final var query = QueryTransformer.extractQuery(e);
 
-            // TODO: There's a problem here
             if (query.getOperationType() == OperationDefinition.Operation.SUBSCRIPTION) {
+              // TODO: Maybe there should be async and sync retrievers
               if (this.subscriptionRetriever != null) {
-                this.subscriptionRetriever.sendQuery(liloContext, this, query, e.getLocalContext());
-                final Publisher<Object> publisher =
-                    this.subscriptionRetriever.subscribe(liloContext, this, e.getLocalContext());
-
-                return publisher;
+                return this.subscriptionRetriever.sendQuery(liloContext, this, query, localContext);
               } else {
                 // TODO: Better exception handling
                 throw new Exception("");
               }
             } else {
-              return this.fetchData(query, liloContext, e.getLocalContext());
+              return this.fetchData(query, liloContext, localContext);
             }
           });
     }

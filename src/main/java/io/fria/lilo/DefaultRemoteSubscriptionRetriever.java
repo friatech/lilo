@@ -25,23 +25,12 @@ public class DefaultRemoteSubscriptionRetriever implements SubscriptionRetriever
   public DefaultRemoteSubscriptionRetriever(final @NotNull String schemaUrl) {}
 
   @Override
-  public void connect(
-      @NotNull final LiloContext liloContext,
-      @NotNull final SchemaSource schemaSource,
-      @Nullable final Object localContext) {}
-
-  @Override
-  public void sendQuery(
+  public @NotNull Publisher<Object> sendQuery(
       @NotNull final LiloContext liloContext,
       @NotNull final SchemaSource schemaSource,
       @NotNull final GraphQLQuery query,
-      @Nullable final Object localContext) {}
-
-  @Override
-  public @NotNull Publisher<Object> subscribe(
-      @NotNull final LiloContext liloContext,
-      @NotNull final SchemaSource schemaSource,
       @Nullable final Object localContext) {
-    return null;
+    // TODO: Implement this
+    throw new RuntimeException("Method is not implemented yet");
   }
 }

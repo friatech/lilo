@@ -24,20 +24,10 @@ import org.reactivestreams.Publisher;
 
 public interface SubscriptionRetriever {
 
-  void connect(
-      @NotNull LiloContext liloContext,
-      @NotNull SchemaSource schemaSource,
-      @Nullable Object localContext);
-
-  void sendQuery(
+  @NotNull
+  Publisher<Object> sendQuery(
       @NotNull LiloContext liloContext,
       @NotNull SchemaSource schemaSource,
       @NotNull GraphQLQuery query,
-      @Nullable Object localContext);
-
-  @NotNull
-  Publisher<Object> subscribe(
-      @NotNull LiloContext liloContext,
-      @NotNull SchemaSource schemaSource,
       @Nullable Object localContext);
 }

@@ -36,16 +36,12 @@ import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 import reactor.core.publisher.Sinks;
 
-public class SubscriptionRetrieverImpl extends AbstractWebSocketHandler
-    implements SubscriptionRetriever {
+public class SubscriptionRetrieverImpl implements SubscriptionRetriever {
 
   private final @NotNull String subscriptionWsUrl;
   private final @NotNull WebSocketClient webSocketClient;
   private final LiloSubscriptionDefaultClientHandler liloHandler =
       new LiloSubscriptionDefaultClientHandler();
-  private final Sinks.Many<Object> sink = Sinks.many().unicast().onBackpressureBuffer();
-  private WebSocketSession session;
-  private boolean readyForQuerySending;
 
   public SubscriptionRetrieverImpl(final @NotNull String subscriptionWsUrl) {
     this.subscriptionWsUrl = subscriptionWsUrl;
@@ -53,64 +49,46 @@ public class SubscriptionRetrieverImpl extends AbstractWebSocketHandler
   }
 
   @Override
-  public void connect(
-      @NotNull final LiloContext liloContext,
-      @NotNull final SchemaSource schemaSource,
-      @Nullable final Object localContext) {
-
-    try {
-      final WebSocketHttpHeaders httpHeaders = new WebSocketHttpHeaders();
-      httpHeaders.add("Sec-WebSocket-Protocol", "graphql-transport-ws");
-      httpHeaders.add("Sec-WebSocket-Version", "13");
-      httpHeaders.add("Sec-WebSocket-Extensions", "permessage-deflate; client_max_window_bits");
-      this.session =
-          this.webSocketClient.execute(this, httpHeaders, new URI(this.subscriptionWsUrl)).get();
-      this.liloHandler.startHandShaking(
-          m -> SubscriptionRetrieverImpl.this.session.sendMessage(new TextMessage(m)));
-    } catch (final URISyntaxException | InterruptedException | ExecutionException | IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  @Override
-  public void sendQuery(
+  public @NotNull Publisher<Object> sendQuery(
       @NotNull final LiloContext liloContext,
       @NotNull final SchemaSource schemaSource,
       @NotNull final GraphQLQuery query,
       @Nullable final Object localContext) {
 
-    // TODO: A Wait mechanism is needed
+    final Sinks.Many<Object> sink = Sinks.many().unicast().onBackpressureBuffer();
 
-    if (this.readyForQuerySending) {
-      try {
-        this.liloHandler.sendQuery(
-            query, m -> SubscriptionRetrieverImpl.this.session.sendMessage(new TextMessage(m)));
-      } catch (final IOException e) {
-        throw new RuntimeException(e);
-      }
+    try {
+      final WebSocketHttpHeaders httpHeaders = new WebSocketHttpHeaders();
+      httpHeaders.add("Sec-WebSocket-Protocol", "graphql-transport-ws");
+      final WebSocketSession session =
+          this.webSocketClient
+              .execute(
+                  new AbstractWebSocketHandler() {
+                    @Override
+                    protected void handleTextMessage(
+                        final @NotNull WebSocketSession session, final @NotNull TextMessage message)
+                        throws Exception {
+
+                      final GraphQLSubscriptionMessage subscriptionMessage =
+                          SubscriptionRetrieverImpl.this.liloHandler.convertToSubscriptionMessage(
+                              message.getPayload());
+
+                      if ("connection_ack".equals(subscriptionMessage.getType())) {
+                        SubscriptionRetrieverImpl.this.liloHandler.sendQuery(
+                            query, m -> session.sendMessage(new TextMessage(m)));
+                      } else if ("next".equals(subscriptionMessage.getType())) {
+                        sink.tryEmitNext(subscriptionMessage.getPayload());
+                      }
+                    }
+                  },
+                  httpHeaders,
+                  new URI(this.subscriptionWsUrl))
+              .get();
+      this.liloHandler.startHandShaking(m -> session.sendMessage(new TextMessage(m)));
+    } catch (final URISyntaxException | InterruptedException | ExecutionException | IOException e) {
+      throw new RuntimeException(e);
     }
-  }
 
-  @Override
-  public @NotNull Publisher<Object> subscribe(
-      @NotNull final LiloContext liloContext,
-      @NotNull final SchemaSource schemaSource,
-      @Nullable final Object localContext) {
-
-    return this.sink.asFlux();
-  }
-
-  @Override
-  protected void handleTextMessage(
-      final @NotNull WebSocketSession session, final @NotNull TextMessage message) {
-
-    final GraphQLSubscriptionMessage subscriptionMessage =
-        this.liloHandler.convertToSubscriptionMessage(message.getPayload());
-
-    if ("connection_ack".equals(subscriptionMessage.getType())) {
-      this.readyForQuerySending = true;
-    } else if ("next".equals(subscriptionMessage.getType())) {
-      this.sink.tryEmitNext(subscriptionMessage.getPayload());
-    }
+    return sink.asFlux();
   }
 }
