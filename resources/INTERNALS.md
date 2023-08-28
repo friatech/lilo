@@ -237,3 +237,10 @@ merged graphQL olusturulur.
 
 TODO: createGraphQL static metod olabilir ayrica baska bir utility class'da da olabilir.
 
+------------------------
+
+web socket test case'leri:
+
+- Tek bir altair connection baslat. Ardarda kapatip tekrar baslat
+- Altair connection baslat. Connection'i kapattiginda server'da "Data generation ended" logunu gormek gerek bu graceful shutdown manasina gelir.
+- Ayni anda 2 farkli server'a deneme yap

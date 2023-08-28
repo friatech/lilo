@@ -15,7 +15,9 @@
  */
 package io.fria.lilo.samples.spring_boot_subscription.server2;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.jetbrains.annotations.NotNull;
+import org.reactivestreams.Publisher;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.graphql.data.method.annotation.SubscriptionMapping;
 import org.springframework.stereotype.Controller;
@@ -37,12 +39,17 @@ public class GreetingController {
   }
 
   @SubscriptionMapping
-  public @NotNull Flux<String> greeting2Subscription() {
+  public @NotNull Publisher<String> greeting2Subscription() {
 
-    final Sinks.Many<String> dataSink = Sinks.many().unicast().onBackpressureBuffer();
+    final Sinks.Many<String> dataSink = Sinks.many().unicast().onBackpressureError();
+    final Flux<String> flux = dataSink.asFlux();
+    final AtomicBoolean dataGenerationIsStopped = new AtomicBoolean(false);
 
-    this.repository.generateData(dataSink);
+    this.repository.generateData(dataSink, dataGenerationIsStopped);
 
-    return dataSink.asFlux();
+    return flux.doOnError(t -> dataGenerationIsStopped.set(true))
+        .doOnComplete(() -> dataGenerationIsStopped.set(true))
+        .doOnCancel(() -> dataGenerationIsStopped.set(true))
+        .doOnTerminate(() -> dataGenerationIsStopped.set(true));
   }
 }

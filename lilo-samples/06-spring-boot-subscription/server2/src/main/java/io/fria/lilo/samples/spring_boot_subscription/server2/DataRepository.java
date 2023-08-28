@@ -15,6 +15,9 @@
  */
 package io.fria.lilo.samples.spring_boot_subscription.server2;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Repository;
@@ -23,15 +26,17 @@ import reactor.core.publisher.Sinks;
 @Repository
 public class DataRepository {
 
-  private static final int SERVER_ID = 10_000;
+  private static final int SERVER_ID = 20_000;
   private static final int MAX_CONCURRENT_SESSION = 10;
   private static final int MESSAGE_COUNT_LIMIT = 1000;
   private static final int DELAY_BETWEEN_PUSHES = 1000;
+  private static final Logger LOG = LogManager.getLogger();
 
   private int concurrentSessionId;
 
   @Async
-  public void generateData(final @NotNull Sinks.Many<String> dataSink) {
+  public void generateData(
+      final @NotNull Sinks.Many<String> dataSink, final AtomicBoolean dataGenerationIsStopped) {
 
     final int sessionNumber =
         SERVER_ID + (++this.concurrentSessionId % MAX_CONCURRENT_SESSION * 1000);
@@ -40,14 +45,25 @@ public class DataRepository {
       dataSink.tryEmitNext("Hello " + sessionNumber);
 
       for (int i = 0; i < MESSAGE_COUNT_LIMIT; i++) {
+
+        if (dataGenerationIsStopped.get()) {
+          break;
+        }
+
         final int streamValue = sessionNumber + i;
         Thread.sleep(DELAY_BETWEEN_PUSHES);
-        dataSink.tryEmitNext(streamValue + "");
+        final String message = streamValue + "";
+        dataSink.tryEmitNext(message);
+        LOG.info("Sending message {}", message);
       }
     } catch (final InterruptedException e) {
+      dataSink.tryEmitComplete();
+    } catch (final Exception e) {
       dataSink.tryEmitError(e);
+      LOG.error("An error occurred on {}", SERVER_ID, e);
     } finally {
       dataSink.tryEmitComplete();
+      LOG.info("Data generation ended for {}", SERVER_ID);
     }
   }
 }

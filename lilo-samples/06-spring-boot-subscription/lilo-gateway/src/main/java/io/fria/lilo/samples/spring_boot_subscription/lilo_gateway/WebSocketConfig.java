@@ -15,7 +15,6 @@
  */
 package io.fria.lilo.samples.spring_boot_subscription.lilo_gateway;
 
-import io.fria.lilo.Lilo;
 import java.lang.reflect.Method;
 import java.util.Map;
 import org.springframework.context.annotation.Configuration;
@@ -32,10 +31,10 @@ import org.springframework.web.socket.server.support.DefaultHandshakeHandler;
 @EnableWebSocket
 public class WebSocketConfig implements WebSocketConfigurer {
 
-  private final Lilo lilo;
+  private final GraphQlSubscriptionWebSocketHandler webSocketHandler;
 
-  public WebSocketConfig(final Lilo lilo) {
-    this.lilo = lilo;
+  public WebSocketConfig(final GraphQlSubscriptionWebSocketHandler webSocketHandler) {
+    this.webSocketHandler = webSocketHandler;
   }
 
   @Override
@@ -49,7 +48,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
     }
 
     registry
-        .addHandler(new GraphQlSubscriptionWebSocketHandler(this.lilo), "/graphql")
+        .addHandler(this.webSocketHandler, "/graphql")
         .addInterceptors(
             new HandshakeInterceptor() {
               @Override

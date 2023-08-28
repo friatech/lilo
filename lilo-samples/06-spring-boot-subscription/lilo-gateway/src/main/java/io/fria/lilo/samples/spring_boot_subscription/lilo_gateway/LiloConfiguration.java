@@ -41,12 +41,12 @@ public class LiloConfiguration {
                 new IntrospectionRetrieverImpl(SOURCE1_GRAPHQL_URL),
                 new QueryRetrieverImpl(SOURCE1_GRAPHQL_URL),
                 new SubscriptionRetrieverImpl(SOURCE1_GRAPHQL_WS_URL)))
-        //      .addSource(
-        //        RemoteSchemaSource.create(
-        //          SOURCE2_NAME,
-        //          new IntrospectionRetrieverImpl(SOURCE2_GRAPHQL_URL),
-        //          new QueryRetrieverImpl(SOURCE2_GRAPHQL_URL),
-        //          new SubscriptionRetrieverImpl(SOURCE2_GRAPHQL_WS_URL)))
+        .addSource(
+            RemoteSchemaSource.create(
+                SOURCE2_NAME,
+                new IntrospectionRetrieverImpl(SOURCE2_GRAPHQL_URL),
+                new QueryRetrieverImpl(SOURCE2_GRAPHQL_URL),
+                new SubscriptionRetrieverImpl(SOURCE2_GRAPHQL_WS_URL)))
         .build();
   }
 }
