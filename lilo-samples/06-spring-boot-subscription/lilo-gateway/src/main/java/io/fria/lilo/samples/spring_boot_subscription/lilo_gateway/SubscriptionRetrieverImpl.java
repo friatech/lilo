@@ -18,9 +18,9 @@ package io.fria.lilo.samples.spring_boot_subscription.lilo_gateway;
 import io.fria.lilo.GraphQLQuery;
 import io.fria.lilo.LiloContext;
 import io.fria.lilo.SchemaSource;
-import io.fria.lilo.subscription.GraphQLSubscriptionMessage;
-import io.fria.lilo.subscription.LiloSubscriptionDefaultClientHandler;
+import io.fria.lilo.subscription.SubscriptionMessage;
 import io.fria.lilo.subscription.SubscriptionRetriever;
+import io.fria.lilo.subscription.SubscriptionSourceHandler;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -41,8 +41,7 @@ public class SubscriptionRetrieverImpl implements SubscriptionRetriever {
 
   private final @NotNull String subscriptionWsUrl;
   private final @NotNull WebSocketClient webSocketClient;
-  private final LiloSubscriptionDefaultClientHandler liloHandler =
-      new LiloSubscriptionDefaultClientHandler();
+  private final SubscriptionSourceHandler liloHandler = new SubscriptionSourceHandler();
 
   public SubscriptionRetrieverImpl(final @NotNull String subscriptionWsUrl) {
     this.subscriptionWsUrl = subscriptionWsUrl;
@@ -57,7 +56,7 @@ public class SubscriptionRetrieverImpl implements SubscriptionRetriever {
       @Nullable final Object localContext) {
 
     final Sinks.Many<Object> sink = Sinks.many().multicast().onBackpressureBuffer();
-    WebSocketSession session;
+    final WebSocketSession   session;
 
     try {
       final WebSocketHttpHeaders httpHeaders = new WebSocketHttpHeaders();
@@ -79,7 +78,7 @@ public class SubscriptionRetrieverImpl implements SubscriptionRetriever {
                         final @NotNull TextMessage message) {
 
                       try {
-                        final GraphQLSubscriptionMessage subscriptionMessage =
+                        final SubscriptionMessage subscriptionMessage =
                             SubscriptionRetrieverImpl.this.liloHandler.convertToSubscriptionMessage(
                                 message.getPayload());
 

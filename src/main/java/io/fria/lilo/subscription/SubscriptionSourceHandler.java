@@ -24,23 +24,22 @@ import java.util.Optional;
 import java.util.UUID;
 import org.jetbrains.annotations.NotNull;
 
-public class LiloSubscriptionDefaultClientHandler {
+public class SubscriptionSourceHandler {
 
   public void startHandShaking(final @NotNull SubscriptionMessageSender subscriptionMessageSender)
       throws IOException {
 
-    final GraphQLSubscriptionMessage initMessage = new GraphQLSubscriptionMessage();
+    final SubscriptionMessage initMessage = new SubscriptionMessage();
     initMessage.setType("connection_init");
     initMessage.setPayload(new HashMap<>());
 
     Objects.requireNonNull(subscriptionMessageSender).send(JsonUtils.toStr(initMessage));
   }
 
-  public GraphQLSubscriptionMessage convertToSubscriptionMessage(
-      final @NotNull String jsonMessage) {
+  public SubscriptionMessage convertToSubscriptionMessage(final @NotNull String jsonMessage) {
 
-    final Optional<GraphQLSubscriptionMessage> requestOptional =
-        JsonUtils.toObj(jsonMessage, GraphQLSubscriptionMessage.class);
+    final Optional<SubscriptionMessage> requestOptional =
+        JsonUtils.toObj(jsonMessage, SubscriptionMessage.class);
 
     return requestOptional.orElse(null);
   }
@@ -49,7 +48,7 @@ public class LiloSubscriptionDefaultClientHandler {
       final @NotNull GraphQLQuery query,
       final @NotNull SubscriptionMessageSender subscriptionMessageSender)
       throws IOException {
-    final GraphQLSubscriptionMessage response = new GraphQLSubscriptionMessage();
+    final SubscriptionMessage response = new SubscriptionMessage();
     response.setId(UUID.randomUUID().toString());
     response.setType("subscribe");
 

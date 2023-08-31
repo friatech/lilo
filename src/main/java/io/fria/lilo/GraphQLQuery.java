@@ -75,11 +75,11 @@ public class GraphQLQuery {
 
   public static final class GraphQLQueryBuilder {
 
-    private String query;
-    private OperationDefinition.Operation operationType;
-    private Field queryNode;
-    private Map<String, Object> variables;
-    private Map<String, Object> arguments;
+    private @NotNull String query;
+    private @NotNull OperationDefinition.Operation operationType;
+    private @NotNull Field queryNode;
+    private @NotNull Map<String, Object> arguments;
+    private @Nullable Map<String, Object> variables;
 
     private GraphQLQueryBuilder() {
       // Private constructor

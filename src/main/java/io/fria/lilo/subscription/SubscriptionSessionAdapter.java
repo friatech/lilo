@@ -15,33 +15,14 @@
  */
 package io.fria.lilo.subscription;
 
-public class GraphQLSubscriptionMessage {
+import org.jetbrains.annotations.NotNull;
+import org.reactivestreams.Publisher;
 
-  private String id;
-  private String type;
-  private Object payload;
+public interface SubscriptionSessionAdapter {
 
-  public String getId() {
-    return this.id;
-  }
+  void closeSession();
 
-  public void setId(final String id) {
-    this.id = id;
-  }
+  void sendMessage(@NotNull String eventMessage);
 
-  public String getType() {
-    return this.type;
-  }
-
-  public void setType(final String type) {
-    this.type = type;
-  }
-
-  public Object getPayload() {
-    return this.payload;
-  }
-
-  public void setPayload(final Object payload) {
-    this.payload = payload;
-  }
+  void subscribe(@NotNull Publisher<Object> upstreamPublisher, @NotNull String requestId);
 }
