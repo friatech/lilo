@@ -20,22 +20,27 @@ import graphql.execution.DataFetcherExceptionHandlerParameters;
 import graphql.execution.DataFetcherExceptionHandlerResult;
 import graphql.execution.SimpleDataFetcherExceptionHandler;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.NotNull;
 
 public class SourceDataFetcherExceptionHandler extends SimpleDataFetcherExceptionHandler {
 
   @Override
-  public @NotNull DataFetcherExceptionHandlerResult onException(
+  public @NotNull CompletableFuture<DataFetcherExceptionHandlerResult> handleException(
       final @NotNull DataFetcherExceptionHandlerParameters handlerParameters) {
 
     final Throwable exception = handlerParameters.getException();
 
     if (exception instanceof SourceDataFetcherException) {
-      return DataFetcherExceptionHandlerResult.newResult()
-          .errors((List<GraphQLError>) ((SourceDataFetcherException) exception).getErrors())
-          .build();
+
+      final DataFetcherExceptionHandlerResult result =
+          DataFetcherExceptionHandlerResult.newResult()
+              .errors((List<GraphQLError>) ((SourceDataFetcherException) exception).getErrors())
+              .build();
+
+      return CompletableFuture.completedFuture(result);
     }
 
-    return super.onException(handlerParameters);
+    return super.handleException(handlerParameters);
   }
 }
