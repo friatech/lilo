@@ -6,7 +6,7 @@
 
   <groupId>io.fria.lilo.samples</groupId>
   <artifactId>lilo-samples</artifactId>
-  <version>23.8.0</version>
+  <version>23.11.1-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>lilo-samples</name>
@@ -49,14 +49,14 @@
     <java.version>17</java.version>
     <maven.compiler.source>17</maven.compiler.source>
     <maven.compiler.target>17</maven.compiler.target>
-    <maven.min.version>3.3.9</maven.min.version>
+    <maven.min.version>3.6.3</maven.min.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <slf4j.version>2.0.7</slf4j.version>
-    <junit.version>5.9.2</junit.version>
+    <slf4j.version>2.0.9</slf4j.version>
+    <junit.version>5.10.1</junit.version>
     <error-prone.version>2.18.0</error-prone.version>
-    <checkstyle.version>10.9.3</checkstyle.version>
-    <spotbugs.version>4.7.3</spotbugs.version>
+    <checkstyle.version>10.12.4</checkstyle.version>
+    <spotbugs.version>4.8.1</spotbugs.version>
   </properties>
 
   <build>
@@ -84,12 +84,12 @@
 
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.0.0</version>
+        <version>3.2.2</version>
       </plugin>
 
       <plugin>
         <artifactId>maven-source-plugin</artifactId>
-        <version>3.2.1</version>
+        <version>3.3.0</version>
         <executions>
           <execution>
             <id>attach-sources</id>
@@ -102,7 +102,7 @@
 
       <plugin>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.2.1</version>
+        <version>3.4.1</version>
         <executions>
           <execution>
             <id>enforce-versions</id>
@@ -125,7 +125,7 @@
 
       <plugin>
         <artifactId>maven-javadoc-plugin</artifactId>
-        <version>3.5.0</version>
+        <version>3.6.2</version>
         <executions>
           <execution>
             <id>attach-sources</id>
@@ -138,7 +138,7 @@
 
       <plugin>
         <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.2.1</version>
+        <version>3.3.0</version>
         <dependencies>
           <dependency>
             <groupId>com.puppycrawl.tools</groupId>
@@ -157,7 +157,7 @@
         <configuration>
           <failsOnError>true</failsOnError>
           <consoleOutput>true</consoleOutput>
-          <configLocation>config/checkstyle.xml</configLocation>
+          <configLocation>../config/checkstyle.xml</configLocation>
           <includeTestSourceDirectory>false</includeTestSourceDirectory>
           <excludes>**/module-info.java</excludes>
         </configuration>
@@ -166,7 +166,7 @@
       <plugin>
         <groupId>com.github.spotbugs</groupId>
         <artifactId>spotbugs-maven-plugin</artifactId>
-        <version>4.7.3.3</version>
+        <version>4.8.1.0</version>
         <dependencies>
           <dependency>
             <groupId>com.github.spotbugs</groupId>
@@ -179,7 +179,7 @@
       <plugin>
         <groupId>com.spotify.fmt</groupId>
         <artifactId>fmt-maven-plugin</artifactId>
-        <version>2.19</version>
+        <version>2.21.1</version>
         <executions>
           <execution>
             <goals>

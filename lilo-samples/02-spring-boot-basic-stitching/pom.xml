@@ -5,7 +5,7 @@
 
   <groupId>io.fria.lilo.samples.spring-boot-basic-stitching</groupId>
   <artifactId>spring-boot-basic-stitching-parent</artifactId>
-  <version>23.8.0</version>
+  <version>23.11.1-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>02-spring-boot-basic-stitching</name>
@@ -39,4 +39,21 @@
     <module>server1</module>
     <module>server2</module>
   </modules>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+  </properties>
+
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>3.3.0</version>
+        <configuration>
+          <configLocation>../../config/checkstyle.xml</configLocation>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 </project>
