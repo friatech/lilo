@@ -39,6 +39,9 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      - name: Build lilo and cache
+        run: mvn -B -ntp package install
+
       - name: Build with Maven
         run: cd lilo-samples && mvn -B -ntp package
 
