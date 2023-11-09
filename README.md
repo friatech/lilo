@@ -1,4 +1,4 @@
-# Lilo [![Build Status](https://github.com/friatech/lilo/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/friatech/lilo/actions/workflows/ci.yml?query=branch%3Amain) [![Latest Release](https://img.shields.io/maven-central/v/io.fria/lilo?versionPrefix=23.)](https://maven-badges.herokuapp.com/maven-central/io.fria/lilo/)
+# Lilo [![Build Status](https://github.com/friatech/lilo/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/friatech/lilo/actions/workflows/ci.yml?query=branch%3Amain) [![Latest Release](https://img.shields.io/maven-central/v/io.fria/lilo?versionPrefix=23.)](https://maven-badges.herokuapp.com/maven-central/io.fria/lilo/) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 ![Lilo and Stitch](resources/lilo-and-stitch.webp)
 
