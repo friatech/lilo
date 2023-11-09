@@ -1,3 +1,5 @@
+[![Build Status](https://github.com/friatech/lilo/actions/workflows/pr-check.yml/badge.svg?branch=main)](https://github.com/friatech/lilo/actions/workflows/pr-check.yml?query=branch%3Amain)
+
 # Lilo
 
 ![Lilo and Stitch](resources/lilo-and-stitch.webp)
@@ -16,7 +18,7 @@ Just add a single **Lilo** dependency to your `pom.xml` file.
   <dependency>
     <groupId>io.fria</groupId>
     <artifactId>lilo</artifactId>
-    <version>23.7.0</version>
+    <version>23.11.0</version>
   </dependency>
   ...
 </dependencies>
@@ -25,7 +27,7 @@ Just add a single **Lilo** dependency to your `pom.xml` file.
 If you're using gradle add the dependency to your `build.gradle` file.
 
 ```groovy
-implementation 'io.fria:lilo:23.6.0'
+implementation 'io.fria:lilo:23.11.0'
 ```
 
 ## Basic Usage

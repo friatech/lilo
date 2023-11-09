@@ -5,7 +5,7 @@
 
   <groupId>io.fria.lilo.samples.spring-boot-hello-world</groupId>
   <artifactId>spring-boot-hello-world-parent</artifactId>
-  <version>23.7.0</version>
+  <version>23.11.0</version>
   <packaging>pom</packaging>
 
   <name>01-spring-boot-hello-world</name>
@@ -34,9 +34,26 @@
     </developer>
   </developers>
 
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+  </properties>
+
   <modules>
     <module>lilo-gateway</module>
     <module>server1</module>
     <module>server2</module>
   </modules>
+
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>3.3.0</version>
+        <configuration>
+          <configLocation>../../config/checkstyle.xml</configLocation>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 </project>
