@@ -67,7 +67,7 @@
     <dependency>
       <groupId>io.fria</groupId>
       <artifactId>lilo</artifactId>
-      <version>23.11.0</version>
+      <version>23.11.1-SNAPSHOT</version>
     </dependency>
   </dependencies>
 

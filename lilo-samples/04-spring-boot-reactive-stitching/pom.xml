@@ -5,7 +5,7 @@
 
   <groupId>io.fria.lilo.samples.spring-boot-reactive-stitching</groupId>
   <artifactId>spring-boot-reactive-stitching-parent</artifactId>
-  <version>23.11.0</version>
+  <version>23.11.1-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>03-spring-boot-reactive-stitching</name>
