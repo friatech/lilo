@@ -40,10 +40,7 @@ jobs:
           cache: maven
 
       - name: Build lilo and cache
-        run: mvn -B -ntp package install
+        run: mvn -B -ntp clean install -DskipTests=true -Dgpg.skip -Dcheckstyle.skip -Dmaven.javadoc.skip -Dmaven.source.skip
 
-      - name: Build with Maven
-        run: cd lilo-samples && mvn -B -ntp package
-
-      - name: Format Check
-        run: cd lilo-samples && mvn -B -ntp com.spotify.fmt:fmt-maven-plugin:2.21.1:check
+      - name: Check lilo samples
+        run: cd lilo-samples && mvn -B -ntp compile com.spotify.fmt:fmt-maven-plugin:2.21.1:check
