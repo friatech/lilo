@@ -2,9 +2,9 @@
 
 ![Lilo and Stitch](resources/lilo-and-stitch.webp)
 
-**Lilo** is a super-fast GraphQL stitching library. Project is heavily inspired by [Atlassian Braid](https://bitbucket.org/atlassian/graphql-braid).
-**Lilo** focus on simplicity. You can find plenty of samples in the codebase and we aim to add more and more in every release.
-Please do not forget to check `/lilo-samples` directory for more sample project.
+**Lilo** is a super-fast GraphQL stitching library. The project is heavily inspired by [Atlassian Braid](https://bitbucket.org/atlassian/graphql-braid).
+**Lilo** focuses on simplicity and easy to use. You can find plenty of samples in the codebase and we aim to add more and more in every release.
+Please do not forget to check `/lilo-samples` directory for more sample projecta.
 
 ## Installation
 
@@ -30,8 +30,8 @@ implementation 'io.fria:lilo:23.11.0'
 
 ## Basic Usage
 
-Here is the story, Alice has 2 graphql microservices and she wants to make her gateway to dispatch
-the graphql requests to their respective microservices. `Microservice A` provides a GraphQL query for user listing,
+Here is the story, Alice has 2 GraphQL microservices and she wants to make her gateway to dispatch
+the GraphQL requests to their respective microservices. `Microservice A` provides a GraphQL query for user listing,
 and `Microservice B` provides a GraphQL mutation for user creation. So Alice can use both query and mutation via
 just sending requests to the `Gateway` directly. **Lilo** stitches the GraphQL schemas and provides a combined schema.
 
@@ -59,11 +59,11 @@ final Lilo lilo = Lilo.builder()
     .build();
 ```
 
-But for complete working example you need to serve the stitching logic from a graphql endpoint. (Probably `/graphql`)
+But for a complete working example you need to serve the stitching logic from a GraphQL endpoint. (Probably `/graphql`)
 Please examine the `01-spring-boot-hello-world` example in `lilo-samples` folder.
 
-In most cases, we need an authentication or some sort of header manipulation. In that case, creating a custom
-introspection and query retrievers might help us to modify outgoing requests or incoming responses. Following
+In most cases, we need an authentication or some sort of header manipulation. In that case, creating custom
+introspection and query retrievers might help us to modify outgoing requests or incoming responses. The following
 example shows a very basic example for custom retrievers.
 
 ```java
@@ -83,7 +83,7 @@ example shows a very basic example for custom retrievers.
     )
 ```
 
-For further details you can examine the `02-spring-boot-basic-stitching` example in `lilo-samples` folder.
+For further details, you can examine the `02-spring-boot-basic-stitching` example in `lilo-samples` folder.
 
 If Gateway distributes the messages to `Microservice A` and also contains an embedded schema then the architecture might
 be something like this:
