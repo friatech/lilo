@@ -1,6 +1,4 @@
-[![Build Status](https://github.com/friatech/lilo/actions/workflows/pr-check.yml/badge.svg?branch=main)](https://github.com/friatech/lilo/actions/workflows/pr-check.yml?query=branch%3Amain)
-
-# Lilo
+# Lilo [![Build Status](https://github.com/friatech/lilo/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/friatech/lilo/actions/workflows/ci.yml?query=branch%3Amain)
 
 ![Lilo and Stitch](resources/lilo-and-stitch.webp)
 
