@@ -58,7 +58,24 @@ public class SubscriptionSourceHandler {
       Objects.requireNonNull(session).send(JsonUtils.toStr(response));
     } else if ("next".equals(request.getType())) {
       this.publisher.send(Objects.requireNonNull(request.getPayload()));
+
+      this.publisher
+          .getFlux()
+          .doOnComplete(
+              () -> {
+                final SubscriptionMessage completeMessage = new SubscriptionMessage();
+                completeMessage.setId(request.getId());
+                completeMessage.setType("complete");
+                completeMessage.setPayload(new HashMap<>());
+
+                Objects.requireNonNull(session).send(JsonUtils.toStr(completeMessage));
+              })
+          .subscribe();
     }
+  }
+
+  public void handleSessionClose(final @Nullable WebSocketSessionWrapper session) {
+    this.publisher.close();
   }
 
   public void handleSessionStart(final @Nullable WebSocketSessionWrapper session) {
@@ -68,22 +85,5 @@ public class SubscriptionSourceHandler {
     initMessage.setPayload(new HashMap<>());
 
     Objects.requireNonNull(session).send(JsonUtils.toStr(initMessage));
-  }
-
-  public void handleSessionClose(final @Nullable WebSocketSessionWrapper session) {
-
-    if (session == null) {
-      return;
-    }
-
-    if (session.isOpen()) {
-      session.close();
-    }
-
-    final SubscriptionSourcePublisher publisher = session.getPublisher();
-
-    if (publisher != null) {
-      publisher.close();
-    }
   }
 }

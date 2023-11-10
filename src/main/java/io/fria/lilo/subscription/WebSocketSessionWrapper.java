@@ -16,7 +16,6 @@
 package io.fria.lilo.subscription;
 
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * WebSocketSessionWrapper encapsulates the basic session operations for making communication
@@ -28,6 +27,11 @@ public interface WebSocketSessionWrapper {
   void close();
 
   /**
+   * @return unique session id
+   */
+  String getId();
+
+  /**
    * indicates that session is open or not
    *
    * @return true for open session, false for closed session
@@ -35,24 +39,9 @@ public interface WebSocketSessionWrapper {
   boolean isOpen();
 
   /**
-   * Getter for publisher
-   *
-   * @return websocket message stream publisher
-   */
-  @Nullable
-  SubscriptionSourcePublisher getPublisher();
-
-  /**
    * Sends a string message
    *
    * @param message websocket string message
    */
   void send(@NotNull String message);
-
-  /**
-   * Setter for publisher
-   *
-   * @param publisher websocket message stream publisher
-   */
-  void setPublisher(@Nullable SubscriptionSourcePublisher publisher);
 }

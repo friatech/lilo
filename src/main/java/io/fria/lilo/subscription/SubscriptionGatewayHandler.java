@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -33,6 +34,8 @@ import org.jetbrains.annotations.Nullable;
 public class SubscriptionGatewayHandler {
 
   private final @NotNull Lilo lilo;
+  private final @NotNull Map<String, SubscriptionSourcePublisher> sessionPublishers =
+      new ConcurrentHashMap<>();
 
   /**
    * Constructs a handler instance using lilo
@@ -45,61 +48,6 @@ public class SubscriptionGatewayHandler {
 
   public void handleMessage(
       final @Nullable WebSocketSessionWrapper session, final @NotNull String message) {
-
-    // > HTTP GET /graphql
-    // <                                                               HTTP 1.1 101 Switching
-    // protocols
-    // > {
-    //     "type": "connection_init",
-    //     "payload": {}
-    //   }
-    // <                                                               {
-    //                                                                   "id": null,
-    //                                                                   "type": "connection_ack",
-    //                                                                   "payload": {}
-    //                                                                 }
-    // > {
-    //     "id": "ad3cc738-116a-4228-8337-d4b985378890",
-    //     "type": "subscribe",
-    //     "payload": {
-    //       "query": "subscription {\n  greeting1Subscription\n}",
-    //       "variables": {}
-    //     }
-    //   }
-    // <                                                               {
-    //                                                                   "id":
-    // "ad3cc738-116a-4228-8337-d4b985378890",
-    //                                                                   "type": "next",
-    //                                                                   "payload": {
-    //                                                                     "data": {
-    //
-    // "greeting1Subscription": "Hi!"
-    //                                                                     }
-    //                                                                   }
-    //                                                                 }
-    // <                                                               {
-    //                                                                   "id":
-    // "ad3cc738-116a-4228-8337-d4b985378890",
-    //                                                                   "type": "next",
-    //                                                                   "payload": {
-    //                                                                     "data": {
-    //
-    // "greeting1Subscription": "Bonjour!"
-    //                                                                     }
-    //                                                                   }
-    //                                                                 }
-    // <                                                               {
-    //                                                                   "id":
-    // "ad3cc738-116a-4228-8337-d4b985378890",
-    //                                                                   "type": "next",
-    //                                                                   "payload": {
-    //                                                                     "data": {
-    //
-    // "greeting1Subscription": "Hola!"
-    //                                                                     }
-    //                                                                   }
-    //                                                                 }
-    // > WebSocket Connection Close
 
     Objects.requireNonNull(session);
 
@@ -127,7 +75,8 @@ public class SubscriptionGatewayHandler {
           (SubscriptionPublisher) stitchResult.get("data"),
           Objects.requireNonNull(request.getId()));
     } else if ("complete".equals(request.getType())) {
-      this.handleSessionClose(session);
+      // This is when client requests session close
+      this.closeSession(session);
     }
   }
 
@@ -137,37 +86,23 @@ public class SubscriptionGatewayHandler {
       return;
     }
 
+    // This is when graphql client ungracefully shutdowns
+    this.closeSession(session);
+  }
+
+  private void closeSession(final @NotNull WebSocketSessionWrapper session) {
+
+    final String sessionId = session.getId();
+
     if (session.isOpen()) {
       session.close();
     }
 
-    final SubscriptionSourcePublisher publisher = session.getPublisher();
-
-    if (publisher != null) {
+    if (this.sessionPublishers.containsKey(sessionId)) {
+      final SubscriptionSourcePublisher publisher = this.sessionPublishers.get(sessionId);
       publisher.close();
+      this.sessionPublishers.remove(sessionId);
     }
-  }
-
-  private void subscribe(
-      final @NotNull WebSocketSessionWrapper session,
-      final @NotNull SubscriptionPublisher publisher,
-      final @NotNull String requestId) {
-
-    final SubscriptionSourcePublisher upstream =
-        (SubscriptionSourcePublisher) publisher.getUpstreamPublisher();
-
-    session.setPublisher(upstream);
-
-    upstream
-        .getFlux()
-        .subscribe(
-            payload -> {
-              final var subscriptionMessage =
-                  SubscriptionMessage.builder().id(requestId).type("next").payload(payload).build();
-              session.send(JsonUtils.toStr(subscriptionMessage));
-            },
-            throwable -> {},
-            session::close);
   }
 
   private GraphQLRequest payloadToQuery(final Object payload) {
@@ -180,5 +115,36 @@ public class SubscriptionGatewayHandler {
     }
 
     return graphQLRequest.get();
+  }
+
+  private void subscribe(
+      final @NotNull WebSocketSessionWrapper session,
+      final @NotNull SubscriptionPublisher publisher,
+      final @NotNull String requestId) {
+
+    final SubscriptionSourcePublisher upstream =
+        (SubscriptionSourcePublisher) publisher.getUpstreamPublisher();
+
+    this.sessionPublishers.put(session.getId(), upstream);
+
+    upstream
+        .getFlux()
+        .doOnComplete(
+            () -> {
+              // When gateway - remote connection disconnects
+              final SubscriptionMessage completeMessage = new SubscriptionMessage();
+              completeMessage.setId(requestId);
+              completeMessage.setType("complete");
+
+              Objects.requireNonNull(session).send(JsonUtils.toStr(completeMessage));
+
+              SubscriptionGatewayHandler.this.closeSession(session);
+            })
+        .subscribe(
+            payload -> {
+              final var subscriptionMessage =
+                  SubscriptionMessage.builder().id(requestId).type("next").payload(payload).build();
+              session.send(JsonUtils.toStr(subscriptionMessage));
+            });
   }
 }

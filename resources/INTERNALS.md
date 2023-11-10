@@ -252,8 +252,7 @@ TODO: createGraphQL static metod olabilir ayrica baska bir utility class'da da o
 < {"id":"ad3cc738-116a-4228-8337-d4b985378890","type":"next","payload":{"data":{"greeting1Subscription":"Hi!"}}}
 < {"id":"ad3cc738-116a-4228-8337-d4b985378890","type":"next","payload":{"data":{"greeting1Subscription":"Bonjour!"}}}
 < {"id":"ad3cc738-116a-4228-8337-d4b985378890","type":"next","payload":{"data":{"greeting1Subscription":"Hola!"}}}
-  {"id":"c1081464-e90b-4021-8fbe-5aae0bcbcdd6","type":"next","payload":"{\"data\":{\"greeting1Subscription\":\"11000\"}}"}
-> WebSocket Connection Close
+> {"id":"ad3cc738-116a-4228-8337-d4b985378890","type":"complete"} WebSocket Connection Close
 ```
 
 Oncelikle introspection varolan sekilde calisir. Eger bir subscription kullanacaksak Lilo taniminda
@@ -304,7 +303,12 @@ Subscription test case'leri:
 
 - Happy path: `06-spring-boot-subscription` gateway ve server appleri calistir.
   - `subscription { greeting1Subscription }` ile deneme yap.
-
+- Happy path: `06-spring-boot-subscription` gateway ve server appleri calistir.
+  - `subscription { greeting1Subscription }` ile deneme yap.
+  - paralel baska client ile `subscription { greeting1Subscription }` denemesi yap.
+  - `subscription { greeting2Subscription }` ile deneme yap.
+  - paralel baska client ile `subscription { greeting2Subscription }` denemesi yap.
 - Tek bir altair connection baslat. Ardarda kapatip tekrar baslat
 - Altair connection baslat. Connection'i kapattiginda server'da "Data generation ended" logunu gormek gerek bu graceful shutdown manasina gelir.
-- Ayni anda 2 farkli server'a deneme yap
+- Paralel sorgulamalar yapip graceful kapat, tum data generationlarin kapanmasi gerek.
+- Altair'i gracefull olmadan kill et
