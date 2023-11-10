@@ -15,6 +15,7 @@
 
   <artifactId>spring-boot-local-stitching-server1</artifactId>
   <name>03-spring-boot-local-stitching Server 1</name>
+  <version>23.11.1-SNAPSHOT</version>
 
   <licenses>
     <license>

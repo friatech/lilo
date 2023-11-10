@@ -15,6 +15,7 @@
 
   <artifactId>spring-boot-basic-authentication-lilo-gateway</artifactId>
   <name>05-spring-boot-basic-authentication Lilo Gateway</name>
+  <version>23.11.1-SNAPSHOT</version>
 
   <licenses>
     <license>

@@ -15,6 +15,7 @@
 
   <artifactId>spring-boot-hello-world-lilo-gateway</artifactId>
   <name>01-spring-boot-hello-world Lilo Gateway</name>
+  <version>23.11.1-SNAPSHOT</version>
 
   <licenses>
     <license>

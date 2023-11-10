@@ -6,18 +6,16 @@ import org.reactivestreams.Subscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
-public class SubscriptionSourcePublisher implements Publisher, SessionAdapter {
+public class SubscriptionSourcePublisher implements Publisher<Object> {
 
   private final @NotNull Sinks.Many<Object> sink = Sinks.many().multicast().onBackpressureBuffer();
 
-  @Override
-  public void closeSession() {
+  public void close() {
     this.sink.tryEmitComplete();
   }
 
-  @Override
-  public void sendMessage(@NotNull final String eventMessage) {
-    this.sink.tryEmitNext(eventMessage);
+  public void send(@NotNull final Object message) {
+    this.sink.tryEmitNext(message);
   }
 
   public Flux<Object> getFlux() {
@@ -25,7 +23,7 @@ public class SubscriptionSourcePublisher implements Publisher, SessionAdapter {
   }
 
   @Override
-  public void subscribe(final @NotNull Subscriber subscriber) {
+  public void subscribe(final Subscriber<? super Object> subscriber) {
     this.sink.asFlux().subscribe(subscriber);
   }
 }

@@ -18,26 +18,18 @@ package io.fria.lilo.samples.spring_boot_subscription.lilo_gateway;
 import io.fria.lilo.GraphQLQuery;
 import io.fria.lilo.LiloContext;
 import io.fria.lilo.SchemaSource;
-import io.fria.lilo.subscription.SessionAdapter;
-import io.fria.lilo.subscription.SubscriptionMessage;
 import io.fria.lilo.subscription.SubscriptionRetriever;
-import io.fria.lilo.subscription.SubscriptionSourceUtils;
-import java.io.IOException;
+import io.fria.lilo.subscription.SubscriptionSourcePublisher;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.springframework.web.socket.CloseStatus;
-import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketHttpHeaders;
-import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.client.WebSocketClient;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
-import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 
-public class SubscriptionRetrieverImpl extends SubscriptionRetriever {
+public class SubscriptionRetrieverImpl implements SubscriptionRetriever {
 
   private final @NotNull String subscriptionWsUrl;
   private final @NotNull WebSocketClient webSocketClient;
@@ -49,71 +41,25 @@ public class SubscriptionRetrieverImpl extends SubscriptionRetriever {
 
   @Override
   public void sendQuery(
-      @NotNull final LiloContext liloContext2,
-      @NotNull final SchemaSource schemaSource2,
+      @NotNull final LiloContext liloContext,
+      @NotNull final SchemaSource schemaSource,
       @NotNull final GraphQLQuery query,
-      @NotNull final SessionAdapter sourceSessionAdapter,
-      @Nullable final Object localContext2) {
-
-    final WebSocketSession session;
+      @NotNull final SubscriptionSourcePublisher publisher,
+      @Nullable final Object localContext) {
 
     try {
       final WebSocketHttpHeaders httpHeaders = new WebSocketHttpHeaders();
       httpHeaders.add("Sec-WebSocket-Protocol", "graphql-transport-ws");
-      session =
-          this.webSocketClient
-              .execute(
-                  new SourceWebSocketHandler(sourceSessionAdapter, query),
-                  httpHeaders,
-                  new URI(this.subscriptionWsUrl))
-              .get();
-
-      if (session != null) {
-        SubscriptionSourceUtils.startHandShakingWithSource(
-            m -> session.sendMessage(new TextMessage(m)));
-      }
+      this.webSocketClient
+          .execute(
+              new SourceWebSocketHandler(query, publisher),
+              httpHeaders,
+              new URI(this.subscriptionWsUrl))
+          .get();
     } catch (final ExecutionException e) {
       // pass
-    } catch (final URISyntaxException | InterruptedException | IOException e) {
+    } catch (final URISyntaxException | InterruptedException e) {
       throw new RuntimeException(e);
-    }
-  }
-
-  private static class SourceWebSocketHandler extends AbstractWebSocketHandler {
-
-    private final @NotNull SessionAdapter sourceSessionAdapter;
-    private final @NotNull GraphQLQuery query;
-
-    SourceWebSocketHandler(
-        final @NotNull SessionAdapter sourceSessionAdapter, final @NotNull GraphQLQuery query) {
-      this.sourceSessionAdapter = sourceSessionAdapter;
-      this.query = query;
-    }
-
-    @Override
-    public void afterConnectionClosed(
-        final @NotNull WebSocketSession session, final @NotNull CloseStatus status) {
-      this.sourceSessionAdapter.closeSession();
-    }
-
-    @Override
-    protected void handleTextMessage(
-        final @NotNull WebSocketSession sourceSession, final @NotNull TextMessage message) {
-
-      try {
-        final SubscriptionMessage subscriptionMessage =
-            SubscriptionSourceUtils.convertToSubscriptionMessage(message.getPayload());
-
-        if ("connection_ack".equals(subscriptionMessage.getType())) {
-          SubscriptionSourceUtils.sendQueryToSource(
-              this.query, m -> sourceSession.sendMessage(new TextMessage(m)));
-        } else if ("next".equals(subscriptionMessage.getType())) {
-          this.sourceSessionAdapter.sendMessage(
-              Objects.requireNonNull(subscriptionMessage.getPayload()).toString());
-        }
-      } catch (final Exception e) {
-        throw new RuntimeException(e);
-      }
     }
   }
 }

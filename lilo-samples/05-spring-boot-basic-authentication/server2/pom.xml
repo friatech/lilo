@@ -15,6 +15,7 @@
 
   <artifactId>spring-boot-basic-authentication-server2</artifactId>
   <name>05-spring-boot-basic-authentication Server 2</name>
+  <version>23.11.1-SNAPSHOT</version>
 
   <licenses>
     <license>

@@ -15,6 +15,7 @@
 
   <artifactId>spring-boot-local-stitching-lilo-gateway</artifactId>
   <name>03-spring-local-basic-stitching Lilo Gateway</name>
+  <version>23.11.1-SNAPSHOT</version>
 
   <licenses>
     <license>

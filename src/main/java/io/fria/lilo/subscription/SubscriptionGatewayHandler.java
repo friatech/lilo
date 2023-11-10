@@ -26,19 +26,25 @@ import java.util.Optional;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * SubscriptionGatewayHandler manages websocket communication and handles the interaction between
+ * Lilo itself.
+ */
 public class SubscriptionGatewayHandler {
 
   private final @NotNull Lilo lilo;
-  private final @NotNull SessionAdapter clientSessionAdapter;
-  private @Nullable SubscriptionSourcePublisher upstream;
 
-  public SubscriptionGatewayHandler(
-      final @NotNull Lilo lilo, final @NotNull SessionAdapter clientSessionAdapter) {
+  /**
+   * Constructs a handler instance using lilo
+   *
+   * @param lilo global lilo instance
+   */
+  public SubscriptionGatewayHandler(final @NotNull Lilo lilo) {
     this.lilo = Objects.requireNonNull(lilo);
-    this.clientSessionAdapter = clientSessionAdapter;
   }
 
-  public void handleMessage(final @NotNull String wsMessage) {
+  public void handleMessage(
+      final @Nullable WebSocketSessionWrapper session, final @NotNull String message) {
 
     // > HTTP GET /graphql
     // <                                                               HTTP 1.1 101 Switching
@@ -95,8 +101,10 @@ public class SubscriptionGatewayHandler {
     //                                                                 }
     // > WebSocket Connection Close
 
+    Objects.requireNonNull(session);
+
     final Optional<SubscriptionMessage> requestOptional =
-        JsonUtils.toObj(wsMessage, SubscriptionMessage.class);
+        JsonUtils.toObj(message, SubscriptionMessage.class);
 
     if (requestOptional.isEmpty()) {
       return;
@@ -108,34 +116,47 @@ public class SubscriptionGatewayHandler {
       // Emulating new connection
       final var response =
           SubscriptionMessage.builder().type("connection_ack").payload(new HashMap<>()).build();
-      this.clientSessionAdapter.sendMessage(JsonUtils.toStr(response));
+      session.send(JsonUtils.toStr(response));
     } else if ("subscribe".equals(request.getType())) {
       final GraphQLRequest graphQLRequest = this.payloadToQuery(request.getPayload());
       final Map<String, Object> stitchResult =
           this.lilo.stitch(graphQLRequest.toExecutionInput()).toSpecification();
 
-      this.upstream =
-          this.subscribe(
-              (SubscriptionPublisher) stitchResult.get("data"),
-              Objects.requireNonNull(request.getId()));
+      this.subscribe(
+          session,
+          (SubscriptionPublisher) stitchResult.get("data"),
+          Objects.requireNonNull(request.getId()));
     } else if ("complete".equals(request.getType())) {
-      this.closeSession();
+      this.handleSessionClose(session);
     }
   }
 
-  private void closeSession() {
-    this.clientSessionAdapter.closeSession();
+  public void handleSessionClose(final @Nullable WebSocketSessionWrapper session) {
 
-    if (this.upstream != null) {
-      this.upstream.closeSession();
+    if (session == null) {
+      return;
+    }
+
+    if (session.isOpen()) {
+      session.close();
+    }
+
+    final SubscriptionSourcePublisher publisher = session.getPublisher();
+
+    if (publisher != null) {
+      publisher.close();
     }
   }
 
-  private @NotNull SubscriptionSourcePublisher subscribe(
-      final @NotNull SubscriptionPublisher publisher, final @NotNull String requestId) {
+  private void subscribe(
+      final @NotNull WebSocketSessionWrapper session,
+      final @NotNull SubscriptionPublisher publisher,
+      final @NotNull String requestId) {
 
     final SubscriptionSourcePublisher upstream =
         (SubscriptionSourcePublisher) publisher.getUpstreamPublisher();
+
+    session.setPublisher(upstream);
 
     upstream
         .getFlux()
@@ -143,12 +164,10 @@ public class SubscriptionGatewayHandler {
             payload -> {
               final var subscriptionMessage =
                   SubscriptionMessage.builder().id(requestId).type("next").payload(payload).build();
-              this.clientSessionAdapter.sendMessage(JsonUtils.toStr(subscriptionMessage));
+              session.send(JsonUtils.toStr(subscriptionMessage));
             },
             throwable -> {},
-            this::closeSession);
-
-    return upstream;
+            session::close);
   }
 
   private GraphQLRequest payloadToQuery(final Object payload) {

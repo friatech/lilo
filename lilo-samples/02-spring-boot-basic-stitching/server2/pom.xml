@@ -15,6 +15,7 @@
 
   <artifactId>spring-boot-basic-stitching-server2</artifactId>
   <name>02-spring-boot-basic-stitching Server 2</name>
+  <version>23.11.1-SNAPSHOT</version>
 
   <licenses>
     <license>

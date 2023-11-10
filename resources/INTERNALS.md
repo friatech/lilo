@@ -252,6 +252,7 @@ TODO: createGraphQL static metod olabilir ayrica baska bir utility class'da da o
 < {"id":"ad3cc738-116a-4228-8337-d4b985378890","type":"next","payload":{"data":{"greeting1Subscription":"Hi!"}}}
 < {"id":"ad3cc738-116a-4228-8337-d4b985378890","type":"next","payload":{"data":{"greeting1Subscription":"Bonjour!"}}}
 < {"id":"ad3cc738-116a-4228-8337-d4b985378890","type":"next","payload":{"data":{"greeting1Subscription":"Hola!"}}}
+  {"id":"c1081464-e90b-4021-8fbe-5aae0bcbcdd6","type":"next","payload":"{\"data\":{\"greeting1Subscription\":\"11000\"}}"}
 > WebSocket Connection Close
 ```
 
@@ -274,14 +275,36 @@ Lilo.builder()
 datafetcher taniminda subscription var ise data fetch edilmez onun yerine subscribtionRetriever.sendQuery metodu cagirilir.
 subscriptionRetriever zaten bir connection yoksa otomatik olarak baslatir.
 
+Spring uygulamasi uzerinden gidersek
+
+1. LiloConfiguration'da bir Lilo sinifi bean olarak tanimlaniyor.
+2. WebSocketConfig ile Gateway ve GraphQL client arasindaki iletisim belirleniyor. Burada bir GatewayWebSocketHandler belirtilir.
+3. GatewayWebSocketHandler aslinda Spring'in AbstractWebSocketHandler implementasyonudur. Burada SubscriptionGatewayHandler ile framework agnostik hale getirilir.
+4. SubscriptionGatewayHandler stateless bir handler'dir session'dan bagimsiz calisir. handleMessage ve handleSessionClose metodlari bulunur. 
+  - ilk olarak connection_init mesaji gelir
+  - cevap olarak connection_ack gonderilir
+  - Daha sonra istemci subscribe mesaji gonderir, subscribe mesajinin icinde esas graphql subscription request'i bulunur.
+  - Bu graphqlRequest diger tum requestler gibi stitching islemine dahil olur.
+    - Lilo subscription islemine ozel bir wiring yapar. Tanimlanan Retriever'in sendQuery metodunu cagirir ve bir publisher doner
+    - donen publisher client'dan gelen cevaplarin alinmasi icindir.
+    - Retriever'daki sendQuery metodu yeni bir remotesource baglantisi ve session'i olusturur.
+    - Ayni zamanda SourceWebSocketHandler sinifi olusturur. SourceWebSocketHandler sinifi GatewayWebSocketHandler sinifi ile benzerlik gosterir. Ikisi de framework ile Lilo SubscriptionHandler'lari arasinda kopru vazifesi gorur.
+    - SourceWebSocketHandler, GatewayWebSocketHandler'in aksine stateful'dur ve her remote source baglantisi icin ayri bir instance olur.
+    - SourceWebSocketHandler nihayetinde SubscriptionSourceHandler'in metodlarini cagirir.
+    - SubscriptionSourceHandler'in oncelikle handleSessionStart metodu cagirilir bu bir connection_init mesaji gonderir uzak sunucuya
+    - Daha sonra handleMessage metodundan bir connection_ack beklenir. Bu geldigi zaman artik query gonderilebilir.
+    - Query gonderildikten sonra sirasiyla bir cok next metodu gelmesi gerekir.
+    - Bu next metodlari publisher vasitasi ile lilo'ya iletilir lilo ise SubscriptionGatewayHandler'in handleMessage metodundaki subscribe case'inde abone olunan diger upstream'e veri gonderir.   
+
 
 
 ------------------------
 
-subscription test case'leri:
+Subscription test case'leri:
+
+- Happy path: `06-spring-boot-subscription` gateway ve server appleri calistir.
+  - `subscription { greeting1Subscription }` ile deneme yap.
 
 - Tek bir altair connection baslat. Ardarda kapatip tekrar baslat
 - Altair connection baslat. Connection'i kapattiginda server'da "Data generation ended" logunu gormek gerek bu graceful shutdown manasina gelir.
 - Ayni anda 2 farkli server'a deneme yap
-
-

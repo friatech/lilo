@@ -20,26 +20,13 @@ import io.fria.lilo.LiloContext;
 import io.fria.lilo.SchemaSource;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.reactivestreams.Publisher;
 
-public abstract class SubscriptionRetriever {
+public interface SubscriptionRetriever {
 
-  public final @NotNull Publisher<Object> sendQuery(
-      final @NotNull LiloContext liloContext,
-      final @NotNull SchemaSource schemaSource,
-      final @NotNull GraphQLQuery query,
-      final @Nullable Object localContext) {
-
-    final SubscriptionSourcePublisher publisher = new SubscriptionSourcePublisher();
-    this.sendQuery(liloContext, schemaSource, query, publisher, localContext);
-
-    return publisher;
-  }
-
-  public abstract void sendQuery(
+  void sendQuery(
       @NotNull LiloContext liloContext,
       @NotNull SchemaSource schemaSource,
       @NotNull GraphQLQuery query,
-      @NotNull SessionAdapter sessionAdapter,
+      @NotNull SubscriptionSourcePublisher publisher,
       @Nullable Object localContext);
 }

@@ -15,6 +15,7 @@
 
   <artifactId>spring-boot-reactive-stitching-lilo-gateway</artifactId>
   <name>03-spring-boot-reactive-stitching Lilo Gateway</name>
+  <version>23.11.1-SNAPSHOT</version>
 
   <licenses>
     <license>

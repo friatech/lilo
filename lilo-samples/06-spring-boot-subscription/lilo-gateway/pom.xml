@@ -15,6 +15,7 @@
 
   <artifactId>spring-boot-subscription-lilo-gateway</artifactId>
   <name>06-spring-boot-subscription Lilo Gateway</name>
+  <version>23.11.1-SNAPSHOT</version>
 
   <licenses>
     <license>

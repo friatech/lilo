@@ -15,6 +15,7 @@
 
   <artifactId>spring-boot-reactive-stitching-server1</artifactId>
   <name>03-spring-boot-reactive-stitching Server 1</name>
+  <version>23.11.1-SNAPSHOT</version>
 
   <licenses>
     <license>

@@ -5,7 +5,7 @@
 
   <groupId>io.fria.lilo.samples.spring-boot-basic-stitching</groupId>
   <artifactId>spring-boot-subscription-parent</artifactId>
-  <version>23.8.0</version>
+  <version>23.11.1-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>06-spring-boot-subscription</name>

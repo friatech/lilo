@@ -15,6 +15,7 @@
 
   <artifactId>spring-boot-hello-world-server1</artifactId>
   <name>01-spring-boot-hello-world Server 1</name>
+  <version>23.11.1-SNAPSHOT</version>
 
   <licenses>
     <license>

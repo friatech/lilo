@@ -35,6 +35,7 @@ import graphql.schema.idl.TypeRuntimeWiring;
 import io.fria.lilo.error.LiloGraphQLError;
 import io.fria.lilo.error.SourceDataFetcherException;
 import io.fria.lilo.subscription.SubscriptionRetriever;
+import io.fria.lilo.subscription.SubscriptionSourcePublisher;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -321,7 +322,11 @@ public final class RemoteSchemaSource implements SchemaSource {
             if (query.getOperationType() == OperationDefinition.Operation.SUBSCRIPTION) {
               // TODO: Maybe there should be async and sync retrievers
               if (this.subscriptionRetriever != null) {
-                return this.subscriptionRetriever.sendQuery(liloContext, this, query, localContext);
+                final SubscriptionSourcePublisher publisher = new SubscriptionSourcePublisher();
+                this.subscriptionRetriever.sendQuery(
+                    liloContext, this, query, publisher, localContext);
+
+                return publisher;
               } else {
                 // TODO: Better exception handling
                 throw new Exception("");

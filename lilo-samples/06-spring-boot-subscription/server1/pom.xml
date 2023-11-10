@@ -15,6 +15,7 @@
 
   <artifactId>spring-boot-subscription-server1</artifactId>
   <name>06-spring-boot-subscription Server 1</name>
+  <version>23.11.1-SNAPSHOT</version>
 
   <licenses>
     <license>
