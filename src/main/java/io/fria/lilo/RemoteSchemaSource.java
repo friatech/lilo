@@ -48,7 +48,7 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class RemoteSchemaSource implements SchemaSource {
+public final class RemoteSchemaSource extends SchemaSource {
 
   private static final Logger LOG = LoggerFactory.getLogger(RemoteSchemaSource.class);
   private static final String INTROSPECTION_REQUEST =
@@ -58,19 +58,17 @@ public final class RemoteSchemaSource implements SchemaSource {
               .operationName("IntrospectionQuery")
               .build());
 
-  private @NotNull final String schemaName;
   private @NotNull final IntrospectionRetriever<?> introspectionRetriever;
   private @NotNull final QueryRetriever<?> queryRetriever;
   private @Nullable final SubscriptionRetriever subscriptionRetriever;
-  private @Nullable TypeDefinitionRegistry typeDefinitionRegistry;
-  private RuntimeWiring runtimeWiring;
 
   private RemoteSchemaSource(
       final @NotNull String schemaName,
       final @NotNull IntrospectionRetriever<?> introspectionRetriever,
       final @NotNull QueryRetriever<?> queryRetriever,
       final @Nullable SubscriptionRetriever subscriptionRetriever) {
-    this.schemaName = schemaName;
+
+    super(schemaName);
     this.introspectionRetriever = introspectionRetriever;
     this.queryRetriever = queryRetriever;
     this.subscriptionRetriever = subscriptionRetriever;
@@ -83,7 +81,7 @@ public final class RemoteSchemaSource implements SchemaSource {
         Objects.requireNonNull(schemaName),
         new DefaultRemoteIntrospectionRetriever(schemaUrl),
         new DefaultRemoteQueryRetriever(schemaUrl),
-        new DefaultRemoteSubscriptionRetriever(schemaUrl));
+        null);
   }
 
   public static @NotNull SchemaSource create(
@@ -157,41 +155,6 @@ public final class RemoteSchemaSource implements SchemaSource {
       final var queryResult = queryRetriever.get(liloContext, this, query, localContext);
       return CompletableFuture.supplyAsync(() -> RemoteSchemaSource.toExecutionResult(queryResult));
     }
-  }
-
-  @Override
-  public @NotNull String getName() {
-    return this.schemaName;
-  }
-
-  @Override
-  public @NotNull RuntimeWiring getRuntimeWiring() {
-
-    if (this.isSchemaNotLoaded()) {
-      throw new IllegalArgumentException(this.schemaName + " has not been loaded yet!");
-    }
-
-    return this.runtimeWiring;
-  }
-
-  @Override
-  public @NotNull TypeDefinitionRegistry getTypeDefinitionRegistry() {
-
-    if (this.isSchemaNotLoaded()) {
-      throw new IllegalArgumentException(this.schemaName + " has not been loaded yet!");
-    }
-
-    return this.typeDefinitionRegistry;
-  }
-
-  @Override
-  public void invalidate() {
-    this.typeDefinitionRegistry = null;
-  }
-
-  @Override
-  public boolean isSchemaNotLoaded() {
-    return this.typeDefinitionRegistry == null;
   }
 
   @Override

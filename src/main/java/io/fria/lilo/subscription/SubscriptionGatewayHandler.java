@@ -15,6 +15,12 @@
  */
 package io.fria.lilo.subscription;
 
+import static io.fria.lilo.subscription.SubscriptionMessageType.complete;
+import static io.fria.lilo.subscription.SubscriptionMessageType.connection_ack;
+import static io.fria.lilo.subscription.SubscriptionMessageType.connection_init;
+import static io.fria.lilo.subscription.SubscriptionMessageType.next;
+import static io.fria.lilo.subscription.SubscriptionMessageType.subscribe;
+
 import graphql.execution.reactive.SubscriptionPublisher;
 import io.fria.lilo.GraphQLRequest;
 import io.fria.lilo.JsonUtils;
@@ -59,13 +65,14 @@ public class SubscriptionGatewayHandler {
     }
 
     final SubscriptionMessage request = requestOptional.get();
+    final SubscriptionMessageType requestType = request.getType();
 
-    if ("connection_init".equals(request.getType())) {
+    if (connection_init == requestType) {
       // Emulating new connection
       final var response =
-          SubscriptionMessage.builder().type("connection_ack").payload(new HashMap<>()).build();
+          SubscriptionMessage.builder().type(connection_ack).payload(new HashMap<>()).build();
       session.send(JsonUtils.toStr(response));
-    } else if ("subscribe".equals(request.getType())) {
+    } else if (subscribe == requestType) {
       final GraphQLRequest graphQLRequest = this.payloadToQuery(request.getPayload());
       final Map<String, Object> stitchResult =
           this.lilo.stitch(graphQLRequest.toExecutionInput()).toSpecification();
@@ -74,7 +81,7 @@ public class SubscriptionGatewayHandler {
           session,
           (SubscriptionPublisher) stitchResult.get("data"),
           Objects.requireNonNull(request.getId()));
-    } else if ("complete".equals(request.getType())) {
+    } else if (complete == requestType) {
       // This is when client requests session close
       this.closeSession(session);
     }
@@ -134,7 +141,7 @@ public class SubscriptionGatewayHandler {
               // When gateway - remote connection disconnects
               final SubscriptionMessage completeMessage = new SubscriptionMessage();
               completeMessage.setId(requestId);
-              completeMessage.setType("complete");
+              completeMessage.setType(complete);
 
               Objects.requireNonNull(session).send(JsonUtils.toStr(completeMessage));
 
@@ -143,7 +150,7 @@ public class SubscriptionGatewayHandler {
         .subscribe(
             payload -> {
               final var subscriptionMessage =
-                  SubscriptionMessage.builder().id(requestId).type("next").payload(payload).build();
+                  SubscriptionMessage.builder().id(requestId).type(next).payload(payload).build();
               session.send(JsonUtils.toStr(subscriptionMessage));
             });
   }

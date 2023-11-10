@@ -15,6 +15,11 @@
  */
 package io.fria.lilo.subscription;
 
+import static io.fria.lilo.subscription.SubscriptionMessageType.complete;
+import static io.fria.lilo.subscription.SubscriptionMessageType.connection_init;
+import static io.fria.lilo.subscription.SubscriptionMessageType.next;
+import static io.fria.lilo.subscription.SubscriptionMessageType.subscribe;
+
 import io.fria.lilo.GraphQLQuery;
 import io.fria.lilo.JsonUtils;
 import java.util.HashMap;
@@ -48,15 +53,16 @@ public class SubscriptionSourceHandler {
     }
 
     final SubscriptionMessage request = requestOptional.get();
+    final SubscriptionMessageType requestType = request.getType();
 
-    if ("connection_ack".equals(request.getType())) {
+    if (SubscriptionMessageType.connection_ack == requestType) {
       final SubscriptionMessage response = new SubscriptionMessage();
       response.setId(UUID.randomUUID().toString());
-      response.setType("subscribe");
+      response.setType(subscribe);
 
       response.setPayload(Objects.requireNonNull(this.query.getRequest()));
       Objects.requireNonNull(session).send(JsonUtils.toStr(response));
-    } else if ("next".equals(request.getType())) {
+    } else if (next == requestType) {
       this.publisher.send(Objects.requireNonNull(request.getPayload()));
 
       this.publisher
@@ -65,8 +71,7 @@ public class SubscriptionSourceHandler {
               () -> {
                 final SubscriptionMessage completeMessage = new SubscriptionMessage();
                 completeMessage.setId(request.getId());
-                completeMessage.setType("complete");
-                completeMessage.setPayload(new HashMap<>());
+                completeMessage.setType(complete);
 
                 Objects.requireNonNull(session).send(JsonUtils.toStr(completeMessage));
               })
@@ -81,7 +86,7 @@ public class SubscriptionSourceHandler {
   public void handleSessionStart(final @Nullable WebSocketSessionWrapper session) {
 
     final SubscriptionMessage initMessage = new SubscriptionMessage();
-    initMessage.setType("connection_init");
+    initMessage.setType(connection_init);
     initMessage.setPayload(new HashMap<>());
 
     Objects.requireNonNull(session).send(JsonUtils.toStr(initMessage));

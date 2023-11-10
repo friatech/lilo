@@ -125,6 +125,12 @@ a remote source and/or local source.
 After source definitions are properly set you can run your implementation similar to this:
 
 ```java
+final Map<String, Object> resultMap = lilo.stitch("{greeting1}").toSpecification();
+```
+
+Or more advanced GraphQL request which includes querym operation name and variables:
+
+```java
 
 final GraphQLRequest graphQLRequest = GraphQLRequest.builder()
     .query(incomingGraphQlQuery)

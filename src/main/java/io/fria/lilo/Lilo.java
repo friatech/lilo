@@ -53,6 +53,11 @@ public final class Lilo {
     return this.context.getGraphQL(executionInput).execute(executionInput);
   }
 
+  public @NotNull ExecutionResult stitch(final @NotNull String query) {
+
+    return this.stitch(ExecutionInput.newExecutionInput().query(query).build());
+  }
+
   public @NotNull CompletableFuture<ExecutionResult> stitchAsync(
       final @NotNull ExecutionInput executionInput) {
 

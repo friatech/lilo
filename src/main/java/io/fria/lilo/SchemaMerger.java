@@ -123,6 +123,21 @@ final class SchemaMerger {
     addSchema(queryTypeName, mutationTypeName, subscriptionTypeName, combinedRegistry);
   }
 
+  private static void addOperationType(
+      final @Nullable String operationTypeName,
+      final @NotNull TypeDefinitionRegistry combinedRegistry,
+      final SchemaDefinition.Builder builder,
+      final String name) {
+
+    if (operationTypeName != null && combinedRegistry.getType(operationTypeName).isPresent()) {
+      builder.operationTypeDefinition(
+          OperationTypeDefinition.newOperationTypeDefinition()
+              .name(name)
+              .typeName(TypeName.newTypeName(operationTypeName).build())
+              .build());
+    }
+  }
+
   private static void addSchema(
       final @Nullable String queryTypeName,
       final @Nullable String mutationTypeName,
@@ -131,30 +146,9 @@ final class SchemaMerger {
 
     final SchemaDefinition.Builder builder = SchemaDefinition.newSchemaDefinition();
 
-    if (queryTypeName != null && combinedRegistry.getType(queryTypeName).isPresent()) {
-      builder.operationTypeDefinition(
-          OperationTypeDefinition.newOperationTypeDefinition()
-              .name("query")
-              .typeName(TypeName.newTypeName(queryTypeName).build())
-              .build());
-    }
-
-    if (mutationTypeName != null && combinedRegistry.getType(mutationTypeName).isPresent()) {
-      builder.operationTypeDefinition(
-          OperationTypeDefinition.newOperationTypeDefinition()
-              .name("mutation")
-              .typeName(TypeName.newTypeName(mutationTypeName).build())
-              .build());
-    }
-
-    if (subscriptionTypeName != null
-        && combinedRegistry.getType(subscriptionTypeName).isPresent()) {
-      builder.operationTypeDefinition(
-          OperationTypeDefinition.newOperationTypeDefinition()
-              .name("subscription")
-              .typeName(TypeName.newTypeName(subscriptionTypeName).build())
-              .build());
-    }
+    addOperationType(queryTypeName, combinedRegistry, builder, "query");
+    addOperationType(mutationTypeName, combinedRegistry, builder, "mutation");
+    addOperationType(subscriptionTypeName, combinedRegistry, builder, "subscription");
 
     combinedRegistry.add(builder.build());
   }
@@ -242,14 +236,14 @@ final class SchemaMerger {
       this.subscription = subscription;
     }
 
-    @NotNull
-    String getQuery() {
-      return this.query;
-    }
-
     @Nullable
     String getMutation() {
       return this.mutation;
+    }
+
+    @NotNull
+    String getQuery() {
+      return this.query;
     }
 
     @Nullable

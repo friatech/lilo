@@ -27,6 +27,8 @@ public interface WebSocketSessionWrapper {
   void close();
 
   /**
+   * Returns session specific identifier
+   *
    * @return unique session id
    */
   String getId();

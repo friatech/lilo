@@ -22,17 +22,13 @@ import graphql.GraphQL;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
-import graphql.schema.idl.TypeDefinitionRegistry;
 import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public final class DefinedSchemaSource implements SchemaSource {
+public final class DefinedSchemaSource extends SchemaSource {
 
-  private final String schemaName;
   private final String definition;
-  private final RuntimeWiring runtimeWiring;
-  private TypeDefinitionRegistry typeDefinitionRegistry;
   private GraphQL graphQL;
 
   private DefinedSchemaSource(
@@ -40,7 +36,7 @@ public final class DefinedSchemaSource implements SchemaSource {
       final @NotNull String definition,
       final @NotNull RuntimeWiring runtimeWiring) {
 
-    this.schemaName = schemaName;
+    super(schemaName);
     this.definition = definition;
     this.runtimeWiring = runtimeWiring;
   }
@@ -81,31 +77,6 @@ public final class DefinedSchemaSource implements SchemaSource {
           return DefinedSchemaSource.this.graphQL.execute(
               graphQLRequestOptional.get().toExecutionInput(localContext));
         });
-  }
-
-  @Override
-  public @NotNull String getName() {
-    return this.schemaName;
-  }
-
-  @Override
-  public @NotNull RuntimeWiring getRuntimeWiring() {
-    return this.runtimeWiring;
-  }
-
-  @Override
-  public @NotNull TypeDefinitionRegistry getTypeDefinitionRegistry() {
-    return this.typeDefinitionRegistry;
-  }
-
-  @Override
-  public void invalidate() {
-    this.typeDefinitionRegistry = null;
-  }
-
-  @Override
-  public boolean isSchemaNotLoaded() {
-    return this.typeDefinitionRegistry == null;
   }
 
   @Override

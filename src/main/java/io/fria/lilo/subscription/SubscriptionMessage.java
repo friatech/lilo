@@ -22,14 +22,16 @@ public class SubscriptionMessage {
 
   private @Nullable String id;
   private @Nullable Object payload;
-  private @Nullable String type;
+  private @Nullable SubscriptionMessageType type;
 
   public SubscriptionMessage() {
     // Default constructor
   }
 
   public SubscriptionMessage(
-      final @Nullable String id, final @Nullable Object payload, final @Nullable String type) {
+      final @Nullable String id,
+      final @Nullable Object payload,
+      final @Nullable SubscriptionMessageType type) {
     this.id = id;
     this.payload = payload;
     this.type = type;
@@ -55,11 +57,11 @@ public class SubscriptionMessage {
     this.payload = payload;
   }
 
-  public @Nullable String getType() {
+  public @Nullable SubscriptionMessageType getType() {
     return this.type;
   }
 
-  public void setType(final @Nullable String type) {
+  public void setType(final @Nullable SubscriptionMessageType type) {
     this.type = type;
   }
 
@@ -67,7 +69,7 @@ public class SubscriptionMessage {
 
     private @Nullable String id;
     private @Nullable Object payload;
-    private @Nullable String type;
+    private @Nullable SubscriptionMessageType type;
 
     private GraphQLSubscriptionMessageBuilder() {
       // Private constructor
@@ -77,20 +79,23 @@ public class SubscriptionMessage {
       return new SubscriptionMessage(this.id, this.payload, this.type);
     }
 
+    @SuppressWarnings("checkstyle:HiddenField")
     public @NotNull SubscriptionMessage.GraphQLSubscriptionMessageBuilder id(
         final @NotNull String id) {
       this.id = id;
       return this;
     }
 
+    @SuppressWarnings("checkstyle:HiddenField")
     public @NotNull SubscriptionMessage.GraphQLSubscriptionMessageBuilder payload(
         final @NotNull Object payload) {
       this.payload = payload;
       return this;
     }
 
+    @SuppressWarnings("checkstyle:HiddenField")
     public @NotNull SubscriptionMessage.GraphQLSubscriptionMessageBuilder type(
-        final @NotNull String type) {
+        final @NotNull SubscriptionMessageType type) {
       this.type = type;
       return this;
     }

@@ -22,26 +22,51 @@ import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public interface SchemaSource {
+public abstract class SchemaSource {
+
+  @NotNull final String schemaName;
+  @Nullable RuntimeWiring runtimeWiring;
+  @Nullable TypeDefinitionRegistry typeDefinitionRegistry;
+
+  protected SchemaSource(final @NotNull String schemaName) {
+    this.schemaName = schemaName;
+  }
 
   @NotNull
-  CompletableFuture<ExecutionResult> execute(
+  abstract CompletableFuture<ExecutionResult> execute(
       @NotNull LiloContext liloContext, @NotNull GraphQLQuery query, @Nullable Object localContext);
 
-  @NotNull
-  String getName();
+  public @NotNull String getName() {
+    return this.schemaName;
+  }
+
+  public @NotNull RuntimeWiring getRuntimeWiring() {
+
+    if (this.isSchemaNotLoaded()) {
+      throw new IllegalArgumentException(this.schemaName + " has not been loaded yet!");
+    }
+
+    return this.runtimeWiring;
+  }
+
+  public @NotNull TypeDefinitionRegistry getTypeDefinitionRegistry() {
+
+    if (this.isSchemaNotLoaded()) {
+      throw new IllegalArgumentException(this.schemaName + " has not been loaded yet!");
+    }
+
+    return this.typeDefinitionRegistry;
+  }
+
+  public void invalidate() {
+    this.typeDefinitionRegistry = null;
+  }
+
+  public boolean isSchemaNotLoaded() {
+    return this.typeDefinitionRegistry == null;
+  }
 
   @NotNull
-  RuntimeWiring getRuntimeWiring();
-
-  @NotNull
-  TypeDefinitionRegistry getTypeDefinitionRegistry();
-
-  void invalidate();
-
-  boolean isSchemaNotLoaded();
-
-  @NotNull
-  CompletableFuture<SchemaSource> loadSchema(
+  abstract CompletableFuture<SchemaSource> loadSchema(
       @NotNull LiloContext context, @Nullable Object localContext);
 }

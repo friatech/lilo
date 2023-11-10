@@ -109,8 +109,6 @@ lilo.stitch(executionInput);
 calismalidir. ExecutionInput aslinda string query'den baska bir sey degildir fakat `graphql-java` kutuphanesi ile
 interoperability  icin `ExecutionInput` sinifi kullanilir.
 
-TODO: Ayrica string query alinacak sekilde guncelleme de yapilabilir.
-
 `stitch` metodu calismadan once tanimlanan introspection fetch etme metoduna bakar. Bazi sistemler dinamik graphql
 schema'larina sahip olabilir. Calisma zamaninda yeni mutation ve query'ler ekleniyor olabilir. Boyle durumlarda her
 stitching operasyonundan once internal introspection cache'inin invalidate edilmesi gereklidir.
@@ -138,8 +136,6 @@ public void invalidate() {
   this.typeDefinitionRegistry = null;
 }
 ```
-
-TODO: SchemaSource interface'i Abstract class olabilir invalidate metodu ayni gibi. Bir cok ayni sey bulunuyor olabilir.
 
 `stitch` metodu eger hic bir invalidation saglamayacak ise LiloContex sinifindan olusturulmus merged graphql schema
 talep edilir.
@@ -240,7 +236,6 @@ merged graphQL olusturulur.
 
 TODO: createGraphQL static metod olabilir ayrica baska bir utility class'da da olabilir.
 
-
 ## Subscription
 
 ```
@@ -293,9 +288,7 @@ Spring uygulamasi uzerinden gidersek
     - SubscriptionSourceHandler'in oncelikle handleSessionStart metodu cagirilir bu bir connection_init mesaji gonderir uzak sunucuya
     - Daha sonra handleMessage metodundan bir connection_ack beklenir. Bu geldigi zaman artik query gonderilebilir.
     - Query gonderildikten sonra sirasiyla bir cok next metodu gelmesi gerekir.
-    - Bu next metodlari publisher vasitasi ile lilo'ya iletilir lilo ise SubscriptionGatewayHandler'in handleMessage metodundaki subscribe case'inde abone olunan diger upstream'e veri gonderir.   
-
-
+    - Bu next metodlari publisher vasitasi ile lilo'ya iletilir lilo ise SubscriptionGatewayHandler'in handleMessage metodundaki subscribe case'inde abone olunan diger upstream'e veri gonderir.
 
 ------------------------
 
