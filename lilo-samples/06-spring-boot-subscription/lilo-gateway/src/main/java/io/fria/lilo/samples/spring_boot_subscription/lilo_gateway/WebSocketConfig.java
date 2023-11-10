@@ -17,6 +17,8 @@ package io.fria.lilo.samples.spring_boot_subscription.lilo_gateway;
 
 import java.lang.reflect.Method;
 import java.util.Map;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
@@ -30,43 +32,46 @@ import org.springframework.web.socket.server.HandshakeInterceptor;
 @EnableWebSocket
 public class WebSocketConfig implements WebSocketConfigurer {
 
-  private final SubscriptionServerHandler webSocketHandler;
+  private final @NotNull GatewayWebSocketHandler webSocketHandler;
 
-  public WebSocketConfig(final SubscriptionServerHandler webSocketHandler) {
+  public WebSocketConfig(final @NotNull GatewayWebSocketHandler webSocketHandler) {
     this.webSocketHandler = webSocketHandler;
   }
 
   @Override
-  public void registerWebSocketHandlers(final WebSocketHandlerRegistry registry) {
+  public void registerWebSocketHandlers(final @NotNull WebSocketHandlerRegistry registry) {
 
     try {
       final Method setOrderMethod = registry.getClass().getDeclaredMethod("setOrder", int.class);
       setOrderMethod.invoke(registry, Integer.MIN_VALUE);
     } catch (final Exception e) {
+      // TODO: A Better exception handling
       throw new RuntimeException(e);
     }
 
     registry
         .addHandler(this.webSocketHandler, "/graphql")
-        .addInterceptors(
-            new HandshakeInterceptor() {
-              @Override
-              public void afterHandshake(
-                  final ServerHttpRequest request,
-                  final ServerHttpResponse response,
-                  final WebSocketHandler wsHandler,
-                  final Exception exception) {}
-
-              @Override
-              public boolean beforeHandshake(
-                  final ServerHttpRequest request,
-                  final ServerHttpResponse response,
-                  final WebSocketHandler wsHandler,
-                  final Map<String, Object> attributes) {
-                response.getHeaders().add("Sec-WebSocket-Protocol", "graphql-transport-ws");
-                return true;
-              }
-            })
+        .addInterceptors(new GatewayHandshakeInterceptor())
         .setAllowedOrigins("*");
+  }
+
+  private static class GatewayHandshakeInterceptor implements HandshakeInterceptor {
+
+    @Override
+    public void afterHandshake(
+        final @NotNull ServerHttpRequest request,
+        final @NotNull ServerHttpResponse response,
+        final @NotNull WebSocketHandler wsHandler,
+        final @Nullable Exception exception) {}
+
+    @Override
+    public boolean beforeHandshake(
+        final @NotNull ServerHttpRequest request,
+        final @NotNull ServerHttpResponse response,
+        final @NotNull WebSocketHandler wsHandler,
+        final @NotNull Map<String, Object> attributes) {
+      response.getHeaders().add("Sec-WebSocket-Protocol", "graphql-transport-ws");
+      return true;
+    }
   }
 }

@@ -24,30 +24,76 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class SubscriptionGatewayHandler {
 
   private final @NotNull Lilo lilo;
+  private final @NotNull SessionAdapter clientSessionAdapter;
+  private @Nullable SubscriptionSourcePublisher upstream;
 
-  public SubscriptionGatewayHandler(final @NotNull Lilo lilo) {
+  public SubscriptionGatewayHandler(
+      final @NotNull Lilo lilo, final @NotNull SessionAdapter clientSessionAdapter) {
     this.lilo = Objects.requireNonNull(lilo);
+    this.clientSessionAdapter = clientSessionAdapter;
   }
 
-  public void handleMessage(
-      final @NotNull SubscriptionSessionAdapter sessionAdapter, final @NotNull String wsMessage) {
+  public void handleMessage(final @NotNull String wsMessage) {
 
     // > HTTP GET /graphql
-    // < HTTP 1.1 101 Switching protocols
-    // > {"type":"connection_init","payload":{}}
-    // < {"id":null,"type":"connection_ack","payload":{}}
-    // >
-    // {"id":"ad3cc738-116a-4228-8337-d4b985378890","type":"subscribe","payload":{"query":"subscription {\n  greeting1Subscription\n}","variables":{}}}
-    // <
-    // {"id":"ad3cc738-116a-4228-8337-d4b985378890","type":"next","payload":{"data":{"greeting1Subscription":"Hi!"}}}
-    // <
-    // {"id":"ad3cc738-116a-4228-8337-d4b985378890","type":"next","payload":{"data":{"greeting1Subscription":"Bonjour!"}}}
-    // <
-    // {"id":"ad3cc738-116a-4228-8337-d4b985378890","type":"next","payload":{"data":{"greeting1Subscription":"Hola!"}}}
+    // <                                                               HTTP 1.1 101 Switching
+    // protocols
+    // > {
+    //     "type": "connection_init",
+    //     "payload": {}
+    //   }
+    // <                                                               {
+    //                                                                   "id": null,
+    //                                                                   "type": "connection_ack",
+    //                                                                   "payload": {}
+    //                                                                 }
+    // > {
+    //     "id": "ad3cc738-116a-4228-8337-d4b985378890",
+    //     "type": "subscribe",
+    //     "payload": {
+    //       "query": "subscription {\n  greeting1Subscription\n}",
+    //       "variables": {}
+    //     }
+    //   }
+    // <                                                               {
+    //                                                                   "id":
+    // "ad3cc738-116a-4228-8337-d4b985378890",
+    //                                                                   "type": "next",
+    //                                                                   "payload": {
+    //                                                                     "data": {
+    //
+    // "greeting1Subscription": "Hi!"
+    //                                                                     }
+    //                                                                   }
+    //                                                                 }
+    // <                                                               {
+    //                                                                   "id":
+    // "ad3cc738-116a-4228-8337-d4b985378890",
+    //                                                                   "type": "next",
+    //                                                                   "payload": {
+    //                                                                     "data": {
+    //
+    // "greeting1Subscription": "Bonjour!"
+    //                                                                     }
+    //                                                                   }
+    //                                                                 }
+    // <                                                               {
+    //                                                                   "id":
+    // "ad3cc738-116a-4228-8337-d4b985378890",
+    //                                                                   "type": "next",
+    //                                                                   "payload": {
+    //                                                                     "data": {
+    //
+    // "greeting1Subscription": "Hola!"
+    //                                                                     }
+    //                                                                   }
+    //                                                                 }
+    // > WebSocket Connection Close
 
     final Optional<SubscriptionMessage> requestOptional =
         JsonUtils.toObj(wsMessage, SubscriptionMessage.class);
@@ -59,20 +105,50 @@ public class SubscriptionGatewayHandler {
     final SubscriptionMessage request = requestOptional.get();
 
     if ("connection_init".equals(request.getType())) {
+      // Emulating new connection
       final var response =
           SubscriptionMessage.builder().type("connection_ack").payload(new HashMap<>()).build();
-      sessionAdapter.sendMessage(JsonUtils.toStr(response));
+      this.clientSessionAdapter.sendMessage(JsonUtils.toStr(response));
     } else if ("subscribe".equals(request.getType())) {
       final GraphQLRequest graphQLRequest = this.payloadToQuery(request.getPayload());
       final Map<String, Object> stitchResult =
           this.lilo.stitch(graphQLRequest.toExecutionInput()).toSpecification();
 
-      final SubscriptionPublisher publisher = (SubscriptionPublisher) stitchResult.get("data");
-      sessionAdapter.subscribe(
-          publisher.getUpstreamPublisher(), Objects.requireNonNull(request.getId()));
+      this.upstream =
+          this.subscribe(
+              (SubscriptionPublisher) stitchResult.get("data"),
+              Objects.requireNonNull(request.getId()));
     } else if ("complete".equals(request.getType())) {
-      sessionAdapter.closeSession();
+      this.closeSession();
     }
+  }
+
+  private void closeSession() {
+    this.clientSessionAdapter.closeSession();
+
+    if (this.upstream != null) {
+      this.upstream.closeSession();
+    }
+  }
+
+  private @NotNull SubscriptionSourcePublisher subscribe(
+      final @NotNull SubscriptionPublisher publisher, final @NotNull String requestId) {
+
+    final SubscriptionSourcePublisher upstream =
+        (SubscriptionSourcePublisher) publisher.getUpstreamPublisher();
+
+    upstream
+        .getFlux()
+        .subscribe(
+            payload -> {
+              final var subscriptionMessage =
+                  SubscriptionMessage.builder().id(requestId).type("next").payload(payload).build();
+              this.clientSessionAdapter.sendMessage(JsonUtils.toStr(subscriptionMessage));
+            },
+            throwable -> {},
+            this::closeSession);
+
+    return upstream;
   }
 
   private GraphQLRequest payloadToQuery(final Object payload) {

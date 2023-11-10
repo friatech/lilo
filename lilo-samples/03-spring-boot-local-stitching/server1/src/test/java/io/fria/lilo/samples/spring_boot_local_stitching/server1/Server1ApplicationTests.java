@@ -13,16 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.fria.lilo.subscription;
+package io.fria.lilo.samples.spring_boot_local_stitching.server1;
 
-import org.jetbrains.annotations.NotNull;
-import org.reactivestreams.Publisher;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
 
-public interface SubscriptionSessionAdapter {
+@SpringBootTest
+class Server1ApplicationTests {
 
-  void closeSession();
-
-  void sendMessage(@NotNull String eventMessage);
-
-  void subscribe(@NotNull Publisher<Object> upstreamPublisher, @NotNull String requestId);
+  @Test
+  void contextLoads() {}
 }

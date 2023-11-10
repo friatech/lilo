@@ -22,12 +22,24 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.reactivestreams.Publisher;
 
-public interface SubscriptionRetriever {
+public abstract class SubscriptionRetriever {
 
-  @NotNull
-  Publisher<Object> sendQuery(
+  public final @NotNull Publisher<Object> sendQuery(
+      final @NotNull LiloContext liloContext,
+      final @NotNull SchemaSource schemaSource,
+      final @NotNull GraphQLQuery query,
+      final @Nullable Object localContext) {
+
+    final SubscriptionSourcePublisher publisher = new SubscriptionSourcePublisher();
+    this.sendQuery(liloContext, schemaSource, query, publisher, localContext);
+
+    return publisher;
+  }
+
+  public abstract void sendQuery(
       @NotNull LiloContext liloContext,
       @NotNull SchemaSource schemaSource,
       @NotNull GraphQLQuery query,
+      @NotNull SessionAdapter sessionAdapter,
       @Nullable Object localContext);
 }

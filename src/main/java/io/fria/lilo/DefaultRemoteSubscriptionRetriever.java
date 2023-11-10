@@ -15,20 +15,21 @@
  */
 package io.fria.lilo;
 
+import io.fria.lilo.subscription.SessionAdapter;
 import io.fria.lilo.subscription.SubscriptionRetriever;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.reactivestreams.Publisher;
 
-public class DefaultRemoteSubscriptionRetriever implements SubscriptionRetriever {
+public class DefaultRemoteSubscriptionRetriever extends SubscriptionRetriever {
 
   public DefaultRemoteSubscriptionRetriever(final @NotNull String schemaUrl) {}
 
   @Override
-  public @NotNull Publisher<Object> sendQuery(
+  public void sendQuery(
       @NotNull final LiloContext liloContext,
       @NotNull final SchemaSource schemaSource,
       @NotNull final GraphQLQuery query,
+      @NotNull final SessionAdapter sessionAdapter,
       @Nullable final Object localContext) {
     // TODO: Implement this
     throw new RuntimeException("Method is not implemented yet");

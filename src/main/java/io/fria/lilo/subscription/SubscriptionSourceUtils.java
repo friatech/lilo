@@ -24,19 +24,14 @@ import java.util.Optional;
 import java.util.UUID;
 import org.jetbrains.annotations.NotNull;
 
-public class SubscriptionSourceHandler {
+public final class SubscriptionSourceUtils {
 
-  public void startHandShaking(final @NotNull SubscriptionMessageSender subscriptionMessageSender)
-      throws IOException {
-
-    final SubscriptionMessage initMessage = new SubscriptionMessage();
-    initMessage.setType("connection_init");
-    initMessage.setPayload(new HashMap<>());
-
-    Objects.requireNonNull(subscriptionMessageSender).send(JsonUtils.toStr(initMessage));
+  private SubscriptionSourceUtils() {
+    // Utility class
   }
 
-  public SubscriptionMessage convertToSubscriptionMessage(final @NotNull String jsonMessage) {
+  public static SubscriptionMessage convertToSubscriptionMessage(
+      final @NotNull String jsonMessage) {
 
     final Optional<SubscriptionMessage> requestOptional =
         JsonUtils.toObj(jsonMessage, SubscriptionMessage.class);
@@ -44,7 +39,7 @@ public class SubscriptionSourceHandler {
     return requestOptional.orElse(null);
   }
 
-  public void sendQuery(
+  public static void sendQueryToSource(
       final @NotNull GraphQLQuery query,
       final @NotNull SubscriptionMessageSender subscriptionMessageSender)
       throws IOException {
@@ -54,5 +49,15 @@ public class SubscriptionSourceHandler {
 
     response.setPayload(Objects.requireNonNull(query.getRequest()));
     Objects.requireNonNull(subscriptionMessageSender).send(JsonUtils.toStr(response));
+  }
+
+  public static void startHandShakingWithSource(
+      final @NotNull SubscriptionMessageSender subscriptionMessageSender) throws IOException {
+
+    final SubscriptionMessage initMessage = new SubscriptionMessage();
+    initMessage.setType("connection_init");
+    initMessage.setPayload(new HashMap<>());
+
+    Objects.requireNonNull(subscriptionMessageSender).send(JsonUtils.toStr(initMessage));
   }
 }
