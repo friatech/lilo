@@ -64,7 +64,7 @@ public class LiloContext {
   private final boolean retrySchemaLoad;
   private final Instrumentation instrumentation;
   private Map<String, SchemaSource> sourceMap;
-  private GraphQL graphQL;
+  private GraphQL mergedGraphQL;
   private boolean schemasAreNotLoaded = true;
 
   LiloContext(
@@ -121,7 +121,7 @@ public class LiloContext {
     return this.dataFetcherExceptionHandler;
   }
 
-  public @NotNull GraphQL getGraphQL() {
+  public @NotNull GraphQL getMergedGraphQL() {
     return this.getGraphQL(null);
   }
 
@@ -159,10 +159,10 @@ public class LiloContext {
     return this.loadSources(localContext)
         .thenApply(
             sourceMapClone -> {
-              LiloContext.this.graphQL = LiloContext.this.createGraphQL(sourceMapClone);
+              LiloContext.this.mergedGraphQL = LiloContext.this.createGraphQL(sourceMapClone);
               LiloContext.this.sourceMap = toSourceMap(sourceMapClone.stream());
 
-              return LiloContext.this.graphQL;
+              return LiloContext.this.mergedGraphQL;
             });
   }
 
@@ -183,7 +183,7 @@ public class LiloContext {
       return this.reloadGraphQL(executionInput == null ? null : executionInput.getLocalContext());
     }
 
-    return CompletableFuture.supplyAsync(() -> this.graphQL);
+    return CompletableFuture.supplyAsync(() -> this.mergedGraphQL);
   }
 
   private @NotNull GraphQL createGraphQL(final @NotNull List<SchemaSource> schemaSourceList) {

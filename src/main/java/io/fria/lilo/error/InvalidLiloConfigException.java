@@ -13,12 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.fria.lilo.subscription;
+package io.fria.lilo.error;
 
-public enum SubscriptionMessageType {
-  connection_init,
-  connection_ack,
-  subscribe,
-  complete,
-  next
+import org.jetbrains.annotations.NotNull;
+
+public class InvalidLiloConfigException extends RuntimeException {
+
+  public InvalidLiloConfigException(final @NotNull String message) {
+    super(message);
+  }
 }

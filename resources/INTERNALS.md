@@ -144,8 +144,6 @@ talep edilir.
 this.context.getGraphQL(executionInput)
 ```
 
-TODO: graphQL'in ismi mergedGraphQL olarak degistirilebilir.
-
 Eger schema yuklenmemis ise tekrar yukleme islemi gerceklestirilir. Temel introspection bu seviyede olur.
 
 ```java
@@ -224,8 +222,6 @@ bu isim yanlis olabilir. Temel olan burada introspection'in fetch edilmesi degil
 TODO: Bu metodlar sinifin karmasikligini arttiriyor ayri bir utility class'a konulabilir ayrica bazi metodlar da yanlis
 Utility class'da `SchemaMerger.getOperationTypeNames` gibi
 
-TODO: `GraphQLResult` external bir class olabilir.
-
 Tum remoteSchemeSource'lardaki loadSchema metodlari cagrildiktan sonra
 
 ```java
@@ -233,8 +229,6 @@ LiloContext.this.graphQL = LiloContext.this.createGraphQL(sourceMapClone);
 ```
 
 merged graphQL olusturulur.
-
-TODO: createGraphQL static metod olabilir ayrica baska bir utility class'da da olabilir.
 
 ## Subscription
 

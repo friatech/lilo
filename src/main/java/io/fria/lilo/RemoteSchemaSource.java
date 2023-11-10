@@ -22,7 +22,6 @@ import static io.fria.lilo.JsonUtils.toObj;
 import static io.fria.lilo.JsonUtils.toStr;
 
 import graphql.ExecutionResult;
-import graphql.ExecutionResultImpl;
 import graphql.GraphQLError;
 import graphql.introspection.IntrospectionResultToSchema;
 import graphql.language.FieldDefinition;
@@ -32,7 +31,7 @@ import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import graphql.schema.idl.TypeRuntimeWiring;
-import io.fria.lilo.error.LiloGraphQLError;
+import io.fria.lilo.error.InvalidLiloConfigException;
 import io.fria.lilo.error.SourceDataFetcherException;
 import io.fria.lilo.subscription.SubscriptionRetriever;
 import io.fria.lilo.subscription.SubscriptionSourcePublisher;
@@ -42,7 +41,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -291,8 +289,7 @@ public final class RemoteSchemaSource extends SchemaSource {
 
                 return publisher;
               } else {
-                // TODO: Better exception handling
-                throw new Exception("");
+                throw new InvalidLiloConfigException("There's no defined SubscriptionRetriever");
               }
             } else {
               return this.fetchData(query, liloContext, localContext);
@@ -301,48 +298,5 @@ public final class RemoteSchemaSource extends SchemaSource {
     }
 
     return Optional.of(typeWiringBuilder.build());
-  }
-
-  private static final class GraphQLResult implements ExecutionResult {
-
-    private Map<String, Object> data;
-    private List<LiloGraphQLError> errors;
-    private Map<Object, Object> extensions;
-
-    @Override
-    public @NotNull Map<String, Object> getData() {
-      return this.data;
-    }
-
-    @Override
-    public @Nullable List<GraphQLError> getErrors() {
-
-      if (this.errors == null) {
-        return null;
-      }
-
-      return this.errors.stream().map(le -> (GraphQLError) le).collect(Collectors.toList());
-    }
-
-    @Override
-    public @Nullable Map<Object, Object> getExtensions() {
-      return this.extensions;
-    }
-
-    @Override
-    public boolean isDataPresent() {
-      return this.data != null;
-    }
-
-    @Override
-    public @NotNull Map<String, Object> toSpecification() {
-
-      return ExecutionResultImpl.newExecutionResult()
-          .data(this.data)
-          .errors(this.getErrors())
-          .extensions(this.extensions)
-          .build()
-          .toSpecification();
-    }
   }
 }
