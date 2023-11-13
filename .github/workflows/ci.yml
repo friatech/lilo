@@ -26,7 +26,7 @@ jobs:
       - name: Format Check
         run: mvn -B -ntp com.spotify.fmt:fmt-maven-plugin:2.21.1:check
 
-  check-lilo-samples:
+  check-samples:
     runs-on: ubuntu-latest
 
     steps:
@@ -43,4 +43,4 @@ jobs:
         run: mvn -B -ntp clean install -DskipTests -Dgpg.skip -Dcheckstyle.skip -Denforcer.skip -Dmaven.javadoc.skip -Dmaven.source.skip
 
       - name: Check lilo samples
-        run: cd lilo-samples && mvn -B -ntp compile com.spotify.fmt:fmt-maven-plugin:2.21.1:check
+        run: cd samples && mvn -B -ntp compile com.spotify.fmt:fmt-maven-plugin:2.21.1:check

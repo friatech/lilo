@@ -4,7 +4,7 @@
 
 **Lilo** is a super-fast GraphQL stitching library. The project is heavily inspired by [Atlassian Braid](https://bitbucket.org/atlassian/graphql-braid).
 **Lilo** focuses on simplicity and easy to use. You can find plenty of samples in the codebase and we aim to add more and more in every release.
-Please do not forget to check `/lilo-samples` directory for more sample projecta.
+Please do not forget to check `/samples` directory for more sample projecta.
 
 ## Installation
 
