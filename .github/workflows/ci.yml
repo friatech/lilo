@@ -20,11 +20,8 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Build with Maven
+      - name: Build with Maven and format check
         run: cd lilo && mvn -B -ntp package com.spotify.fmt:fmt-maven-plugin:2.21.1:check
-
-      - name: Format Check
-        run: mvn -B -ntp
 
   check-lilo-spring:
     runs-on: ubuntu-latest
@@ -39,7 +36,7 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Build with Maven
+      - name: Build with Maven and format check
         run: cd lilo-spring && mvn -B -ntp package com.spotify.fmt:fmt-maven-plugin:2.21.1:check
 
   check-samples:
