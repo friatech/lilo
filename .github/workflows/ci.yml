@@ -13,23 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 11
-        uses: actions/setup-java@v3
-        with:
-          java-version: '11'
-          distribution: 'temurin'
-          cache: maven
-
-      - name: Build with Maven and format check
-        run: cd lilo && mvn -B -ntp package com.spotify.fmt:fmt-maven-plugin:2.21.1:check
-
-  check-lilo-spring:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 11
+      - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
           java-version: '17'
@@ -37,7 +21,7 @@ jobs:
           cache: maven
 
       - name: Build with Maven and format check
-        run: cd lilo-spring && mvn -B -ntp package com.spotify.fmt:fmt-maven-plugin:2.21.1:check
+        run: mvn -B -ntp package com.spotify.fmt:fmt-maven-plugin:2.21.1:check -Denforcer.skip
 
   check-samples:
     runs-on: ubuntu-latest

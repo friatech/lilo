@@ -101,7 +101,21 @@
         <version>3.4.1</version>
         <executions>
           <execution>
-            <id>enforce-versions</id>
+            <id>enforce-versions-compile</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireMavenVersion>
+                  <version>${maven.min.version}</version>
+                </requireMavenVersion>
+              </rules>
+            </configuration>
+          </execution>
+          <execution>
+            <id>enforce-versions-deploy</id>
+            <phase>deploy</phase>
             <goals>
               <goal>enforce</goal>
             </goals>
