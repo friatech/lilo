@@ -18,7 +18,7 @@ package io.fria.lilo.spring.samples.subscription.lilo_gateway.retrievers;
 import io.fria.lilo.GraphQLQuery;
 import io.fria.lilo.LiloContext;
 import io.fria.lilo.SchemaSource;
-import io.fria.lilo.samples.spring_boot_subscription.lilo_gateway.handlers.SourceWebSocketHandler;
+import io.fria.lilo.spring.samples.subscription.lilo_gateway.handlers.SourceWebSocketHandler;
 import io.fria.lilo.subscription.SubscriptionRetriever;
 import io.fria.lilo.subscription.SubscriptionSourcePublisher;
 import java.net.URI;

@@ -16,6 +16,7 @@
 package io.fria.lilo.spring.samples.subscription.lilo_gateway.handlers;
 
 import io.fria.lilo.GraphQLQuery;
+import io.fria.lilo.spring.ClientSessionWrapper;
 import io.fria.lilo.subscription.SubscriptionSourceHandler;
 import io.fria.lilo.subscription.SubscriptionSourcePublisher;
 import org.jetbrains.annotations.NotNull;

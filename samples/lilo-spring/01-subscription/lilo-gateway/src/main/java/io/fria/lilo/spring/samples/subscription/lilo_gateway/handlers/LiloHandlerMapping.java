@@ -15,7 +15,7 @@
  */
 package io.fria.lilo.spring.samples.subscription.lilo_gateway.handlers;
 
-import static io.fria.lilo.samples.spring_boot_subscription.lilo_gateway.config.LiloConfiguration.LILO_GRAPHQL_WS_PATH;
+import static io.fria.lilo.spring.samples.subscription.lilo_gateway.config.LiloConfiguration.LILO_GRAPHQL_WS_PATH;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.jetbrains.annotations.NotNull;

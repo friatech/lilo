@@ -14,7 +14,7 @@
   </parent>
 
   <artifactId>samples-lilo-spring-subscription-server1</artifactId>
-  <name>samples-lilo-spring-06-subscription Server 1</name>
+  <name>samples-lilo-spring-01-subscription Server 1</name>
   <version>23.11.1-SNAPSHOT</version>
 
   <licenses>

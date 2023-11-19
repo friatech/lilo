@@ -17,9 +17,9 @@ package io.fria.lilo.spring.samples.subscription.lilo_gateway.config;
 
 import io.fria.lilo.Lilo;
 import io.fria.lilo.RemoteSchemaSource;
-import io.fria.lilo.samples.spring_boot_subscription.lilo_gateway.retrievers.IntrospectionRetrieverImpl;
-import io.fria.lilo.samples.spring_boot_subscription.lilo_gateway.retrievers.QueryRetrieverImpl;
-import io.fria.lilo.samples.spring_boot_subscription.lilo_gateway.retrievers.SubscriptionRetrieverImpl;
+import io.fria.lilo.spring.samples.subscription.lilo_gateway.retrievers.IntrospectionRetrieverImpl;
+import io.fria.lilo.spring.samples.subscription.lilo_gateway.retrievers.QueryRetrieverImpl;
+import io.fria.lilo.spring.samples.subscription.lilo_gateway.retrievers.SubscriptionRetrieverImpl;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

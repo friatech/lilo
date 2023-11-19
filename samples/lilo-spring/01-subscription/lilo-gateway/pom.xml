@@ -14,7 +14,7 @@
   </parent>
 
   <artifactId>samples-lilo-spring-subscription-lilo-gateway</artifactId>
-  <name>samples-lilo-spring-06-subscription Lilo Gateway</name>
+  <name>samples-lilo-spring-01-subscription Lilo Gateway</name>
   <version>23.11.1-SNAPSHOT</version>
 
   <licenses>

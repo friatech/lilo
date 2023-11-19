@@ -15,7 +15,7 @@
  */
 package io.fria.lilo.spring.samples.subscription.lilo_gateway;
 
-import static io.fria.lilo.samples.spring_boot_subscription.lilo_gateway.config.LiloConfiguration.LILO_GRAPHQL_PATH;
+import static io.fria.lilo.spring.samples.subscription.lilo_gateway.config.LiloConfiguration.LILO_GRAPHQL_PATH;
 
 import io.fria.lilo.GraphQLRequest;
 import io.fria.lilo.Lilo;

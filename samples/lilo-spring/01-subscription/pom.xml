@@ -8,7 +8,7 @@
   <version>23.11.1-SNAPSHOT</version>
   <packaging>pom</packaging>
 
-  <name>samples-lilo-spring-06-subscription</name>
+  <name>samples-lilo-spring-01-subscription</name>
   <description>GraphQL subscription with Spring Boot</description>
 
   <licenses>
