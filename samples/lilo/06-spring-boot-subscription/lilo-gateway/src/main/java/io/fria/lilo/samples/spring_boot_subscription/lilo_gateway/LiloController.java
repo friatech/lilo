@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.fria.lilo.spring.samples.subscription.lilo_gateway;
+package io.fria.lilo.samples.spring_boot_subscription.lilo_gateway;
 
 import static io.fria.lilo.samples.spring_boot_subscription.lilo_gateway.config.LiloConfiguration.LILO_GRAPHQL_PATH;
 

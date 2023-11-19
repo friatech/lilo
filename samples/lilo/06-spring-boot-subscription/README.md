@@ -1,6 +1,6 @@
-In this example there is one gateway and 2 different servers. `Server 1` provides `greeting1` query and
-server2 provides `greeting2` query. Gateway uses default introspection and query retrievers. This example uses
-custom retrievers instead of default retrievers.
+This example is a little bit complicated, although we have tried to make it as simple as possible. The main reason is;
+every web framework handles web socket connections differently. To maintain lilo's framework agnostic structure.
+we added some subscription handlers. But it's still not easy to use but highly configurable.
 
 ```
                                               ------------
@@ -15,6 +15,22 @@ custom retrievers instead of default retrievers.
                 -----------                   |          |
                                               ------------
 ```
+
+We recommend you to use `lilo-spring` dependency for easy to use configuration on spring framework.
+
+In this example there is one gateway and 2 different servers. `Server 1` provides `greeting1` query and
+`greeting1Subscription`. Also, `Server 2` provides `greeting2` query and `greeting2Subscription`.
+
+In this example There are 4 retrievers. One of them is `IntrospectionRetrieverImpl` which is an implementation
+of `SyncIntrospectionRetriever`. It aims to retrieve whole GraphQL schema definitions from remote servers; `Server 1`
+and `Server 2`. There's another retriever (`QueryRetrieverImpl`) for getting specific query results from specific server.
+And SubscriptionRetrieverImpl is responsible for a websocket connection between gateway and servers.
+
+We have 2 handlers for handling web-socket connections and transferring them to lilo.
+- `GatewayWebSocketHandler` is responsible for handling web socket sessions coming from GraphQL clients to Lilo Stitching Gateway
+- `SourceWebSocketHandler` is responsible for handling websocket sessions going from gateway to remote GraphQL servers.
+
+`LiloHandlerMapping` is a dispatcher class when we use the same path for subscription and GraphQL queries.
 
 # Running
 
@@ -46,20 +62,18 @@ Running Server 2 project on port 8082:
 
 # Testing
 
-```shell
-curl -X POST \
-    -H 'content-type: application/json' \
-    -d '{"query":"{\ngreeting1\ngreeting2\n}","variables":null}' \
-    http://localhost:8080/graphql
+For testing you can use the embedded GraphiQL client web page on `http://localhost:8080`
+
+```graphql
+subscription {
+  greeting1Subscription
+}
 ```
 
-Expected result:
+or
 
-```json
-{
-  "data": {
-    "greeting1": "Hello from Server 1",
-    "greeting2": "Hello from Server 2"
-  }
+```graphql
+subscription {
+  greeting2Subscription
 }
 ```

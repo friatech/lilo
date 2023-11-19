@@ -281,7 +281,6 @@ public final class RemoteSchemaSource extends SchemaSource {
             final var query = QueryTransformer.extractQuery(e);
 
             if (query.getOperationType() == OperationDefinition.Operation.SUBSCRIPTION) {
-              // TODO: Maybe there should be async and sync retrievers
               if (this.subscriptionRetriever != null) {
                 final SubscriptionSourcePublisher publisher = new SubscriptionSourcePublisher();
                 this.subscriptionRetriever.sendQuery(
