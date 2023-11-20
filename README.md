@@ -173,7 +173,6 @@ Please check [Lilo Spring Documentation](lilo-spring/README.md).
 
 If you're going to use Subscription stitching. You need to define an additional retriever other than `QueryRetriever` and `IntrospectionRetriever`.
 As you might guess, it's a `SubscriptionRetriever`. Besides retrievers, we need to define handlers:
-- 
 - `SubscriptionGatewayHandler` is responsible for handling web socket sessions coming from GraphQL clients to Lilo Stitching Gateway.
 - `SubscriptionSourceHandler` is responsible for handling websocket sessions going from gateway to remote GraphQL servers.
 
