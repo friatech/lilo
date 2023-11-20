@@ -5,7 +5,7 @@
 
   <groupId>io.fria.lilo.samples.lilo-spring.subscription</groupId>
   <artifactId>samples-lilo-spring-subscription-parent</artifactId>
-  <version>23.11.1</version>
+  <version>23.11.2-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>samples-lilo-spring-01-subscription</name>

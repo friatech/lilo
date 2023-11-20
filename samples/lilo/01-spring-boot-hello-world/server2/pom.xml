@@ -15,7 +15,7 @@
 
   <artifactId>samples-lilo-spring-boot-hello-world-server2</artifactId>
   <name>samples-lilo-01-spring-boot-hello-world Server 2</name>
-  <version>23.11.1</version>
+  <version>23.11.2-SNAPSHOT</version>
 
   <licenses>
     <license>

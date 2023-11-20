@@ -6,7 +6,7 @@
 
   <groupId>io.fria</groupId>
   <artifactId>lilo-spring</artifactId>
-  <version>23.11.1</version>
+  <version>23.11.2-SNAPSHOT</version>
 
   <name>lilo-spring</name>
   <description>Lilo GraphQL stitching library Spring Bindings</description>
@@ -55,7 +55,7 @@
     <dependency>
       <groupId>io.fria</groupId>
       <artifactId>lilo</artifactId>
-      <version>23.11.1</version>
+      <version>23.11.2-SNAPSHOT</version>
     </dependency>
 
     <dependency>

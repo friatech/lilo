@@ -6,7 +6,7 @@
 
   <groupId>io.fria</groupId>
   <artifactId>lilo</artifactId>
-  <version>23.11.1</version>
+  <version>23.11.2-SNAPSHOT</version>
 
   <name>lilo</name>
   <description>Lilo GraphQL stitching library</description>

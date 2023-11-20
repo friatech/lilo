@@ -15,7 +15,7 @@
 
   <artifactId>samples-lilo-spring-boot-basic-authentication-server1</artifactId>
   <name>samples-lilo-05-spring-boot-basic-authentication Server 1</name>
-  <version>23.11.1</version>
+  <version>23.11.2-SNAPSHOT</version>
 
   <licenses>
     <license>

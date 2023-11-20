@@ -6,7 +6,7 @@
 
   <groupId>io.fria.lilo.samples.lilo</groupId>
   <artifactId>lilo-parent</artifactId>
-  <version>23.11.1</version>
+  <version>23.11.2-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>samples-lilo</name>
