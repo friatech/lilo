@@ -1,4 +1,0 @@
-query someMath($paramA: Int!, $paramB: Int!, $paramC: Int!, $paramD: Int!) {
-    add(a: $paramA, b: $paramB)
-    subtract(a: $paramC, b: $paramD)
-}

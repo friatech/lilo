@@ -1,3 +1,0 @@
-type Query {
-    subtract(a: Int!, b: Int!): Int!
-}

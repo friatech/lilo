@@ -1,4 +1,0 @@
-type Query {
-    greeting1: String!
-    greeting2: String!
-}

@@ -1,0 +1,532 @@
+# Copyright 2023 the original author or authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+query ComplexQuery(
+    $s1stringParam01: String,
+    $s1stringParam02: String,
+    $s1stringParam03: String!,
+    $s1stringParam04: String!,
+    $s1stringParam05: [String],
+    $s1stringParam06: [String],
+    $s1stringParam07: [String]!,
+    $s1stringParam08: [String]!,
+    $s1stringParam09: [String!]!,
+    $s1stringParam10: [String!]!,
+    $s1intParam01: Int,
+    $s1intParam02: Int,
+    $s1intParam03: Int!,
+    $s1intParam04: Int!,
+    $s1intParam05: [Int],
+    $s1intParam06: [Int],
+    $s1intParam07: [Int]!,
+    $s1intParam08: [Int]!,
+    $s1intParam09: [Int!]!,
+    $s1intParam10: [Int!]!,
+    $s1floatParam01: Float,
+    $s1floatParam02: Float,
+    $s1floatParam03: Float!,
+    $s1floatParam04: Float!,
+    $s1floatParam05: [Float],
+    $s1floatParam06: [Float],
+    $s1floatParam07: [Float]!,
+    $s1floatParam08: [Float]!,
+    $s1floatParam09: [Float!]!,
+    $s1floatParam10: [Float!]!,
+    $s1booleanParam01: Boolean,
+    $s1booleanParam02: Boolean,
+    $s1booleanParam03: Boolean!,
+    $s1booleanParam04: Boolean!,
+    $s1booleanParam05: [Boolean],
+    $s1booleanParam06: [Boolean],
+    $s1booleanParam07: [Boolean]!,
+    $s1booleanParam08: [Boolean]!,
+    $s1booleanParam09: [Boolean!]!,
+    $s1booleanParam10: [Boolean!]!,
+    $s1idParam01: ID,
+    $s1idParam02: ID,
+    $s1idParam03: ID!,
+    $s1idParam04: ID!,
+    $s1idParam05: [ID],
+    $s1idParam06: [ID],
+    $s1idParam07: [ID]!,
+    $s1idParam08: [ID]!,
+    $s1idParam09: [ID!]!,
+    $s1idParam10: [ID!]!,
+    $s1enumParam01: Enum1,
+    $s1enumParam02: Enum1,
+    $s1enumParam03: Enum1!,
+    $s1enumParam04: Enum1!,
+    $s1enumParam05: [Enum1],
+    $s1enumParam06: [Enum1],
+    $s1enumParam07: [Enum1]!,
+    $s1enumParam08: [Enum1]!,
+    $s1enumParam09: [Enum1!]!,
+    $s1enumParam10: [Enum1!]!,
+    $s1enumCommonParam01: EnumCommon,
+    $s1enumCommonParam02: EnumCommon,
+    $s1enumCommonParam03: EnumCommon!,
+    $s1enumCommonParam04: EnumCommon!,
+    $s1enumCommonParam05: [EnumCommon],
+    $s1enumCommonParam06: [EnumCommon],
+    $s1enumCommonParam07: [EnumCommon]!,
+    $s1enumCommonParam08: [EnumCommon]!,
+    $s1enumCommonParam09: [EnumCommon!]!,
+    $s1enumCommonParam10: [EnumCommon!]!,
+    $s1scalarParam01: Scalar1,
+    $s1scalarParam02: Scalar1,
+    $s1scalarParam03: Scalar1!,
+    $s1scalarParam04: Scalar1!,
+    $s1scalarParam05: [Scalar1],
+    $s1scalarParam06: [Scalar1],
+    $s1scalarParam07: [Scalar1]!,
+    $s1scalarParam08: [Scalar1]!,
+    $s1scalarParam09: [Scalar1!]!,
+    $s1scalarParam10: [Scalar1!]!,
+    $s1scalarCommonParam01: ScalarCommon,
+    $s1scalarCommonParam02: ScalarCommon,
+    $s1scalarCommonParam03: ScalarCommon!,
+    $s1scalarCommonParam04: ScalarCommon!,
+    $s1scalarCommonParam05: [ScalarCommon],
+    $s1scalarCommonParam06: [ScalarCommon],
+    $s1scalarCommonParam07: [ScalarCommon]!,
+    $s1scalarCommonParam08: [ScalarCommon]!,
+    $s1scalarCommonParam09: [ScalarCommon!]!,
+    $s1scalarCommonParam10: [ScalarCommon!]!,
+    $s1typeParam01: String,
+    $s1typeParam02: String,
+    $s1typeParam03: String!,
+    $s1typeParam04: String!,
+    $s1inputParam01: Input1,
+    $s1inputParam02: Input1,
+    $s1inputParam03: String,
+    $s1inputParam04: [InputChild1],
+    $s1inputParam05: String,
+    $s1inputParam06: String,
+    $s1inputParam07: [InputGrandChild1],
+    $s2stringParam01: String,
+    $s2stringParam02: String,
+    $s2stringParam03: String!,
+    $s2stringParam04: String!,
+    $s2stringParam05: [String],
+    $s2stringParam06: [String],
+    $s2stringParam07: [String]!,
+    $s2stringParam08: [String]!,
+    $s2stringParam09: [String!]!,
+    $s2stringParam10: [String!]!,
+    $s2intParam01: Int,
+    $s2intParam02: Int,
+    $s2intParam03: Int!,
+    $s2intParam04: Int!,
+    $s2intParam05: [Int],
+    $s2intParam06: [Int],
+    $s2intParam07: [Int]!,
+    $s2intParam08: [Int]!,
+    $s2intParam09: [Int!]!,
+    $s2intParam10: [Int!]!,
+    $s2floatParam01: Float,
+    $s2floatParam02: Float,
+    $s2floatParam03: Float!,
+    $s2floatParam04: Float!,
+    $s2floatParam05: [Float],
+    $s2floatParam06: [Float],
+    $s2floatParam07: [Float]!,
+    $s2floatParam08: [Float]!,
+    $s2floatParam09: [Float!]!,
+    $s2floatParam10: [Float!]!,
+    $s2booleanParam01: Boolean,
+    $s2booleanParam02: Boolean,
+    $s2booleanParam03: Boolean!,
+    $s2booleanParam04: Boolean!,
+    $s2booleanParam05: [Boolean],
+    $s2booleanParam06: [Boolean],
+    $s2booleanParam07: [Boolean]!,
+    $s2booleanParam08: [Boolean]!,
+    $s2booleanParam09: [Boolean!]!,
+    $s2booleanParam10: [Boolean!]!,
+    $s2idParam01: ID,
+    $s2idParam02: ID,
+    $s2idParam03: ID!,
+    $s2idParam04: ID!,
+    $s2idParam05: [ID],
+    $s2idParam06: [ID],
+    $s2idParam07: [ID]!,
+    $s2idParam08: [ID]!,
+    $s2idParam09: [ID!]!,
+    $s2idParam10: [ID!]!,
+    $s2enumParam01: Enum2,
+    $s2enumParam02: Enum2,
+    $s2enumParam03: Enum2!,
+    $s2enumParam04: Enum2!,
+    $s2enumParam05: [Enum2],
+    $s2enumParam06: [Enum2],
+    $s2enumParam07: [Enum2]!,
+    $s2enumParam08: [Enum2]!,
+    $s2enumParam09: [Enum2!]!,
+    $s2enumParam10: [Enum2!]!,
+    $s2enumCommonParam01: EnumCommon,
+    $s2enumCommonParam02: EnumCommon,
+    $s2enumCommonParam03: EnumCommon!,
+    $s2enumCommonParam04: EnumCommon!,
+    $s2enumCommonParam05: [EnumCommon],
+    $s2enumCommonParam06: [EnumCommon],
+    $s2enumCommonParam07: [EnumCommon]!,
+    $s2enumCommonParam08: [EnumCommon]!,
+    $s2enumCommonParam09: [EnumCommon!]!,
+    $s2enumCommonParam10: [EnumCommon!]!,
+    $s2scalarParam01: Scalar2,
+    $s2scalarParam02: Scalar2,
+    $s2scalarParam03: Scalar2!,
+    $s2scalarParam04: Scalar2!,
+    $s2scalarParam05: [Scalar2],
+    $s2scalarParam06: [Scalar2],
+    $s2scalarParam07: [Scalar2]!,
+    $s2scalarParam08: [Scalar2]!,
+    $s2scalarParam09: [Scalar2!]!,
+    $s2scalarParam10: [Scalar2!]!,
+    $s2scalarCommonParam01: ScalarCommon,
+    $s2scalarCommonParam02: ScalarCommon,
+    $s2scalarCommonParam03: ScalarCommon!,
+    $s2scalarCommonParam04: ScalarCommon!,
+    $s2scalarCommonParam05: [ScalarCommon],
+    $s2scalarCommonParam06: [ScalarCommon],
+    $s2scalarCommonParam07: [ScalarCommon]!,
+    $s2scalarCommonParam08: [ScalarCommon]!,
+    $s2scalarCommonParam09: [ScalarCommon!]!,
+    $s2scalarCommonParam10: [ScalarCommon!]!,
+    $s2typeParam01: String,
+    $s2typeParam02: String,
+    $s2typeParam03: String!,
+    $s2typeParam04: String!,
+    $s2inputParam01: Input2,
+    $s2inputParam02: Input2,
+    $s2inputParam03: String,
+    $s2inputParam04: [InputChild2],
+    $s2inputParam05: String,
+    $s2inputParam06: String,
+    $s2inputParam07: [InputGrandChild2],
+    $includeGrandChildren1: Boolean!,
+    $includeGrandChildren2: Boolean!,
+    $includeCommonString: Boolean!
+){
+    alias1: server1queryStringA(paramA: $s1stringParam01, paramB: $s1stringParam02)
+    server1queryStringB(paramA: $s1stringParam03, paramB: $s1stringParam04)
+    server1queryStringC(paramA: $s1stringParam05, paramB: $s1stringParam06)
+    server1queryStringD(paramA: $s1stringParam07, paramB: $s1stringParam08)
+    server1queryStringE(paramA: $s1stringParam09, paramB: $s1stringParam10)
+    server1queryStringF
+    server1queryIntA(paramA: $s1intParam01, paramB: $s1intParam02)
+    server1queryIntB(paramA: $s1intParam03, paramB: $s1intParam04)
+    server1queryIntC(paramA: $s1intParam05, paramB: $s1intParam06)
+    server1queryIntD(paramA: $s1intParam07, paramB: $s1intParam08)
+    server1queryIntE(paramA: $s1intParam09, paramB: $s1intParam10)
+    server1queryIntF
+    alias2: server1queryFloatA(paramA: $s1floatParam01, paramB: $s1floatParam02)
+    server1queryFloatB(paramA: $s1floatParam03, paramB: $s1floatParam04)
+    server1queryFloatC(paramA: $s1floatParam05, paramB: $s1floatParam06)
+    server1queryFloatD(paramA: $s1floatParam07, paramB: $s1floatParam08)
+    server1queryFloatE(paramA: $s1floatParam09, paramB: $s1floatParam10)
+    server1queryFloatF
+    server1queryBooleanA(paramA: $s1booleanParam01, paramB: $s1booleanParam02)
+    server1queryBooleanB(paramA: $s1booleanParam03, paramB: $s1booleanParam04)
+    server1queryBooleanC(paramA: $s1booleanParam05, paramB: $s1booleanParam06)
+    server1queryBooleanD(paramA: $s1booleanParam07, paramB: $s1booleanParam08)
+    server1queryBooleanE(paramA: $s1booleanParam09, paramB: $s1booleanParam10)
+    server1queryBooleanF
+    server1queryIdA(paramA: $s1idParam01, paramB: $s1idParam02)
+    server1queryIdB(paramA: $s1idParam03, paramB: $s1idParam04)
+    server1queryIdC(paramA: $s1idParam05, paramB: $s1idParam06)
+    server1queryIdD(paramA: $s1idParam07, paramB: $s1idParam08)
+    server1queryIdE(paramA: $s1idParam09, paramB: $s1idParam10)
+    alias3: server1queryIdF
+    server1queryEnumA(paramA: $s1enumParam01, paramB: $s1enumParam02)
+    server1queryEnumB(paramA: $s1enumParam03, paramB: $s1enumParam04)
+    server1queryEnumC(paramA: $s1enumParam05, paramB: $s1enumParam06)
+    server1queryEnumD(paramA: $s1enumParam07, paramB: $s1enumParam08)
+    server1queryEnumE(paramA: $s1enumParam09, paramB: $s1enumParam10)
+    server1queryEnumF
+    server1queryEnumCommonA(paramA: $s1enumCommonParam01, paramB: $s1enumCommonParam02)
+    server1queryEnumCommonB(paramA: $s1enumCommonParam03, paramB: $s1enumCommonParam04)
+    server1queryEnumCommonC(paramA: $s1enumCommonParam05, paramB: $s1enumCommonParam06)
+    server1queryEnumCommonD(paramA: $s1enumCommonParam07, paramB: $s1enumCommonParam08)
+    alias4: server1queryEnumCommonE(paramA: $s1enumCommonParam09, paramB: $s1enumCommonParam10)
+    server1queryEnumCommonF
+    server1queryScalarA(paramA: $s1scalarParam01, paramB: $s1scalarParam02)
+    server1queryScalarB(paramA: $s1scalarParam03, paramB: $s1scalarParam04)
+    server1queryScalarC(paramA: $s1scalarParam05, paramB: $s1scalarParam06)
+    server1queryScalarD(paramA: $s1scalarParam07, paramB: $s1scalarParam08)
+    server1queryScalarE(paramA: $s1scalarParam09, paramB: $s1scalarParam10)
+    server1queryScalarF
+    server1queryScalarCommonA(paramA: $s1scalarCommonParam01, paramB: $s1scalarCommonParam02)
+    server1queryScalarCommonB(paramA: $s1scalarCommonParam03, paramB: $s1scalarCommonParam04)
+    server1queryScalarCommonC(paramA: $s1scalarCommonParam05, paramB: $s1scalarCommonParam06)
+    server1queryScalarCommonD(paramA: $s1scalarCommonParam07, paramB: $s1scalarCommonParam08)
+    server1queryScalarCommonE(paramA: $s1scalarCommonParam09, paramB: $s1scalarCommonParam10)
+    server1queryScalarCommonF
+    server1queryTypeA(paramA: $s1typeParam01, paramB: $s1typeParam02) {
+        alias5: someString
+    }
+    server1queryTypeB(paramA: $s1typeParam03, paramB: $s1typeParam04) {
+        someString
+        alias6: children {
+            someString
+            grandChildren @include(if: $includeGrandChildren1) {
+                ... grandChildren1
+                scalarList
+                scalarCommonList
+                typeCommonList {
+                    ... commonString
+                }
+                typeImplementedList {
+                    someString
+                }
+                typeImplementedCommonList {
+                    someString
+                }
+                typeExtendedList {
+                    someString
+                }
+                typeExtendedCommonList {
+                    someString
+                }
+                typeUnionList {
+                    __typename
+                    ... on TypeUnion1Int {
+                        someInteger
+                    }
+                    ... on TypeUnion1String {
+                        someString
+                    }
+                }
+                typeUnionCommonList {
+                    __typename
+                    ... on TypeUnionCommonInt {
+                        someInteger
+                    }
+                    ... on TypeUnionCommonString {
+                        someString
+                    }
+                }
+            }
+        }
+    }
+    server1queryInputA(paramA: $s1inputParam01,paramB: $s1inputParam02) {
+        someString
+    }
+    alias7: server1queryInputA(
+            paramA: {
+                someString: $s1inputParam03,
+                children: $s1inputParam04
+            },
+            paramB: {
+                someString: $s1inputParam05,
+                children: {
+                    someString: $s1inputParam06
+                    children: $s1inputParam07
+                }
+            }
+        ) {
+        someString
+    }
+    server2queryStringA(paramA: $s2stringParam01, paramB: $s2stringParam02)
+    server2queryStringB(paramA: $s2stringParam03, paramB: $s2stringParam04)
+    server2queryStringC(paramA: $s2stringParam05, paramB: $s2stringParam06)
+    server2queryStringD(paramA: $s2stringParam07, paramB: $s2stringParam08)
+    server2queryStringE(paramA: $s2stringParam09, paramB: $s2stringParam10)
+    server2queryStringF
+    server2queryIntA(paramA: $s2intParam01, paramB: $s2intParam02)
+    server2queryIntB(paramA: $s2intParam03, paramB: $s2intParam04)
+    server2queryIntC(paramA: $s2intParam05, paramB: $s2intParam06)
+    server2queryIntD(paramA: $s2intParam07, paramB: $s2intParam08)
+    server2queryIntE(paramA: $s2intParam09, paramB: $s2intParam10)
+    server2queryIntF
+    server2queryFloatA(paramA: $s2floatParam01, paramB: $s2floatParam02)
+    server2queryFloatB(paramA: $s2floatParam03, paramB: $s2floatParam04)
+    server2queryFloatC(paramA: $s2floatParam05, paramB: $s2floatParam06)
+    server2queryFloatD(paramA: $s2floatParam07, paramB: $s2floatParam08)
+    server2queryFloatE(paramA: $s2floatParam09, paramB: $s2floatParam10)
+    server2queryFloatF
+    server2queryBooleanA(paramA: $s2booleanParam01, paramB: $s2booleanParam02)
+    server2queryBooleanB(paramA: $s2booleanParam03, paramB: $s2booleanParam04)
+    server2queryBooleanC(paramA: $s2booleanParam05, paramB: $s2booleanParam06)
+    server2queryBooleanD(paramA: $s2booleanParam07, paramB: $s2booleanParam08)
+    server2queryBooleanE(paramA: $s2booleanParam09, paramB: $s2booleanParam10)
+    server2queryBooleanF
+    server2queryIdA(paramA: $s2idParam01, paramB: $s2idParam02)
+    server2queryIdB(paramA: $s2idParam03, paramB: $s2idParam04)
+    server2queryIdC(paramA: $s2idParam05, paramB: $s2idParam06)
+    server2queryIdD(paramA: $s2idParam07, paramB: $s2idParam08)
+    server2queryIdE(paramA: $s2idParam09, paramB: $s2idParam10)
+    server2queryIdF
+    server2queryEnumA(paramA: $s2enumParam01, paramB: $s2enumParam02)
+    server2queryEnumB(paramA: $s2enumParam03, paramB: $s2enumParam04)
+    server2queryEnumC(paramA: $s2enumParam05, paramB: $s2enumParam06)
+    server2queryEnumD(paramA: $s2enumParam07, paramB: $s2enumParam08)
+    server2queryEnumE(paramA: $s2enumParam09, paramB: $s2enumParam10)
+    server2queryEnumF
+    server2queryEnumCommonA(paramA: $s2enumCommonParam01, paramB: $s2enumCommonParam02)
+    server2queryEnumCommonB(paramA: $s2enumCommonParam03, paramB: $s2enumCommonParam04)
+    server2queryEnumCommonC(paramA: $s2enumCommonParam05, paramB: $s2enumCommonParam06)
+    server2queryEnumCommonD(paramA: $s2enumCommonParam07, paramB: $s2enumCommonParam08)
+    server2queryEnumCommonE(paramA: $s2enumCommonParam09, paramB: $s2enumCommonParam10)
+    server2queryEnumCommonF
+    server2queryScalarA(paramA: $s2scalarParam01, paramB: $s2scalarParam02)
+    server2queryScalarB(paramA: $s2scalarParam03, paramB: $s2scalarParam04)
+    server2queryScalarC(paramA: $s2scalarParam05, paramB: $s2scalarParam06)
+    server2queryScalarD(paramA: $s2scalarParam07, paramB: $s2scalarParam08)
+    server2queryScalarE(paramA: $s2scalarParam09, paramB: $s2scalarParam10)
+    server2queryScalarF
+    server2queryScalarCommonA(paramA: $s2scalarCommonParam01, paramB: $s2scalarCommonParam02)
+    server2queryScalarCommonB(paramA: $s2scalarCommonParam03, paramB: $s2scalarCommonParam04)
+    server2queryScalarCommonC(paramA: $s2scalarCommonParam05, paramB: $s2scalarCommonParam06)
+    server2queryScalarCommonD(paramA: $s2scalarCommonParam07, paramB: $s2scalarCommonParam08)
+    server2queryScalarCommonE(paramA: $s2scalarCommonParam09, paramB: $s2scalarCommonParam10)
+    server2queryScalarCommonF
+    server2queryTypeA(paramA: $s2typeParam01, paramB: $s2typeParam02) {
+        someString
+    }
+    server2queryTypeB(paramA: $s2typeParam03, paramB: $s2typeParam04) {
+        someString
+        children {
+            someString
+            grandChildren @include(if: $includeGrandChildren2) {
+                ... grandChildren2
+                scalarList
+                scalarCommonList
+                typeCommonList {
+                    ... commonString
+                }
+                typeImplementedList {
+                    someString
+                }
+                typeImplementedCommonList {
+                    someString
+                }
+                typeExtendedList {
+                    someString
+                }
+                typeExtendedCommonList {
+                    someString
+                }
+                typeUnionList {
+                    __typename
+                    ... on TypeUnion2Int {
+                        someInteger
+                    }
+                    ... on TypeUnion2String {
+                        someString
+                    }
+                }
+                typeUnionCommonList {
+                    __typename
+                    ... on TypeUnionCommonInt {
+                        someInteger
+                    }
+                    ... on TypeUnionCommonString {
+                        someString
+                    }
+                }
+            }
+        }
+    }
+    alias8: server2queryTypeB(paramA: $s2typeParam03, paramB: $s2typeParam04) {
+        someString
+        children {
+            someString
+            ... grandChildren3
+        }
+    }
+    server2queryInputA(paramA: $s2inputParam01,paramB: $s2inputParam02) {
+        someString
+    }
+    alias9: server2queryInputA(
+            paramA: {
+                someString: $s2inputParam03,
+                children: $s2inputParam04
+            },
+            paramB: {
+                someString: $s2inputParam05,
+                children: {
+                    someString: $s2inputParam06
+                    children: $s2inputParam07
+                }
+            }
+        ) {
+        someString
+    }
+}
+
+fragment commonString on TypeCommon {
+    someString
+}
+
+fragment grandChildren1 on TypeGrandChild1 {
+    alias7: stringList
+    intList
+    floatList
+    booleanList
+    idList
+    enumList
+    enumCommonList
+}
+
+fragment grandChildren2 on TypeGrandChild2 {
+    stringList
+    intList
+    floatList
+    booleanList
+    idList
+    enumList
+    enumCommonList
+}
+
+fragment grandChildren3 on TypeChild2 {
+    grandChildren {
+        ... grandChildren2
+        scalarList
+        scalarCommonList
+        typeCommonList {
+            ... commonString @include(if: $includeCommonString)
+        }
+        typeImplementedList {
+            someString
+        }
+        typeImplementedCommonList {
+            alias10: someString
+        }
+        typeExtendedList {
+            someString
+        }
+        typeExtendedCommonList {
+            someString
+        }
+        typeUnionList {
+            __typename
+            ... on TypeUnion2Int {
+                someInteger
+            }
+            ... on TypeUnion2String {
+                someString
+            }
+        }
+        typeUnionCommonList {
+            __typename
+            ... on TypeUnionCommonInt {
+                someInteger
+            }
+            ... on TypeUnionCommonString {
+                someString
+            }
+        }
+    }
+}
