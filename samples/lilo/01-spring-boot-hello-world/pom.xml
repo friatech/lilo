@@ -5,7 +5,7 @@
 
   <groupId>io.fria.lilo.samples.lilo.spring-boot-hello-world</groupId>
   <artifactId>samples-lilo-spring-boot-hello-world-parent</artifactId>
-  <version>23.11.1-SNAPSHOT</version>
+  <version>23.11.1</version>
   <packaging>pom</packaging>
 
   <name>samples-lilo-01-spring-boot-hello-world</name>

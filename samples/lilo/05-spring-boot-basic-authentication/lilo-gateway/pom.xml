@@ -15,7 +15,7 @@
 
   <artifactId>samples-lilo-spring-boot-basic-authentication-lilo-gateway</artifactId>
   <name>samples-lilo-05-spring-boot-basic-authentication Lilo Gateway</name>
-  <version>23.11.1-SNAPSHOT</version>
+  <version>23.11.1</version>
 
   <licenses>
     <license>
@@ -68,7 +68,7 @@
     <dependency>
       <groupId>io.fria</groupId>
       <artifactId>lilo</artifactId>
-      <version>23.11.1-SNAPSHOT</version>
+      <version>23.11.1</version>
     </dependency>
 
     <dependency>

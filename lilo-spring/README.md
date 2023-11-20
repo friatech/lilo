@@ -14,7 +14,7 @@ Just add a single **Lilo** dependency to your `pom.xml` file.
   <dependency>
     <groupId>io.fria</groupId>
     <artifactId>lilo-spring</artifactId>
-    <version>23.11.0</version>
+    <version>23.11.1</version>
   </dependency>
   ...
 </dependencies>
@@ -23,7 +23,7 @@ Just add a single **Lilo** dependency to your `pom.xml` file.
 If you're using gradle add the dependency to your `build.gradle` file.
 
 ```groovy
-implementation 'io.fria:lilo-spring:23.11.0'
+implementation 'io.fria:lilo-spring:23.11.1'
 ```
 
 ## Usage
