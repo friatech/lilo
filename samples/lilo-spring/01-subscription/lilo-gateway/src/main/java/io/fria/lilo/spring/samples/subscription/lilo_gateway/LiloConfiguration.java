@@ -13,22 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.fria.lilo.spring.samples.subscription.lilo_gateway.config;
+package io.fria.lilo.spring.samples.subscription.lilo_gateway;
 
+import io.fria.lilo.DefaultRemoteIntrospectionRetriever;
+import io.fria.lilo.DefaultRemoteQueryRetriever;
 import io.fria.lilo.Lilo;
 import io.fria.lilo.RemoteSchemaSource;
-import io.fria.lilo.spring.samples.subscription.lilo_gateway.retrievers.IntrospectionRetrieverImpl;
-import io.fria.lilo.spring.samples.subscription.lilo_gateway.retrievers.QueryRetrieverImpl;
-import io.fria.lilo.spring.samples.subscription.lilo_gateway.retrievers.SubscriptionRetrieverImpl;
+import io.fria.lilo.spring.EnableLilo;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.socket.config.annotation.EnableWebSocket;
 
+@EnableWebSocket
+@EnableLilo
 @Configuration
 public class LiloConfiguration {
-
-  public static final String LILO_GRAPHQL_PATH = "/graphql";
-  public static final String LILO_GRAPHQL_WS_PATH = "/graphql";
 
   private static final String SOURCE1_NAME = "SERVER1";
   private static final String SOURCE1_GRAPHQL_URL = "http://localhost:8081/graphql";
@@ -44,14 +44,14 @@ public class LiloConfiguration {
         .addSource(
             RemoteSchemaSource.create(
                 SOURCE1_NAME,
-                new IntrospectionRetrieverImpl(SOURCE1_GRAPHQL_URL),
-                new QueryRetrieverImpl(SOURCE1_GRAPHQL_URL),
+                new DefaultRemoteIntrospectionRetriever(SOURCE1_GRAPHQL_URL),
+                new DefaultRemoteQueryRetriever(SOURCE1_GRAPHQL_URL),
                 new SubscriptionRetrieverImpl(SOURCE1_GRAPHQL_WS_URL)))
         .addSource(
             RemoteSchemaSource.create(
                 SOURCE2_NAME,
-                new IntrospectionRetrieverImpl(SOURCE2_GRAPHQL_URL),
-                new QueryRetrieverImpl(SOURCE2_GRAPHQL_URL),
+                new DefaultRemoteIntrospectionRetriever(SOURCE2_GRAPHQL_URL),
+                new DefaultRemoteQueryRetriever(SOURCE2_GRAPHQL_URL),
                 new SubscriptionRetrieverImpl(SOURCE2_GRAPHQL_WS_URL)))
         .build();
   }

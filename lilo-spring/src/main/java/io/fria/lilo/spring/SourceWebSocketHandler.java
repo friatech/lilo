@@ -13,10 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.fria.lilo.spring.samples.subscription.lilo_gateway.handlers;
+package io.fria.lilo.spring;
 
 import io.fria.lilo.GraphQLQuery;
-import io.fria.lilo.spring.ClientSessionWrapper;
 import io.fria.lilo.subscription.SubscriptionSourceHandler;
 import io.fria.lilo.subscription.SubscriptionSourcePublisher;
 import org.jetbrains.annotations.NotNull;

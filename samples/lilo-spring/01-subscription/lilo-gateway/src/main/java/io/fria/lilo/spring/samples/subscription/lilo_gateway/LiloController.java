@@ -15,8 +15,6 @@
  */
 package io.fria.lilo.spring.samples.subscription.lilo_gateway;
 
-import static io.fria.lilo.spring.samples.subscription.lilo_gateway.config.LiloConfiguration.LILO_GRAPHQL_PATH;
-
 import io.fria.lilo.GraphQLRequest;
 import io.fria.lilo.Lilo;
 import java.util.Map;
@@ -36,7 +34,7 @@ public class LiloController {
   }
 
   @ResponseBody
-  @PostMapping(LILO_GRAPHQL_PATH)
+  @PostMapping("/graphql")
   public @NotNull Map<String, Object> stitch(@RequestBody final @NotNull GraphQLRequest request) {
     return this.lilo.stitch(request.toExecutionInput()).toSpecification();
   }

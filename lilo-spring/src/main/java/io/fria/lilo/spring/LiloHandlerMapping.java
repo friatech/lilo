@@ -13,15 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.fria.lilo.spring.samples.subscription.lilo_gateway.handlers;
-
-import static io.fria.lilo.spring.samples.subscription.lilo_gateway.config.LiloConfiguration.LILO_GRAPHQL_WS_PATH;
+package io.fria.lilo.spring;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerExecutionChain;
 import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
@@ -31,15 +28,17 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
  * requests to needed mapping class and indirectly to adapters.
  */
 @Order(Integer.MIN_VALUE)
-@Component
 public class LiloHandlerMapping implements HandlerMapping {
 
+  private final @NotNull String subscriptionPath;
   private final @NotNull HandlerMapping webSocketHandlerMapping;
   private final @NotNull RequestMappingHandlerMapping requestMappingHandlerMapping;
 
   public LiloHandlerMapping(
+      final @NotNull String subscriptionPath,
       final @NotNull HandlerMapping webSocketHandlerMapping,
       final @NotNull RequestMappingHandlerMapping requestMappingHandlerMapping) {
+    this.subscriptionPath = subscriptionPath;
     this.webSocketHandlerMapping = webSocketHandlerMapping;
     this.requestMappingHandlerMapping = requestMappingHandlerMapping;
   }
@@ -48,7 +47,8 @@ public class LiloHandlerMapping implements HandlerMapping {
   public @Nullable HandlerExecutionChain getHandler(final @NotNull HttpServletRequest request)
       throws Exception {
 
-    if (LILO_GRAPHQL_WS_PATH.equals(request.getRequestURI()) && "GET".equals(request.getMethod())) {
+    if (this.subscriptionPath.equals(request.getRequestURI())
+        && "GET".equals(request.getMethod())) {
       return this.webSocketHandlerMapping.getHandler(request);
     }
 

@@ -1,6 +1,4 @@
-In this example there is one gateway and 2 different servers. `Server 1` provides `greeting1` query and
-server2 provides `greeting2` query. Gateway uses default introspection and query retrievers. This example uses
-custom retrievers instead of default retrievers.
+# About
 
 ```
                                               ------------
@@ -15,6 +13,16 @@ custom retrievers instead of default retrievers.
                 -----------                   |          |
                                               ------------
 ```
+
+In this example there is one gateway and 2 different servers. `Server 1` provides `greeting1` query and
+`greeting1Subscription`. Also, `Server 2` provides `greeting2` query and `greeting2Subscription`.
+
+Unlike other examples, 3 retrievers should be defined. One of them is `IntrospectionRetrieverImpl` which is an implementation
+of `SyncIntrospectionRetriever`. It aims to retrieve whole GraphQL schema definitions from remote servers; `Server 1`
+and `Server 2`. There's another retriever (`QueryRetrieverImpl`) for getting specific query results from specific server.
+And SubscriptionRetrieverImpl is responsible for a websocket connection between gateway and servers.
+
+Example uses default versions of retrievers for exhibiting the proper usage of subscription mechanism.
 
 # Running
 
@@ -46,20 +54,18 @@ Running Server 2 project on port 8082:
 
 # Testing
 
-```shell
-curl -X POST \
-    -H 'content-type: application/json' \
-    -d '{"query":"{\ngreeting1\ngreeting2\n}","variables":null}' \
-    http://localhost:8080/graphql
+For testing you can use the embedded GraphiQL client web page on `http://localhost:8080`
+
+```graphql
+subscription {
+  greeting1Subscription
+}
 ```
 
-Expected result:
+or
 
-```json
-{
-  "data": {
-    "greeting1": "Hello from Server 1",
-    "greeting2": "Hello from Server 2"
-  }
+```graphql
+subscription {
+  greeting2Subscription
 }
 ```

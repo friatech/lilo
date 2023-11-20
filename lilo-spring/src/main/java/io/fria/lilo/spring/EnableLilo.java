@@ -13,16 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.fria.lilo.spring.samples.subscription.lilo_gateway;
+package io.fria.lilo.spring;
 
-import org.jetbrains.annotations.Nullable;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import org.springframework.context.annotation.Import;
 
-@SpringBootApplication
-public class LiloGatewayApplication {
-
-  public static void main(final @Nullable String[] args) {
-    SpringApplication.run(LiloGatewayApplication.class, args);
-  }
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+@Documented
+@Import(LiloConfig.class)
+public @interface EnableLilo {
+  // Use @EnableLilo annotation for enabling SpringBoot Lilo support
 }

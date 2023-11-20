@@ -1,0 +1,22 @@
+{
+  "groups": [
+    {
+      "name": "lilo",
+      "type": "io.fria.lilo.spring.LiloConfigProperties",
+      "sourceType": "io.fria.lilo.spring.LiloConfigProperties"
+    }
+  ],
+  "properties": [
+    {
+      "name": "lilo.graphQlPath",
+      "type": "java.lang.String",
+      "sourceType": "io.fria.lilo.spring.LiloConfigProperties"
+    },
+    {
+      "name": "lilo.subscriptionPath",
+      "type": "java.lang.String",
+      "sourceType": "io.fria.lilo.spring.LiloConfigProperties"
+    }
+  ],
+  "hints": []
+}

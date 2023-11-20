@@ -18,9 +18,7 @@ package io.fria.lilo.samples.spring_boot_subscription.lilo_gateway;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.scheduling.annotation.EnableAsync;
 
-@EnableAsync
 @SpringBootApplication
 public class LiloGatewayApplication {
 

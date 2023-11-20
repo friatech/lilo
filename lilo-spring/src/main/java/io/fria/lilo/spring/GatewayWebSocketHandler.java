@@ -13,14 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.fria.lilo.spring.samples.subscription.lilo_gateway.handlers;
+package io.fria.lilo.spring;
 
 import io.fria.lilo.Lilo;
-import io.fria.lilo.spring.ClientSessionWrapper;
 import io.fria.lilo.subscription.SubscriptionGatewayHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -30,13 +28,14 @@ import org.springframework.web.socket.handler.AbstractWebSocketHandler;
  * GatewayWebSocketHandler manages websocket session interaction between Gateway and connected
  * GraphQL client.
  */
-@Component
 public class GatewayWebSocketHandler extends AbstractWebSocketHandler {
 
   private final @NotNull SubscriptionGatewayHandler gatewayHandler;
+  private final @NotNull String path;
 
-  public GatewayWebSocketHandler(final @NotNull Lilo lilo) {
+  public GatewayWebSocketHandler(final @NotNull Lilo lilo, final @NotNull String path) {
     this.gatewayHandler = new SubscriptionGatewayHandler(lilo);
+    this.path = path;
   }
 
   @Override
@@ -50,5 +49,9 @@ public class GatewayWebSocketHandler extends AbstractWebSocketHandler {
       final @NotNull WebSocketSession nativeSession, final @NotNull TextMessage message) {
     this.gatewayHandler.handleMessage(
         ClientSessionWrapper.wrap(nativeSession), message.getPayload());
+  }
+
+  public @NotNull String getPath() {
+    return this.path;
   }
 }

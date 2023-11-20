@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.fria.lilo.spring.samples.subscription.lilo_gateway.retrievers;
+package io.fria.lilo.spring.samples.subscription.lilo_gateway;
 
 import io.fria.lilo.GraphQLQuery;
 import io.fria.lilo.LiloContext;
 import io.fria.lilo.SchemaSource;
-import io.fria.lilo.spring.samples.subscription.lilo_gateway.handlers.SourceWebSocketHandler;
+import io.fria.lilo.spring.SourceWebSocketHandler;
 import io.fria.lilo.subscription.SubscriptionRetriever;
 import io.fria.lilo.subscription.SubscriptionSourcePublisher;
 import java.net.URI;
@@ -35,7 +35,7 @@ public class SubscriptionRetrieverImpl implements SubscriptionRetriever {
   private final @NotNull String subscriptionWsUrl;
   private final @NotNull WebSocketClient webSocketClient;
 
-  public SubscriptionRetrieverImpl(final @NotNull String subscriptionWsUrl) {
+  SubscriptionRetrieverImpl(final @NotNull String subscriptionWsUrl) {
     this.subscriptionWsUrl = subscriptionWsUrl;
     this.webSocketClient = new StandardWebSocketClient();
   }
@@ -51,6 +51,7 @@ public class SubscriptionRetrieverImpl implements SubscriptionRetriever {
     try {
       final WebSocketHttpHeaders httpHeaders = new WebSocketHttpHeaders();
       httpHeaders.add("Sec-WebSocket-Protocol", "graphql-transport-ws");
+
       this.webSocketClient
           .execute(
               new SourceWebSocketHandler(query, publisher),

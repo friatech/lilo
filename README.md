@@ -4,7 +4,9 @@
 
 **Lilo** is a super-fast GraphQL stitching library. The project is heavily inspired by [Atlassian Braid](https://bitbucket.org/atlassian/graphql-braid).
 **Lilo** focuses on simplicity and easy to use. You can find plenty of samples in the codebase and we aim to add more and more in every release.
-Please do not forget to check `/samples` directory for more sample projecta.
+Please do not forget to check `/samples` directory.
+
+We are planning to add additional frameworks supports. For now SpringBoot is supported. If you will use `Lilo` with `SpringBoot`. Please check [Lilo Spring Documentation](lilo-spring/README.md).
 
 ## Installation
 
@@ -154,6 +156,28 @@ final ExecutionInput executionInput = ExecutionInput.newExecutionInput()
 ```
 
 The localContext object is now accessible from your `IntrospectionRetriever` and `QueryRetriever`.
+
+## Subscription
+
+GraphQL provides a subscription methodology for providing continuous data. It's a well-known pub/sub pattern for applications. 
+If your application needs a continuous stream of real-time events, notifications, sensor data. Subscription might be wise
+choice for you.
+
+### Use Lilo framework library
+
+Subscription usage needs a few configuration class definition and handlers definition. Lilo core library is framework-agnostic. If you are using
+a framework like SpringBoot. Please check the lilo documentation for that specific framework. Currently, `SpringBoot` is supported.
+Please check [Lilo Spring Documentation](lilo-spring/README.md).
+
+### Subscription Usage
+
+If you're going to use Subscription stitching. You need to define an additional retriever other than `QueryRetriever` and `IntrospectionRetriever`.
+As you might guess, it's a `SubscriptionRetriever`. Besides retrievers, we need to define handlers:
+- 
+- `SubscriptionGatewayHandler` is responsible for handling web socket sessions coming from GraphQL clients to Lilo Stitching Gateway.
+- `SubscriptionSourceHandler` is responsible for handling websocket sessions going from gateway to remote GraphQL servers.
+
+Since those handler classes are framework-agnostic. A binding should be implemented between framework and handlers.
 
 ## Additional Resources
 
