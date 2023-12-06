@@ -23,6 +23,11 @@ import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeInterceptor;
 
+/**
+ * This interceptor is used for communication between a GraphQL client and Lilo GraphQL Gateway.
+ * Main purpose of this interface is just adding "Sec-WebSocket-Protocol" header. This one is
+ * mandatory for some GraphQL clients.
+ */
 public class GatewayHandshakeInterceptor implements HandshakeInterceptor {
 
   @Override
@@ -31,7 +36,7 @@ public class GatewayHandshakeInterceptor implements HandshakeInterceptor {
       final @NotNull ServerHttpResponse response,
       final @NotNull WebSocketHandler wsHandler,
       final @Nullable Exception exception) {
-    // No logic for after handshaking
+    // No lilo managed logic for after handshaking
   }
 
   @Override

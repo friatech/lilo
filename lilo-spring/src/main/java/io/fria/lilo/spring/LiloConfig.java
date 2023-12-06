@@ -22,13 +22,24 @@ import org.jetbrains.annotations.Nullable;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
+import org.springframework.web.socket.server.support.WebSocketHandlerMapping;
 
+/**
+ * LiloConfig is the configuration bean directly bound to EnableLilo annotation. When EnableLilo
+ * annotation is used. A singleton instance of this class is created.
+ */
 @Configuration
 @Import({LiloConfigProperties.class, SubscriptionWebSocketConfigurer.class})
 public class LiloConfig {
 
+  /**
+   * GatewayWebSocketHandler bean definition
+   *
+   * @param lilo Lilo instance
+   * @param configProperties LiloConfig properties for getting subscription path
+   * @return GatewayWebSocketHandler bean singleton instance
+   */
   @Bean
   public @NotNull GatewayWebSocketHandler gatewayWebSocketHandler(
       final @NotNull Lilo lilo, final @NotNull LiloConfigProperties configProperties) {
@@ -36,10 +47,20 @@ public class LiloConfig {
         lilo, Objects.requireNonNull(configProperties.getSubscriptionPath()));
   }
 
+  /**
+   * LiloHandlerMapping bean definition
+   *
+   * @param configProperties LiloConfig properties for getting subscription path
+   * @param webSocketHandlerMapping Spring WebSocketHandlerMapping bean for delegating websocket
+   *     requests.
+   * @param requestMappingHandlerMapping Spring RequestMappingHandlerMapping bean for delegating
+   *     standard web requests.
+   * @return LiloHandlerMapping bean singleton instance
+   */
   @Bean
   public @Nullable LiloHandlerMapping liloHandlerMapping(
       final @NotNull LiloConfigProperties configProperties,
-      final @NotNull HandlerMapping webSocketHandlerMapping,
+      final @NotNull WebSocketHandlerMapping webSocketHandlerMapping,
       final @NotNull RequestMappingHandlerMapping requestMappingHandlerMapping) {
 
     if (configProperties.getGraphQlPath() == null

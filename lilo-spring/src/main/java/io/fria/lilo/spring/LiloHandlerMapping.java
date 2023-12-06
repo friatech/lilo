@@ -22,6 +22,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.web.servlet.HandlerExecutionChain;
 import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
+import org.springframework.web.socket.server.support.WebSocketHandlerMapping;
 
 /**
  * This class is needed when we use the same url for subscription and graphql queries. It dispatches
@@ -34,9 +35,18 @@ public class LiloHandlerMapping implements HandlerMapping {
   private final @NotNull HandlerMapping webSocketHandlerMapping;
   private final @NotNull RequestMappingHandlerMapping requestMappingHandlerMapping;
 
+  /**
+   * Constructor of LiloHandlerMapping
+   *
+   * @param subscriptionPath GraphQL subscription path. Mostly, it's /graphql
+   * @param webSocketHandlerMapping Spring WebSocketHandlerMapping bean for delegating websocket
+   *     requests.
+   * @param requestMappingHandlerMapping Spring RequestMappingHandlerMapping bean for delegating
+   *     standard web requests.
+   */
   public LiloHandlerMapping(
       final @NotNull String subscriptionPath,
-      final @NotNull HandlerMapping webSocketHandlerMapping,
+      final @NotNull WebSocketHandlerMapping webSocketHandlerMapping,
       final @NotNull RequestMappingHandlerMapping requestMappingHandlerMapping) {
     this.subscriptionPath = subscriptionPath;
     this.webSocketHandlerMapping = webSocketHandlerMapping;

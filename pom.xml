@@ -6,7 +6,7 @@
 
   <groupId>io.fria</groupId>
   <artifactId>lilo-parent</artifactId>
-  <version>23.11.2-SNAPSHOT</version>
+  <version>23.12.0</version>
   <packaging>pom</packaging>
 
   <name>lilo-parent</name>
@@ -43,6 +43,8 @@
     <maven.min.version>3.6.3</maven.min.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <!-- Plugin Versions -->
+    <maven-enforcer-plugin.version>3.4.1</maven-enforcer-plugin.version>
   </properties>
 
   <modules>
@@ -54,7 +56,7 @@
     <plugins>
       <plugin>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.4.1</version>
+        <version>${maven-enforcer-plugin.version}</version>
         <executions>
           <execution>
             <id>enforce-versions-compile</id>

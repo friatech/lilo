@@ -34,6 +34,12 @@ public final class ClientSessionWrapper implements WebSocketSessionWrapper {
     this.nativeSession = nativeSession;
   }
 
+  /**
+   * wrap method helps you create a instance from native spring WebSocketSession
+   *
+   * @param nativeSession Session object provided by Spring
+   * @return Session Wrapper object which contains spring session
+   */
   public static @Nullable ClientSessionWrapper wrap(
       final @Nullable WebSocketSession nativeSession) {
 

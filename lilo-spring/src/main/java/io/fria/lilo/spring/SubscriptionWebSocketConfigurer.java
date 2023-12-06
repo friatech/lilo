@@ -19,20 +19,37 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 
+/**
+ * This configuration bean is started when @EnableLilo is active. It aims to register
+ * GatewayWebSocketHandler object as a default spring AbstractWebSocketHandler class. After that all
+ * websocket requests coming to specified graphql path will be handled by Lilo. *
+ */
 public class SubscriptionWebSocketConfigurer implements WebSocketConfigurer {
 
   private final @NotNull GatewayWebSocketHandler gatewayWebSocketHandler;
 
+  /**
+   * Constructor for creating SubscriptionWebSocketConfigurer
+   *
+   * @param gatewayWebSocketHandler Lilo's WebSocketHandler for managing all communication between
+   *     clients and gateway.
+   */
   public SubscriptionWebSocketConfigurer(
       final @NotNull GatewayWebSocketHandler gatewayWebSocketHandler) {
     this.gatewayWebSocketHandler = gatewayWebSocketHandler;
   }
 
+  /**
+   * helps to register Lilo's GatewayWebSocketHandler
+   *
+   * @param registry Spring's global registry for WebSocketHandlers
+   */
   @Override
   public void registerWebSocketHandlers(final @NotNull WebSocketHandlerRegistry registry) {
 
     registry
-        .addHandler(this.gatewayWebSocketHandler, this.gatewayWebSocketHandler.getPath())
+        .addHandler(
+            this.gatewayWebSocketHandler, this.gatewayWebSocketHandler.getSubscriptionPath())
         .addInterceptors(new GatewayHandshakeInterceptor())
         .setAllowedOrigins("*");
   }

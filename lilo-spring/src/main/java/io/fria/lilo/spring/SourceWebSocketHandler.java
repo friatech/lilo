@@ -25,27 +25,50 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 
+/**
+ * SourceWebSocketHandler class manages websocket communication between GraphQL gateway and remote
+ * schema sources. Unlike GatewayWebSocketHandler it's not a singleton object and it will be created
+ * for every single GraphQL subscription request. Mostly, it can be used inside a
+ * SubscriptionRetriever implementation.
+ */
 public class SourceWebSocketHandler extends AbstractWebSocketHandler {
 
   private final @NotNull GraphQLQuery query;
   private final @NotNull SubscriptionSourcePublisher publisher;
   private @Nullable SubscriptionSourceHandler sourceHandler;
 
+  /**
+   * Creates a SourceWebSocketHandler instance
+   *
+   * @param query incoming GraphQL subscription query
+   * @param publisher publisher object for subscribing the websocket stream data
+   */
   public SourceWebSocketHandler(
       final @NotNull GraphQLQuery query, final @NotNull SubscriptionSourcePublisher publisher) {
     this.query = query;
     this.publisher = publisher;
   }
 
+  /**
+   * This method delegates session initialization to Lilo SubscriptionSourceHandler
+   *
+   * @param nativeSession Session object provided by Spring
+   */
   @Override
   public void afterConnectionEstablished(final @NotNull WebSocketSession nativeSession) {
     this.sourceHandler = new SubscriptionSourceHandler(this.query, this.publisher);
     this.sourceHandler.handleSessionStart(ClientSessionWrapper.wrap(nativeSession));
   }
 
+  /**
+   * This method delegates session close operations to Lilo SubscriptionSourceHandler
+   *
+   * @param nativeSession Session object provided by Spring
+   * @param closeStatus Session close status, not used by Lilo
+   */
   @Override
   public void afterConnectionClosed(
-      final @Nullable WebSocketSession nativeSession, final @NotNull CloseStatus status) {
+      final @Nullable WebSocketSession nativeSession, final @NotNull CloseStatus closeStatus) {
 
     if (this.sourceHandler == null) {
       throw new IllegalStateException("Source Handler must be initialized");

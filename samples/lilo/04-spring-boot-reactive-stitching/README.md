@@ -46,10 +46,10 @@ Running Server 1 project on port 8082:
 # Testing
 
 ```shell
-curl -X POST \
-    -H 'content-type: application/json' \
-    -d '{"query":"{\ngreeting1\ngreeting2\n}","variables":null}' \
-    http://localhost:8080/graphql
+curl -s -X POST \
+  -H 'content-type: application/json' \
+  -d '{"query":"{\ngreeting1\ngreeting2\n}","variables":null}' \
+  http://localhost:8080/graphql
 ```
 
 Expected result:

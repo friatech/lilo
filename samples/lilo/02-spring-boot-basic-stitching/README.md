@@ -47,10 +47,10 @@ Running Server 2 project on port 8082:
 # Testing
 
 ```shell
-curl -X POST \
-    -H 'content-type: application/json' \
-    -d '{"query":"{\ngreeting1\ngreeting2\n}","variables":null}' \
-    http://localhost:8080/graphql
+curl -s -X POST \
+  -H 'content-type: application/json' \
+  -d '{"query":"{\ngreeting1\ngreeting2\n}","variables":null}' \
+  http://localhost:8080/graphql
 ```
 
 Expected result:
@@ -61,5 +61,14 @@ Expected result:
     "greeting1": "Hello from Server 1",
     "greeting2": "Hello from Server 2"
   }
+}
+```
+
+Alternatively, you can use the embedded GraphiQL client web page on `http://localhost:8080`
+
+```graphql
+query {
+  greeting1
+  greeting2
 }
 ```

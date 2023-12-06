@@ -6,7 +6,7 @@
 
   <groupId>io.fria</groupId>
   <artifactId>lilo-spring</artifactId>
-  <version>23.11.2-SNAPSHOT</version>
+  <version>23.12.0</version>
 
   <name>lilo-spring</name>
   <description>Lilo GraphQL stitching library Spring Bindings</description>
@@ -42,20 +42,33 @@
     <maven.min.version>3.6.3</maven.min.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <slf4j.version>2.0.9</slf4j.version>
-    <junit.version>5.10.1</junit.version>
-    <error-prone.version>2.20.0</error-prone.version>
-    <checkstyle.version>10.12.4</checkstyle.version>
-    <spotbugs.version>4.8.1</spotbugs.version>
-    <spring-boot.version>3.0.12</spring-boot.version>
-    <spring.version>6.0.3</spring.version>
+    <!-- Dependency Versions -->
+    <lilo.version>23.12.0</lilo.version>
+    <spring.version>6.1.1</spring.version>
+    <spring-boot.version>3.2.0</spring-boot.version>
+    <jakarta-servlet.version>6.0.0</jakarta-servlet.version>
+    <!-- Plugin Versions -->
+    <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
+    <maven-surefire-plugin.version>3.2.2</maven-surefire-plugin.version>
+    <maven-enforcer-plugin.version>3.4.1</maven-enforcer-plugin.version>
+    <maven-source-plugin.version>3.3.0</maven-source-plugin.version>
+    <maven-javadoc-plugin.version>3.6.3</maven-javadoc-plugin.version>
+    <maven-checkstyle-plugin.version>3.3.1</maven-checkstyle-plugin.version>
+    <maven-gpg-plugin.version>3.1.0</maven-gpg-plugin.version>
+    <spotbugs-maven-plugin.version>4.8.2.0</spotbugs-maven-plugin.version>
+    <fmt-maven-plugin.version>2.21.1</fmt-maven-plugin.version>
+    <apache-rat-plugin.version>0.15</apache-rat-plugin.version>
+    <!-- Plugin Dependency Versions -->
+    <error-prone.version>2.23.0</error-prone.version>
+    <checkstyle.version>10.12.5</checkstyle.version>
+    <spotbugs.version>4.8.2</spotbugs.version>
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>io.fria</groupId>
       <artifactId>lilo</artifactId>
-      <version>23.11.2-SNAPSHOT</version>
+      <version>${lilo.version}</version>
     </dependency>
 
     <dependency>
@@ -80,7 +93,7 @@
     <dependency>
       <groupId>jakarta.servlet</groupId>
       <artifactId>jakarta.servlet-api</artifactId>
-      <version>6.0.0</version>
+      <version>${jakarta-servlet.version}</version>
       <scope>provided</scope>
     </dependency>
   </dependencies>
@@ -89,7 +102,7 @@
     <plugins>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.11.0</version>
+        <version>${maven-compiler-plugin.version}</version>
         <configuration>
           <source>${maven.compiler.source}</source>
           <target>${maven.compiler.target}</target>
@@ -110,12 +123,12 @@
 
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.2.2</version>
+        <version>${maven-surefire-plugin.version}</version>
       </plugin>
 
       <plugin>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.4.1</version>
+        <version>${maven-enforcer-plugin.version}</version>
         <executions>
           <execution>
             <id>enforce-versions-compile</id>
@@ -152,7 +165,7 @@
 
       <plugin>
         <artifactId>maven-source-plugin</artifactId>
-        <version>3.3.0</version>
+        <version>${maven-source-plugin.version}</version>
         <executions>
           <execution>
             <id>attach-sources</id>
@@ -165,7 +178,7 @@
 
       <plugin>
         <artifactId>maven-javadoc-plugin</artifactId>
-        <version>3.6.2</version>
+        <version>${maven-javadoc-plugin.version}</version>
         <executions>
           <execution>
             <id>attach-sources</id>
@@ -178,7 +191,7 @@
 
       <plugin>
         <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.3.0</version>
+        <version>${maven-checkstyle-plugin.version}</version>
         <dependencies>
           <dependency>
             <groupId>com.puppycrawl.tools</groupId>
@@ -205,7 +218,7 @@
 
       <plugin>
         <artifactId>maven-gpg-plugin</artifactId>
-        <version>3.1.0</version>
+        <version>${maven-gpg-plugin.version}</version>
         <executions>
           <execution>
             <id>sign-artifacts</id>
@@ -220,7 +233,7 @@
       <plugin>
         <groupId>com.github.spotbugs</groupId>
         <artifactId>spotbugs-maven-plugin</artifactId>
-        <version>4.8.1.0</version>
+        <version>${spotbugs-maven-plugin.version}</version>
         <dependencies>
           <dependency>
             <groupId>com.github.spotbugs</groupId>
@@ -233,7 +246,7 @@
       <plugin>
         <groupId>com.spotify.fmt</groupId>
         <artifactId>fmt-maven-plugin</artifactId>
-        <version>2.21.1</version>
+        <version>${fmt-maven-plugin.version}</version>
         <executions>
           <execution>
             <goals>
@@ -246,7 +259,7 @@
       <plugin>
         <groupId>org.apache.rat</groupId>
         <artifactId>apache-rat-plugin</artifactId>
-        <version>0.15</version>
+        <version>${apache-rat-plugin.version}</version>
         <executions>
           <execution>
             <phase>verify</phase>
