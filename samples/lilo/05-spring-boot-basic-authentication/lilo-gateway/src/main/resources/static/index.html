@@ -66,6 +66,9 @@
       const root = ReactDOM.createRoot(document.getElementById('graphiql'));
       const fetcher = GraphiQL.createFetcher({
         url: '/graphql',
+        headers: {
+          Authorization: 'Basic dXNlcjpwYXNzd29yZA=='
+        },
         subscriptionUrl: location.origin.toString().replace(location.protocol, 'ws:') + '/graphql'
       });
       const explorerPlugin = GraphiQLPluginExplorer.explorerPlugin();

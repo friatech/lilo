@@ -31,11 +31,19 @@ import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 public class GatewayWebSocketHandler extends AbstractWebSocketHandler {
 
   private final @NotNull SubscriptionGatewayHandler gatewayHandler;
-  private final @NotNull String path;
+  private final @NotNull String subscriptionPath;
 
-  public GatewayWebSocketHandler(final @NotNull Lilo lilo, final @NotNull String path) {
+  /**
+   * Constructor creates a GatewayWebSocketHandler which manages websocket communication between
+   * GraphQL clients and Lilo GraphQL Gateway.
+   *
+   * @param lilo Lilo object instance or bean
+   * @param subscriptionPath subscription path for handling subscription requests. Mostly it's
+   *     /graphql
+   */
+  public GatewayWebSocketHandler(final @NotNull Lilo lilo, final @NotNull String subscriptionPath) {
     this.gatewayHandler = new SubscriptionGatewayHandler(lilo);
-    this.path = path;
+    this.subscriptionPath = subscriptionPath;
   }
 
   @Override
@@ -51,7 +59,13 @@ public class GatewayWebSocketHandler extends AbstractWebSocketHandler {
         ClientSessionWrapper.wrap(nativeSession), message.getPayload());
   }
 
-  public @NotNull String getPath() {
-    return this.path;
+  /**
+   * Getter for stored GraphQL subscription path for serving GraphQL subscription path. Mostly it's
+   * /graphql
+   *
+   * @return actual value of subscription path
+   */
+  public @NotNull String getSubscriptionPath() {
+    return this.subscriptionPath;
   }
 }

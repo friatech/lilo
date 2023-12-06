@@ -6,7 +6,7 @@
 
   <groupId>io.fria</groupId>
   <artifactId>lilo</artifactId>
-  <version>23.11.2-SNAPSHOT</version>
+  <version>23.12.0</version>
 
   <name>lilo</name>
   <description>Lilo GraphQL stitching library</description>
@@ -42,62 +42,68 @@
     <maven.min.version>3.6.3</maven.min.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <!-- Dependency Versions -->
+    <graphql-java.version>21.3</graphql-java.version>
+    <jackson-databind.version>2.16.0</jackson-databind.version>
+    <reactor-core.version>3.6.0</reactor-core.version>
+    <jetbrains-annotations.version>24.1.0</jetbrains-annotations.version>
+    <junit-jupiter.version>5.10.1</junit-jupiter.version>
+    <mockito.version>5.8.0</mockito.version>
     <slf4j.version>2.0.9</slf4j.version>
-    <junit.version>5.10.1</junit.version>
-    <error-prone.version>2.20.0</error-prone.version>
-    <checkstyle.version>10.12.4</checkstyle.version>
-    <spotbugs.version>4.8.1</spotbugs.version>
+    <!-- Plugin Versions -->
+    <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
+    <maven-surefire-plugin.version>3.2.2</maven-surefire-plugin.version>
+    <maven-enforcer-plugin.version>3.4.1</maven-enforcer-plugin.version>
+    <maven-source-plugin.version>3.3.0</maven-source-plugin.version>
+    <maven-javadoc-plugin.version>3.6.3</maven-javadoc-plugin.version>
+    <maven-checkstyle-plugin.version>3.3.1</maven-checkstyle-plugin.version>
+    <maven-gpg-plugin.version>3.1.0</maven-gpg-plugin.version>
+    <spotbugs-maven-plugin.version>4.8.2.0</spotbugs-maven-plugin.version>
+    <fmt-maven-plugin.version>2.21.1</fmt-maven-plugin.version>
+    <apache-rat-plugin.version>0.15</apache-rat-plugin.version>
+    <!-- Plugin Dependency Versions -->
+    <error-prone.version>2.23.0</error-prone.version>
+    <checkstyle.version>10.12.5</checkstyle.version>
+    <spotbugs.version>4.8.2</spotbugs.version>
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>com.graphql-java</groupId>
       <artifactId>graphql-java</artifactId>
-      <version>21.3</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.slf4j</groupId>
-          <artifactId>slf4j-api</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-      <version>${slf4j.version}</version>
+      <version>${graphql-java.version}</version>
     </dependency>
 
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
-      <version>2.15.3</version>
+      <version>${jackson-databind.version}</version>
     </dependency>
 
     <dependency>
       <groupId>io.projectreactor</groupId>
       <artifactId>reactor-core</artifactId>
-      <version>3.5.9</version>
+      <version>${reactor-core.version}</version>
     </dependency>
 
     <dependency>
       <groupId>org.jetbrains</groupId>
       <artifactId>annotations</artifactId>
-      <version>24.0.1</version>
+      <version>${jetbrains-annotations.version}</version>
       <scope>compile</scope>
     </dependency>
 
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
-      <version>${junit.version}</version>
+      <version>${junit-jupiter.version}</version>
       <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-junit-jupiter</artifactId>
-      <version>5.7.0</version>
+      <version>${mockito.version}</version>
       <scope>test</scope>
     </dependency>
 
@@ -113,7 +119,7 @@
     <plugins>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.11.0</version>
+        <version>${maven-compiler-plugin.version}</version>
         <configuration>
           <source>${maven.compiler.source}</source>
           <target>${maven.compiler.target}</target>
@@ -134,12 +140,12 @@
 
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.2.2</version>
+        <version>${maven-surefire-plugin.version}</version>
       </plugin>
 
       <plugin>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.4.1</version>
+        <version>${maven-enforcer-plugin.version}</version>
         <executions>
           <execution>
             <id>enforce-versions-compile</id>
@@ -176,7 +182,7 @@
 
       <plugin>
         <artifactId>maven-source-plugin</artifactId>
-        <version>3.3.0</version>
+        <version>${maven-source-plugin.version}</version>
         <executions>
           <execution>
             <id>attach-sources</id>
@@ -189,7 +195,7 @@
 
       <plugin>
         <artifactId>maven-javadoc-plugin</artifactId>
-        <version>3.6.2</version>
+        <version>${maven-javadoc-plugin.version}</version>
         <executions>
           <execution>
             <id>attach-sources</id>
@@ -202,7 +208,7 @@
 
       <plugin>
         <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.3.0</version>
+        <version>${maven-checkstyle-plugin.version}</version>
         <dependencies>
           <dependency>
             <groupId>com.puppycrawl.tools</groupId>
@@ -229,7 +235,7 @@
 
       <plugin>
         <artifactId>maven-gpg-plugin</artifactId>
-        <version>3.1.0</version>
+        <version>${maven-gpg-plugin.version}</version>
         <executions>
           <execution>
             <id>sign-artifacts</id>
@@ -244,7 +250,7 @@
       <plugin>
         <groupId>com.github.spotbugs</groupId>
         <artifactId>spotbugs-maven-plugin</artifactId>
-        <version>4.8.1.0</version>
+        <version>${spotbugs-maven-plugin.version}</version>
         <dependencies>
           <dependency>
             <groupId>com.github.spotbugs</groupId>
@@ -257,7 +263,7 @@
       <plugin>
         <groupId>com.spotify.fmt</groupId>
         <artifactId>fmt-maven-plugin</artifactId>
-        <version>2.21.1</version>
+        <version>${fmt-maven-plugin.version}</version>
         <executions>
           <execution>
             <goals>
@@ -270,7 +276,7 @@
       <plugin>
         <groupId>org.apache.rat</groupId>
         <artifactId>apache-rat-plugin</artifactId>
-        <version>0.15</version>
+        <version>${apache-rat-plugin.version}</version>
         <executions>
           <execution>
             <phase>verify</phase>

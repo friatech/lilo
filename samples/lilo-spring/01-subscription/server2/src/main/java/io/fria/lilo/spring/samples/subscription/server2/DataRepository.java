@@ -39,7 +39,7 @@ public class DataRepository {
       final @NotNull Sinks.Many<String> dataSink, final AtomicBoolean dataGenerationIsStopped) {
 
     final int sessionNumber =
-        SERVER_ID + (++this.concurrentSessionId % MAX_CONCURRENT_SESSION * 1000);
+        SERVER_ID + (++this.concurrentSessionId % MAX_CONCURRENT_SESSION * MESSAGE_COUNT_LIMIT);
 
     try {
       dataSink.tryEmitNext("Hello " + sessionNumber);
@@ -60,10 +60,10 @@ public class DataRepository {
       dataSink.tryEmitComplete();
     } catch (final Exception e) {
       dataSink.tryEmitError(e);
-      LOG.error("An error occurred on {}", SERVER_ID, e);
+      LOG.error("An error occurred on server {}", SERVER_ID, e);
     } finally {
       dataSink.tryEmitComplete();
-      LOG.info("Data generation ended for {}", SERVER_ID);
+      LOG.info("Data generation ended for session {}", concurrentSessionId);
     }
   }
 }
