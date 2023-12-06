@@ -6,7 +6,7 @@
 
   <groupId>io.fria</groupId>
   <artifactId>lilo-spring</artifactId>
-  <version>23.12.0</version>
+  <version>23.12.1-SNAPSHOT</version>
 
   <name>lilo-spring</name>
   <description>Lilo GraphQL stitching library Spring Bindings</description>
@@ -43,7 +43,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <!-- Dependency Versions -->
-    <lilo.version>23.12.0</lilo.version>
+    <lilo.version>23.12.1-SNAPSHOT</lilo.version>
     <spring.version>6.1.1</spring.version>
     <spring-boot.version>3.2.0</spring-boot.version>
     <jakarta-servlet.version>6.0.0</jakarta-servlet.version>
