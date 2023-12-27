@@ -44,7 +44,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <!-- Dependency Versions -->
-    <lilo.version>23.12.1</lilo.version>
+    <lilo.version>24.1.0-SNAPSHOT</lilo.version>
     <jetbrains-annotations.version>24.1.0</jetbrains-annotations.version>
     <!-- Plugin Versions -->
     <maven-checkstyle-plugin.version>3.3.1</maven-checkstyle-plugin.version>
