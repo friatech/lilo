@@ -19,7 +19,7 @@ import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.execution.DataFetcherExceptionHandler;
 import graphql.execution.instrumentation.Instrumentation;
-import io.fria.lilo.error.SourceDataFetcherExceptionHandler;
+import io.fria.lilo.error.LiloDefaultDataFetcherExceptionHandler;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -75,7 +75,7 @@ public final class Lilo {
 
     private final Map<String, SchemaSource> schemaSources = new HashMap<>();
     private DataFetcherExceptionHandler dataFetcherExceptionHandler =
-        new SourceDataFetcherExceptionHandler();
+        new LiloDefaultDataFetcherExceptionHandler();
     private IntrospectionFetchingMode introspectionFetchingMode =
         IntrospectionFetchingMode.CACHE_UNTIL_INVALIDATION;
     private boolean retrySchemaLoad = true;

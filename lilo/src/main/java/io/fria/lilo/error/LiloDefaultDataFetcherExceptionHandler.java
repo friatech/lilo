@@ -23,7 +23,11 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.NotNull;
 
-public class SourceDataFetcherExceptionHandler extends SimpleDataFetcherExceptionHandler {
+/**
+ * This is the default exception handler provided by Lilo. It can be overridden via @{@link
+ * io.fria.lilo.Lilo.LiloBuilder#defaultDataFetcherExceptionHandler} method.
+ */
+public class LiloDefaultDataFetcherExceptionHandler extends SimpleDataFetcherExceptionHandler {
 
   @Override
   public @NotNull CompletableFuture<DataFetcherExceptionHandlerResult> handleException(
@@ -31,11 +35,11 @@ public class SourceDataFetcherExceptionHandler extends SimpleDataFetcherExceptio
 
     final Throwable exception = handlerParameters.getException();
 
-    if (exception instanceof SourceDataFetcherException) {
+    if (exception instanceof LiloSourceDataFetcherException) {
 
       final DataFetcherExceptionHandlerResult result =
           DataFetcherExceptionHandlerResult.newResult()
-              .errors((List<GraphQLError>) ((SourceDataFetcherException) exception).getErrors())
+              .errors((List<GraphQLError>) ((LiloSourceDataFetcherException) exception).getErrors())
               .build();
 
       return CompletableFuture.completedFuture(result);

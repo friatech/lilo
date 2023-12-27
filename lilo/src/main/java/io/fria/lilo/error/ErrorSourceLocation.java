@@ -19,6 +19,10 @@ import graphql.language.SourceLocation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * When a @{@link GraphQLResultError} is created, this class pinpoints the location of the error in
+ * query source
+ */
 public class ErrorSourceLocation extends SourceLocation {
 
   public ErrorSourceLocation() {

@@ -26,7 +26,8 @@ import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class LiloGraphQLError implements GraphQLError {
+/** This is a POJO class which includes GraphQL error definitions */
+public class GraphQLResultError implements GraphQLError {
 
   private String message;
   private List<ErrorSourceLocation> locations;
@@ -35,7 +36,7 @@ public class LiloGraphQLError implements GraphQLError {
   private Map<String, Object> extensions;
 
   @SuppressWarnings("checkstyle:WhitespaceAround")
-  public LiloGraphQLError() {}
+  public GraphQLResultError() {}
 
   @Override
   public @Nullable ErrorClassification getErrorType() {

@@ -18,7 +18,7 @@ package io.fria.lilo;
 import graphql.ExecutionResult;
 import graphql.ExecutionResultImpl;
 import graphql.GraphQLError;
-import io.fria.lilo.error.LiloGraphQLError;
+import io.fria.lilo.error.GraphQLResultError;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
 final class GraphQLResult implements ExecutionResult {
 
   private Map<String, Object> data;
-  private List<LiloGraphQLError> errors;
+  private List<GraphQLResultError> errors;
   private Map<Object, Object> extensions;
 
   @Override

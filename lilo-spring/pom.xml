@@ -6,7 +6,7 @@
 
   <groupId>io.fria</groupId>
   <artifactId>lilo-spring</artifactId>
-  <version>23.12.1-SNAPSHOT</version>
+  <version>23.12.1</version>
 
   <name>lilo-spring</name>
   <description>Lilo GraphQL stitching library Spring Bindings</description>
@@ -42,14 +42,16 @@
     <maven.min.version>3.6.3</maven.min.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <!-- Check the spring boot documentation -->
+    <!-- https://docs.spring.io/spring-boot/docs/current/reference/html/dependency-versions.html -->
     <!-- Dependency Versions -->
-    <lilo.version>23.12.1-SNAPSHOT</lilo.version>
-    <spring.version>6.1.1</spring.version>
-    <spring-boot.version>3.2.0</spring-boot.version>
+    <lilo.version>23.12.1</lilo.version>
+    <spring.version>6.1.2</spring.version>
+    <spring-boot.version>3.2.1</spring-boot.version>
     <jakarta-servlet.version>6.0.0</jakarta-servlet.version>
     <!-- Plugin Versions -->
-    <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
-    <maven-surefire-plugin.version>3.2.2</maven-surefire-plugin.version>
+    <maven-compiler-plugin.version>3.12.1</maven-compiler-plugin.version>
+    <maven-surefire-plugin.version>3.2.3</maven-surefire-plugin.version>
     <maven-enforcer-plugin.version>3.4.1</maven-enforcer-plugin.version>
     <maven-source-plugin.version>3.3.0</maven-source-plugin.version>
     <maven-javadoc-plugin.version>3.6.3</maven-javadoc-plugin.version>
@@ -60,8 +62,8 @@
     <apache-rat-plugin.version>0.15</apache-rat-plugin.version>
     <!-- Plugin Dependency Versions -->
     <error-prone.version>2.23.0</error-prone.version>
-    <checkstyle.version>10.12.5</checkstyle.version>
-    <spotbugs.version>4.8.2</spotbugs.version>
+    <checkstyle.version>10.12.6</checkstyle.version>
+    <spotbugs.version>4.8.3</spotbugs.version>
   </properties>
 
   <dependencies>

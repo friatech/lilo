@@ -31,8 +31,8 @@ import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import graphql.schema.idl.TypeRuntimeWiring;
-import io.fria.lilo.error.InvalidLiloConfigException;
-import io.fria.lilo.error.SourceDataFetcherException;
+import io.fria.lilo.error.LiloInvalidConfigException;
+import io.fria.lilo.error.LiloSourceDataFetcherException;
 import io.fria.lilo.subscription.SubscriptionRetriever;
 import io.fria.lilo.subscription.SubscriptionSourcePublisher;
 import java.util.List;
@@ -120,7 +120,7 @@ public final class RemoteSchemaSource extends SchemaSource {
     final List<GraphQLError> errors = graphQLResult.getErrors();
 
     if (errors != null && !errors.isEmpty()) {
-      throw new SourceDataFetcherException(errors);
+      throw new LiloSourceDataFetcherException(errors);
     }
 
     return ((Map<String, Object>) graphQLResult.getData()).values().iterator().next();
@@ -288,7 +288,7 @@ public final class RemoteSchemaSource extends SchemaSource {
 
                 return publisher;
               } else {
-                throw new InvalidLiloConfigException("There's no defined SubscriptionRetriever");
+                throw new LiloInvalidConfigException("There's no defined SubscriptionRetriever");
               }
             } else {
               return this.fetchData(query, liloContext, localContext);

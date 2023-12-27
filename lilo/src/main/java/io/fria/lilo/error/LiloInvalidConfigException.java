@@ -17,9 +17,18 @@ package io.fria.lilo.error;
 
 import org.jetbrains.annotations.NotNull;
 
-public class InvalidLiloConfigException extends RuntimeException {
+/**
+ * Fires when configuration and usage mismatches, like when a subscription query used without a
+ * defined subscription retriever.
+ */
+public class LiloInvalidConfigException extends RuntimeException implements LiloException {
 
-  public InvalidLiloConfigException(final @NotNull String message) {
+  /**
+   * Constructs the exception class
+   *
+   * @param message Message of the exception
+   */
+  public LiloInvalidConfigException(final @NotNull String message) {
     super(message);
   }
 }

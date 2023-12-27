@@ -24,11 +24,14 @@ import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class SourceDataFetcherException extends GraphQLException {
+/**
+ * It is fired when a data fetcher catches errors as a returned result from remote schema source.
+ */
+public class LiloSourceDataFetcherException extends GraphQLException implements LiloException {
 
   private final List<? extends GraphQLError> errors;
 
-  public SourceDataFetcherException(final @NotNull List<? extends GraphQLError> errors) {
+  public LiloSourceDataFetcherException(final @NotNull List<? extends GraphQLError> errors) {
     super(extractMessage(Objects.requireNonNull(errors)));
     this.errors = errors;
   }
