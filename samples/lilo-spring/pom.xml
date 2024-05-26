@@ -44,16 +44,16 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <!-- Plugin Versions -->
-    <maven-compiler-plugin.version>3.12.1</maven-compiler-plugin.version>
-    <maven-surefire-plugin.version>3.2.3</maven-surefire-plugin.version>
+    <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
+    <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
     <maven-enforcer-plugin.version>3.4.1</maven-enforcer-plugin.version>
     <maven-checkstyle-plugin.version>3.3.1</maven-checkstyle-plugin.version>
-    <spotbugs-maven-plugin.version>4.8.2.0</spotbugs-maven-plugin.version>
-    <fmt-maven-plugin.version>2.21.1</fmt-maven-plugin.version>
+    <spotbugs-maven-plugin.version>4.8.5.0</spotbugs-maven-plugin.version>
+    <fmt-maven-plugin.version>2.23</fmt-maven-plugin.version>
     <!-- Plugin Dependency Versions -->
-    <error-prone.version>2.23.0</error-prone.version>
-    <checkstyle.version>10.12.6</checkstyle.version>
-    <spotbugs.version>4.8.3</spotbugs.version>
+    <error-prone.version>2.27.1</error-prone.version>
+    <checkstyle.version>10.16.0</checkstyle.version>
+    <spotbugs.version>4.8.5</spotbugs.version>
   </properties>
 
   <modules>
