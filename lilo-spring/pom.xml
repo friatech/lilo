@@ -6,7 +6,7 @@
 
   <groupId>io.fria</groupId>
   <artifactId>lilo-spring</artifactId>
-  <version>24.5.0</version>
+  <version>24.5.1-SNAPSHOT</version>
 
   <name>lilo-spring</name>
   <description>Lilo GraphQL stitching library Spring Bindings</description>
@@ -45,7 +45,7 @@
     <!-- Check the spring boot documentation -->
     <!-- https://docs.spring.io/spring-boot/docs/current/reference/html/dependency-versions.html -->
     <!-- Dependency Versions -->
-    <lilo.version>24.5.0</lilo.version>
+    <lilo.version>24.5.1-SNAPSHOT</lilo.version>
     <spring.version>6.1.8</spring.version>
     <spring-boot.version>3.3.0</spring-boot.version>
     <jakarta-servlet.version>6.0.0</jakarta-servlet.version>
