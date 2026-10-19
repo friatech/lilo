@@ -16,7 +16,9 @@
 package io.fria.lilo.spring;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -26,6 +28,7 @@ import io.fria.lilo.GraphQLQuery;
 import io.fria.lilo.GraphQLRequest;
 import io.fria.lilo.JsonUtils;
 import io.fria.lilo.subscription.SubscriptionSourcePublisher;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -36,12 +39,19 @@ import org.springframework.web.socket.TextMessage;
 class SourceWebSocketHandlerTest {
 
   private final AtomicBoolean publisherClosed = new AtomicBoolean();
+  private final AtomicBoolean publisherFailed = new AtomicBoolean();
   private final SubscriptionSourcePublisher publisher =
       new SubscriptionSourcePublisher() {
         @Override
         public void close() {
           SourceWebSocketHandlerTest.this.publisherClosed.set(true);
           super.close();
+        }
+
+        @Override
+        public void error(final Throwable error) {
+          SourceWebSocketHandlerTest.this.publisherFailed.set(true);
+          super.error(error);
         }
       };
 
@@ -101,14 +111,37 @@ class SourceWebSocketHandlerTest {
   }
 
   @Test
-  void connectionCloseClosesThePublisher() throws Exception {
+  void connectionCloseFailsTheActivePublisher() throws Exception {
     final SourceWebSocketHandler handler = new SourceWebSocketHandler(query(), this.publisher);
     final RecordingWebSocketSession session = new RecordingWebSocketSession();
     handler.afterConnectionEstablished(session);
 
     handler.afterConnectionClosed(session, CloseStatus.NORMAL);
 
+    // The source went away while the operation was active: that is a failure, not a completion
+    assertTrue(this.publisherFailed.get());
+    assertFalse(this.publisherClosed.get());
+    final RuntimeException failure =
+        assertThrows(
+            RuntimeException.class,
+            () -> this.publisher.getFlux().blockLast(Duration.ofSeconds(2)));
+    assertEquals("Subscription source closed the connection", failure.getMessage());
+  }
+
+  @Test
+  void connectionCloseAfterTheSourceCompletedKeepsTheCompletion() throws Exception {
+    final SourceWebSocketHandler handler = new SourceWebSocketHandler(query(), this.publisher);
+    final RecordingWebSocketSession session = new RecordingWebSocketSession();
+    handler.afterConnectionEstablished(session);
+    handler.handleTextMessage(session, new TextMessage("{\"type\":\"connection_ack\"}"));
+    final String id = (String) frame(session, 1).get("id");
+
+    handler.handleTextMessage(
+        session, new TextMessage("{\"id\":\"" + id + "\",\"type\":\"complete\"}"));
+    handler.afterConnectionClosed(session, CloseStatus.NORMAL);
+
     assertTrue(this.publisherClosed.get());
+    assertNull(this.publisher.getFlux().blockLast(Duration.ofSeconds(2)));
   }
 
   @Test

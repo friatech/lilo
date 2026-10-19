@@ -475,8 +475,15 @@ public final class SubscriptionGatewayHandler {
                   outcome.completeExceptionally(throwable);
                 }
               });
-    } catch (final RuntimeException e) {
+    } catch (final Throwable e) {
+      // Any failure, an Error included, must complete the outcome: otherwise the operation's
+      // placeholder and its in-flight slot are never released. The outcome's handler logs it.
       outcome.completeExceptionally(e);
+
+      if (e instanceof VirtualMachineError) {
+        // Not swallowed: the JVM is in trouble, so let the executor thread see it
+        throw (VirtualMachineError) e;
+      }
     }
   }
 

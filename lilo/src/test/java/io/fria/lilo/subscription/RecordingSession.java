@@ -38,6 +38,12 @@ final class RecordingSession implements WebSocketSessionWrapper {
   /** Runs before a message is recorded; it may block or throw to simulate a slow or broken peer. */
   private volatile @NotNull Consumer<String> onSend = message -> {};
 
+  /**
+   * Runs after the session is marked closed, on the closing thread; it simulates a container that
+   * invokes afterConnectionClosed synchronously inside close().
+   */
+  private volatile @NotNull Runnable onClose = () -> {};
+
   private final @NotNull String id;
 
   /** What the transport attached to the session, e.g. the handshake headers. */
@@ -66,7 +72,13 @@ final class RecordingSession implements WebSocketSessionWrapper {
 
   @Override
   public void close() {
-    this.open.set(false);
+    if (this.open.getAndSet(false)) {
+      this.onClose.run();
+    }
+  }
+
+  void onClose(final @NotNull Runnable hook) {
+    this.onClose = hook;
   }
 
   @Override

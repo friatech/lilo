@@ -70,6 +70,16 @@ class SubscriptionErrorTest {
     assertNull(publisher.getFlux().blockLast(Duration.ofSeconds(2)));
   }
 
+  /** Returns the error the publisher failed with; fails if it completed or did not end. */
+  private static @NotNull Throwable failureOf(
+      final @NotNull SubscriptionSourcePublisher publisher) {
+    // A timeout would throw as well, but not a SubscriptionSourceException
+    return assertInstanceOf(
+        SubscriptionSourceException.class,
+        assertThrows(
+            RuntimeException.class, () -> publisher.getFlux().blockLast(Duration.ofSeconds(2))));
+  }
+
   private static void await(final @NotNull CompletableFuture<?> future) {
     assertDoesNotThrow(() -> future.get(5, TimeUnit.SECONDS));
   }
@@ -503,6 +513,87 @@ class SubscriptionErrorTest {
         RuntimeException.class, () -> publisher.getFlux().blockLast(Duration.ofSeconds(2)));
   }
 
+  @Test
+  void sourceClosingTheConnectionFailsTheOperation() {
+    final RecordingSession session = RecordingSession.init(this.gateway);
+    this.send(session, subscribeMessage("a", "subscription { ticks }"));
+    final CountingPublisher publisher = this.publishers.get(0);
+    final SubscriptionSourceHandler handler = sourceHandler(publisher);
+    final RecordingSession source = new RecordingSession();
+    ack(handler, source);
+
+    // The source socket goes away while the operation is still active
+    source.close();
+    handler.handleSessionClose(source);
+
+    final List<SubscriptionMessage> frames = messagesFor(session, "a");
+    assertEquals(1, frames.size());
+    assertEquals(List.of(Map.of("message", GENERIC_SOURCE_ERROR)), errorsOf(frames.get(0)));
+    assertEquals("Subscription source closed the connection", failureOf(publisher).getMessage());
+    assertTrue(session.isOpen());
+
+    // The failed operation is gone: its id can be subscribed again
+    this.send(session, subscribeMessage("a", "subscription { ticks }"));
+    assertTrue(session.isOpen());
+    assertEquals(2, this.publishers.size());
+  }
+
+  @Test
+  void sourceCompleteFollowedByCloseCompletesTheOperationOnce() {
+    final RecordingSession session = RecordingSession.init(this.gateway);
+    this.send(session, subscribeMessage("a", "subscription { ticks }"));
+    final SubscriptionSourceHandler handler = sourceHandler(this.publishers.get(0));
+    final RecordingSession source = new RecordingSession();
+    final String sourceId = ack(handler, source);
+
+    handler.handleMessage(source, "{\"id\":\"" + sourceId + "\",\"type\":\"complete\"}");
+    handler.handleSessionClose(source);
+
+    final List<SubscriptionMessage> frames = messagesFor(session, "a");
+    assertEquals(1, frames.size());
+    assertEquals(SubscriptionMessageType.complete, frames.get(0).getType());
+    assertTrue(session.isOpen());
+  }
+
+  @Test
+  void protocolViolationIsAnErrorEvenIfCloseReportsTheCloseSynchronously() {
+    final RecordingSession session = RecordingSession.init(this.gateway);
+    this.send(session, subscribeMessage("a", "subscription { ticks }"));
+    final CountingPublisher publisher = this.publishers.get(0);
+    final SubscriptionSourceHandler handler = sourceHandler(publisher);
+    // A container that calls afterConnectionClosed from inside close()
+    final RecordingSession source = new RecordingSession();
+    source.onClose(() -> handler.handleSessionClose(source));
+    ack(handler, source);
+
+    handler.handleMessage(source, "{not json");
+
+    assertFalse(source.isOpen());
+    final List<SubscriptionMessage> frames = messagesFor(session, "a");
+    assertEquals(1, frames.size());
+    assertEquals(SubscriptionMessageType.error, frames.get(0).getType());
+    assertEquals("Subscription source sent an invalid message", failureOf(publisher).getMessage());
+    assertTrue(session.isOpen());
+  }
+
+  @Test
+  void sourceSessionIsClosedEvenIfSendingCompleteFails() {
+    final SubscriptionSourcePublisher publisher = new SubscriptionSourcePublisher();
+    final SubscriptionSourceHandler handler = sourceHandler(publisher);
+    final RecordingSession source = new RecordingSession();
+    ack(handler, source);
+    source.onSend(
+        message -> {
+          throw new IllegalStateException("source socket is broken");
+        });
+
+    // The gateway gives up on the operation; telling the source fails
+    assertDoesNotThrow(publisher::close);
+
+    assertFalse(source.isOpen());
+    assertTrue(messagesOfType(source, SubscriptionMessageType.complete).isEmpty());
+  }
+
   // Cancellation racing deliveries, failing client sends, and where stitching runs ------------
 
   @Test
@@ -731,6 +822,32 @@ class SubscriptionErrorTest {
     await(capped.handle(session, subscribeMessage("a", "subscription { ticks }")));
     assertEquals(1, messagesFor(session, "a").size());
     assertEquals(1, this.publishers.size());
+  }
+
+  @Test
+  void stitchThrowingAnErrorProducesErrorFrameAndFreesTheSlot() {
+    final Lilo failing = Mockito.mock(Lilo.class);
+    Mockito.when(failing.stitchAsync(Mockito.any())).thenThrow(new AssertionError("stitch broke"));
+    final SubscriptionGatewayHandler capped =
+        new SubscriptionGatewayHandler(failing, command -> new Thread(command).start(), 1);
+    final RecordingSession session = RecordingSession.init(capped);
+
+    await(capped.handle(session, subscribeMessage("a", "subscription { ticks }")));
+
+    final List<SubscriptionMessage> frames = messagesFor(session, "a");
+    assertEquals(1, frames.size());
+    assertEquals(
+        List.of(Map.of("message", "Subscription could not be executed")), errorsOf(frames.get(0)));
+    assertTrue(session.isOpen());
+
+    // Neither the placeholder nor the in-flight stitch holds the only slot: the id is reusable and
+    // the retry is not refused by the cap
+    await(capped.handle(session, subscribeMessage("a", "subscription { ticks }")));
+    final List<SubscriptionMessage> retried = messagesFor(session, "a");
+    assertEquals(2, retried.size());
+    assertEquals(
+        List.of(Map.of("message", "Subscription could not be executed")), errorsOf(retried.get(1)));
+    assertTrue(session.isOpen());
   }
 
   @Test

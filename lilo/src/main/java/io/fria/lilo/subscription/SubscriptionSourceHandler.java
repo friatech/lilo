@@ -33,6 +33,8 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * SubscriptionSourceHandler drives one subscription operation against a remote source over its own
@@ -42,9 +44,13 @@ import org.jetbrains.annotations.Nullable;
  * termination} once, when the source acknowledges the connection. When the publisher ends because
  * the gateway no longer needs the operation, the source is sent {@code complete}; when the source
  * itself ended it (with {@code complete} or {@code error}), it is not told again. Either way the
- * source session is closed afterwards, as it serves only this operation.
+ * source session is closed afterwards, as it serves only this operation. A source that closes its
+ * session, or breaks the protocol, while the operation is still active fails the operation.
  */
 public class SubscriptionSourceHandler {
+
+  private static final String SOURCE_CLOSED = "Subscription source closed the connection";
+  private static final Logger LOG = LoggerFactory.getLogger(SubscriptionSourceHandler.class);
 
   private final @NotNull GraphQLQuery query;
   private final @NotNull SubscriptionSourcePublisher publisher;
@@ -153,31 +159,61 @@ public class SubscriptionSourceHandler {
 
   private void finish(final @NotNull WebSocketSessionWrapper session) {
 
-    if (!this.endedBySource && session.isOpen()) {
-      final SubscriptionMessage completeMessage = new SubscriptionMessage();
-      completeMessage.setId(this.operationId);
-      completeMessage.setType(complete);
-      session.send(JsonUtils.toStr(completeMessage));
-    }
-
-    if (session.isOpen()) {
-      session.close();
+    try {
+      if (!this.endedBySource && session.isOpen()) {
+        final SubscriptionMessage completeMessage = new SubscriptionMessage();
+        completeMessage.setId(this.operationId);
+        completeMessage.setType(complete);
+        session.send(JsonUtils.toStr(completeMessage));
+      }
+    } catch (final RuntimeException e) {
+      // Runs inside the termination signal, which has no error handler: log rather than throw
+      LOG.warn("Could not send complete to the subscription source: {}", safe(e));
+      LOG.debug("Subscription source complete failure", e);
+    } finally {
+      closeQuietly(session);
     }
   }
 
   private void closeSource(
       final @NotNull WebSocketSessionWrapper session, final @NotNull String reason) {
     this.endedBySource = true;
-    if (session.isOpen()) {
-      session.close();
+    try {
+      // A protocol violation is a failure, not a normal end of the operation. It is reported
+      // before the session is closed: a container that reports the close synchronously from
+      // inside close() would otherwise end the operation first.
+      this.publisher.error(SubscriptionSourceException.protocolViolation(reason));
+    } finally {
+      closeQuietly(session);
     }
-    // A protocol violation is a failure, not a normal end of the operation
-    this.publisher.error(SubscriptionSourceException.protocolViolation(reason));
   }
 
+  /**
+   * Handles the close of the source session. A source that closes the connection while its
+   * operation is still active broke it off, so the operation fails. If the operation already ended,
+   * because the source sent {@code complete} or {@code error} or the gateway gave it up, this has
+   * no effect.
+   *
+   * @param session the closed session
+   */
   public void handleSessionClose(final @Nullable WebSocketSessionWrapper session) {
     this.endedBySource = true;
-    this.publisher.close();
+    this.publisher.error(SubscriptionSourceException.protocolViolation(SOURCE_CLOSED));
+  }
+
+  private static @NotNull String safe(final @NotNull Throwable throwable) {
+    return SubscriptionSourceException.bound(throwable.toString());
+  }
+
+  private static void closeQuietly(final @NotNull WebSocketSessionWrapper session) {
+    try {
+      if (session.isOpen()) {
+        session.close();
+      }
+    } catch (final RuntimeException e) {
+      LOG.warn("Could not close the subscription source session: {}", safe(e));
+      LOG.debug("Subscription source close failure", e);
+    }
   }
 
   public void handleSessionStart(final @NotNull WebSocketSessionWrapper session) {
