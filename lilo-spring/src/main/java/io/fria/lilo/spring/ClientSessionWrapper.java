@@ -17,6 +17,7 @@ package io.fria.lilo.spring;
 
 import io.fria.lilo.subscription.WebSocketSessionWrapper;
 import java.io.IOException;
+import java.util.Map;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.web.socket.TextMessage;
@@ -57,6 +58,17 @@ public final class ClientSessionWrapper implements WebSocketSessionWrapper {
     } catch (final IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  /**
+   * Returns the attributes of the native session, which include the handshake headers stored by
+   * {@link GatewayHandshakeInterceptor}.
+   *
+   * @return the native session's attributes
+   */
+  @Override
+  public @NotNull Map<String, Object> getAttributes() {
+    return this.nativeSession.getAttributes();
   }
 
   @Override

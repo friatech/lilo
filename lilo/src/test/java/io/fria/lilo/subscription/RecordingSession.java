@@ -18,6 +18,7 @@ package io.fria.lilo.subscription;
 import io.fria.lilo.JsonUtils;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -38,6 +39,9 @@ final class RecordingSession implements WebSocketSessionWrapper {
   private volatile @NotNull Consumer<String> onSend = message -> {};
 
   private final @NotNull String id;
+
+  /** What the transport attached to the session, e.g. the handshake headers. */
+  private volatile @NotNull Map<String, Object> attributes = Map.of();
 
   RecordingSession() {
     this(SESSION_ID);
@@ -63,6 +67,15 @@ final class RecordingSession implements WebSocketSessionWrapper {
   @Override
   public void close() {
     this.open.set(false);
+  }
+
+  @Override
+  public @NotNull Map<String, Object> getAttributes() {
+    return this.attributes;
+  }
+
+  void attributes(final @NotNull Map<String, Object> sessionAttributes) {
+    this.attributes = sessionAttributes;
   }
 
   @Override

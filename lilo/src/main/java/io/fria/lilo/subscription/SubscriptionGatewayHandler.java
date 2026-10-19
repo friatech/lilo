@@ -64,6 +64,13 @@ import reactor.core.Disposable;
  * the stitch produces is then closed and nothing is sent for the operation. A subscribe that cannot
  * be started (an invalid payload, a query that fails validation, an operation that is not a
  * subscription) is answered with an {@code error} message for its id and the socket stays open.
+ *
+ * <p>A session must start with exactly one {@code connection_init}. Its payload and the session's
+ * handshake headers are kept as a {@link SubscriptionConnectionContext} for as long as the session
+ * lives, and every subscription of the session is stitched with that context as its {@code
+ * localContext}, so a {@link SubscriptionRetriever} can forward the client's credentials to the
+ * source. A {@code subscribe} before {@code connection_init}, or a second {@code connection_init},
+ * closes the session.
  */
 public final class SubscriptionGatewayHandler {
 
@@ -92,6 +99,10 @@ public final class SubscriptionGatewayHandler {
 
   /** session id -> the session's operations and in-flight stitches */
   private final @NotNull Map<String, SessionState> sessionOperations = new ConcurrentHashMap<>();
+
+  /** session id -> what the client sent at connection_init; present once the session is open */
+  private final @NotNull Map<String, SubscriptionConnectionContext> connections =
+      new ConcurrentHashMap<>();
 
   /**
    * Constructs a handler instance using lilo.
@@ -252,10 +263,7 @@ public final class SubscriptionGatewayHandler {
     final SubscriptionMessageType requestType = request.getType();
 
     if (connection_init == requestType) {
-      // Emulating new connection
-      final var response =
-          SubscriptionMessage.builder().type(connection_ack).payload(new HashMap<>()).build();
-      session.send(JsonUtils.toStr(response));
+      this.handleConnectionInit(session, request);
     } else if (ping == requestType) {
       // Echo the ping payload back, if any
       final SubscriptionMessage response = new SubscriptionMessage();
@@ -284,8 +292,53 @@ public final class SubscriptionGatewayHandler {
     return this.sessionOperations.containsKey(sessionId);
   }
 
+  /** Returns whether a connection context is held for the session. */
+  boolean tracksConnection(final @NotNull String sessionId) {
+    return this.connections.containsKey(sessionId);
+  }
+
+  private void handleConnectionInit(
+      final @NotNull WebSocketSessionWrapper session, final @NotNull SubscriptionMessage request) {
+
+    final SubscriptionConnectionContext context;
+    try {
+      context = SubscriptionConnectionContext.of(request.getPayload(), session.getAttributes());
+    } catch (final RuntimeException e) {
+      // e.g. attributes the transport cannot read; the values are not logged, they may be secret
+      LOG.debug("Could not read the connection context of session {}", session.getId());
+      this.closeSession(session);
+      return;
+    }
+
+    if (this.connections.putIfAbsent(session.getId(), context) != null) {
+      // graphql-transport-ws: a second connection_init closes the connection (4429 Too many
+      // initialisation requests)
+      this.closeSession(session);
+      return;
+    }
+
+    if (!session.isOpen()) {
+      // Closed meanwhile: its close may already have run, so do not keep the context
+      this.connections.remove(session.getId(), context);
+      return;
+    }
+
+    final var response =
+        SubscriptionMessage.builder().type(connection_ack).payload(new HashMap<>()).build();
+    session.send(JsonUtils.toStr(response));
+  }
+
   private @NotNull CompletableFuture<Void> handleSubscribe(
       final @NotNull WebSocketSessionWrapper session, final @NotNull SubscriptionMessage request) {
+
+    final SubscriptionConnectionContext context = this.connections.get(session.getId());
+
+    if (context == null) {
+      // graphql-transport-ws: a subscribe before connection_init closes the connection (4401
+      // Unauthorized)
+      this.closeSession(session);
+      return DONE;
+    }
 
     final String operationId = request.getId();
 
@@ -327,7 +380,8 @@ public final class SubscriptionGatewayHandler {
         return DONE;
       }
 
-      executionInput = graphQLRequest.toExecutionInput();
+      // The context reaches the source's SubscriptionRetriever as its localContext
+      executionInput = graphQLRequest.toExecutionInput(context);
     } catch (final RuntimeException e) {
       // e.g. a blank query or variables of the wrong shape
       trySendError(session, operationId, errors(INVALID_PAYLOAD));
@@ -575,6 +629,7 @@ public final class SubscriptionGatewayHandler {
       LOG.debug("Could not close session {}", session.getId(), e);
     }
 
+    this.connections.remove(session.getId());
     final SessionState state = this.sessionOperations.remove(session.getId());
 
     if (state == null) {

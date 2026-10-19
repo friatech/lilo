@@ -15,6 +15,7 @@
  */
 package io.fria.lilo.subscription;
 
+import java.util.Map;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -39,6 +40,16 @@ public interface WebSocketSessionWrapper {
    * @return true for open session, false for closed session
    */
   boolean isOpen();
+
+  /**
+   * Returns what the transport attached to the session, such as the handshake request headers under
+   * {@link SubscriptionConnectionContext#HEADERS_ATTRIBUTE}.
+   *
+   * @return session attributes, empty by default
+   */
+  default @NotNull Map<String, Object> getAttributes() {
+    return Map.of();
+  }
 
   /**
    * Sends a string message

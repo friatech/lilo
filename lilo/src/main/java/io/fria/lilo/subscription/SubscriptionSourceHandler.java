@@ -25,7 +25,9 @@ import static io.fria.lilo.subscription.SubscriptionMessageType.subscribe;
 
 import io.fria.lilo.GraphQLQuery;
 import io.fria.lilo.JsonUtils;
-import java.util.HashMap;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -48,14 +50,40 @@ public class SubscriptionSourceHandler {
   private final @NotNull SubscriptionSourcePublisher publisher;
   private final @NotNull String operationId = UUID.randomUUID().toString();
   private final @NotNull AtomicBoolean subscribed = new AtomicBoolean();
+  private final @NotNull Map<String, Object> connectionInitPayload;
 
   /** Set once the source ended the operation itself, so it is not sent a complete for it. */
   private volatile boolean endedBySource;
 
+  /**
+   * Creates a handler whose {@code connection_init} carries an empty payload.
+   *
+   * @param query the subscription to run against the source
+   * @param publisher publisher that receives what the source sends
+   */
   public SubscriptionSourceHandler(
       final @NotNull GraphQLQuery query, final @NotNull SubscriptionSourcePublisher publisher) {
+    this(query, publisher, Map.of());
+  }
+
+  /**
+   * Creates a handler whose {@code connection_init} carries the given payload, e.g. the credentials
+   * the source expects. Use {@link SubscriptionConnectionContext} to forward what the gateway's
+   * client sent.
+   *
+   * @param query the subscription to run against the source
+   * @param publisher publisher that receives what the source sends
+   * @param connectionInitPayload payload of the {@code connection_init} sent to the source; copied
+   */
+  public SubscriptionSourceHandler(
+      final @NotNull GraphQLQuery query,
+      final @NotNull SubscriptionSourcePublisher publisher,
+      final @NotNull Map<String, Object> connectionInitPayload) {
     this.query = query;
     this.publisher = publisher;
+    // LinkedHashMap rather than Map.copyOf: a JSON payload may hold null values
+    this.connectionInitPayload =
+        Collections.unmodifiableMap(new LinkedHashMap<>(connectionInitPayload));
   }
 
   public void handleMessage(
@@ -156,7 +184,7 @@ public class SubscriptionSourceHandler {
 
     final SubscriptionMessage initMessage = new SubscriptionMessage();
     initMessage.setType(connection_init);
-    initMessage.setPayload(new HashMap<>());
+    initMessage.setPayload(this.connectionInitPayload);
 
     Objects.requireNonNull(session).send(JsonUtils.toStr(initMessage));
   }
