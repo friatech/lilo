@@ -46,19 +46,10 @@ public final class LiloContext {
 
   private static final Set<String> PREDEFINED_SCALARS =
       Set.of("Boolean", "Float", "Int", "ID", "String");
-  private static final TypeResolver INTERFACE_TYPE_RESOLVER = env -> null;
-
+  private static final TypeResolver INTERFACE_TYPE_RESOLVER =
+      typenameTypeResolver("Please provide __typename for interface types");
   private static final TypeResolver UNION_TYPE_RESOLVER =
-      env -> {
-        final Map<String, Object> result = env.getObject();
-        final Object typeName = result == null ? null : result.get("__typename");
-
-        if (typeName == null) {
-          throw new IllegalArgumentException("Please provide __typename for union types");
-        }
-
-        return env.getSchema().getObjectType(typeName.toString());
-      };
+      typenameTypeResolver("Please provide __typename for union types");
 
   private final DataFetcherExceptionHandler dataFetcherExceptionHandler;
   private final IntrospectionFetchingMode introspectionFetchingMode;
@@ -111,6 +102,25 @@ public final class LiloContext {
             });
 
     return runtimeWiringBuilder.build();
+  }
+
+  /**
+   * Resolves an interface or union value by the {@code __typename} its source returned. The query
+   * sent to a source always selects {@code __typename} on abstract types (see {@link
+   * QueryTransformer}), so a missing value means the source did not honour the selection.
+   */
+  private static @NotNull TypeResolver typenameTypeResolver(final @NotNull String missingMessage) {
+
+    return env -> {
+      final Object source = env.getObject();
+      final Object typeName = source instanceof Map ? ((Map<?, ?>) source).get("__typename") : null;
+
+      if (typeName == null) {
+        throw new IllegalArgumentException(missingMessage);
+      }
+
+      return env.getSchema().getObjectType(typeName.toString());
+    };
   }
 
   private static @NotNull Map<String, SchemaSource> toSourceMap(

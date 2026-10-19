@@ -23,13 +23,23 @@ import graphql.language.Document;
 import graphql.language.Field;
 import graphql.language.FragmentDefinition;
 import graphql.language.FragmentSpread;
+import graphql.language.InlineFragment;
 import graphql.language.Node;
 import graphql.language.OperationDefinition;
 import graphql.language.Selection;
 import graphql.language.SelectionSet;
+import graphql.language.TypeName;
 import graphql.language.VariableDefinition;
 import graphql.language.VariableReference;
 import graphql.schema.DataFetchingEnvironment;
+import graphql.schema.GraphQLCompositeType;
+import graphql.schema.GraphQLFieldDefinition;
+import graphql.schema.GraphQLFieldsContainer;
+import graphql.schema.GraphQLInterfaceType;
+import graphql.schema.GraphQLSchema;
+import graphql.schema.GraphQLType;
+import graphql.schema.GraphQLTypeUtil;
+import graphql.schema.GraphQLUnionType;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -41,6 +51,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 final class QueryTransformer {
+
+  private static final String TYPENAME = "__typename";
 
   private QueryTransformer() {
     // Utility class
@@ -75,6 +87,108 @@ final class QueryTransformer {
       final @NotNull Set<String> usedFragmentNames) {
 
     node.getChildren().forEach(n -> findUsedItems(n, usedReferenceNames, usedFragmentNames));
+  }
+
+  // The gateway resolves interface and union values from the __typename returned by the source,
+  // so every selection set on an abstract type is made to select it. The walk is driven by the
+  // gateway schema; selections it cannot type are left untouched.
+  private static @NotNull Field injectTypename(
+      final @NotNull GraphQLSchema schema,
+      final @NotNull Field field,
+      final @NotNull GraphQLCompositeType parentType) {
+
+    final SelectionSet selectionSet = field.getSelectionSet();
+
+    // Only object and interface types declare fields; a union selects nothing but __typename
+    if (selectionSet == null || !(parentType instanceof GraphQLFieldsContainer)) {
+      return field;
+    }
+
+    final GraphQLFieldDefinition fieldDefinition =
+        ((GraphQLFieldsContainer) parentType).getFieldDefinition(field.getName());
+
+    if (fieldDefinition == null) {
+      return field;
+    }
+
+    final GraphQLType fieldType = GraphQLTypeUtil.unwrapAll(fieldDefinition.getType());
+
+    if (!(fieldType instanceof GraphQLCompositeType)) {
+      return field;
+    }
+
+    final SelectionSet newSelectionSet =
+        injectTypename(schema, selectionSet, (GraphQLCompositeType) fieldType);
+
+    return field.transform(builder -> builder.selectionSet(newSelectionSet));
+  }
+
+  private static @NotNull FragmentDefinition injectTypename(
+      final @NotNull GraphQLSchema schema, final @NotNull FragmentDefinition fragment) {
+
+    final SelectionSet selectionSet = fragment.getSelectionSet();
+    final GraphQLType type = schema.getType(fragment.getTypeCondition().getName());
+
+    if (selectionSet == null || !(type instanceof GraphQLCompositeType)) {
+      return fragment;
+    }
+
+    final SelectionSet newSelectionSet =
+        injectTypename(schema, selectionSet, (GraphQLCompositeType) type);
+
+    return fragment.transform(builder -> builder.selectionSet(newSelectionSet));
+  }
+
+  private static @NotNull InlineFragment injectTypename(
+      final @NotNull GraphQLSchema schema,
+      final @NotNull InlineFragment fragment,
+      final @NotNull GraphQLCompositeType parentType) {
+
+    final SelectionSet selectionSet = fragment.getSelectionSet();
+    final TypeName typeCondition = fragment.getTypeCondition();
+    final GraphQLType type =
+        typeCondition == null ? parentType : schema.getType(typeCondition.getName());
+
+    if (selectionSet == null || !(type instanceof GraphQLCompositeType)) {
+      return fragment;
+    }
+
+    final SelectionSet newSelectionSet =
+        injectTypename(schema, selectionSet, (GraphQLCompositeType) type);
+
+    return fragment.transform(builder -> builder.selectionSet(newSelectionSet));
+  }
+
+  private static @NotNull SelectionSet injectTypename(
+      final @NotNull GraphQLSchema schema,
+      final @NotNull SelectionSet selectionSet,
+      final @NotNull GraphQLCompositeType parentType) {
+
+    final List<Selection> newSelections = new ArrayList<>();
+    boolean typenameSelected = false;
+
+    for (final Selection<?> selection : selectionSet.getSelections()) {
+      if (selection instanceof Field) {
+        final Field field = (Field) selection;
+        // An aliased __typename lands under another result key, so it does not count
+        typenameSelected |= TYPENAME.equals(field.getName()) && field.getAlias() == null;
+        newSelections.add(injectTypename(schema, field, parentType));
+      } else if (selection instanceof InlineFragment) {
+        newSelections.add(injectTypename(schema, (InlineFragment) selection, parentType));
+      } else {
+        // Fragment spreads are covered when their fragment definition is transformed
+        newSelections.add(selection);
+      }
+    }
+
+    final boolean abstractType =
+        parentType instanceof GraphQLInterfaceType || parentType instanceof GraphQLUnionType;
+
+    if (abstractType && !typenameSelected) {
+      newSelections.add(new Field(TYPENAME));
+    }
+
+    return selectionSet.transform(builder -> builder.selections(newSelections));
   }
 
   private static @NotNull FragmentDefinition removeAlias(
@@ -181,8 +295,10 @@ final class QueryTransformer {
     final List<Definition> newDefinitions = new ArrayList<>();
     newDefinitions.add(
         transformOperationDefinition(
-            operationDefinition, usedReferenceNames, queryNode, queryBuilder));
-    newDefinitions.addAll(transformFragmentDefinitions(originalDefinitions, usedFragmentNames));
+            environment, operationDefinition, usedReferenceNames, queryNode, queryBuilder));
+    newDefinitions.addAll(
+        transformFragmentDefinitions(
+            environment.getGraphQLSchema(), originalDefinitions, usedFragmentNames));
 
     final Map<String, Object> filteredVariables = new HashMap<>();
 
@@ -221,6 +337,7 @@ final class QueryTransformer {
   }
 
   private static @NotNull List<Definition<?>> transformFragmentDefinitions(
+      final @NotNull GraphQLSchema schema,
       final @NotNull List<Definition> originalDefinitions,
       final @NotNull Set<String> usedFragmentNames) {
 
@@ -229,10 +346,12 @@ final class QueryTransformer {
         .map(d -> (FragmentDefinition) d)
         .filter(fd -> usedFragmentNames.contains(fd.getName()))
         .map(QueryTransformer::removeAlias)
+        .map(fd -> injectTypename(schema, fd))
         .collect(Collectors.toList());
   }
 
   private static @NotNull Definition<?> transformOperationDefinition(
+      final @NotNull DataFetchingEnvironment environment,
       final @NotNull OperationDefinition operationDefinition,
       final @NotNull Set<String> usedReferenceNames,
       final @NotNull Field queryNode,
@@ -243,7 +362,11 @@ final class QueryTransformer {
             .filter(v -> usedReferenceNames.contains(v.getName()))
             .collect(Collectors.toList());
 
-    final Field newQueryNode = removeAlias(queryNode);
+    final Field newQueryNode =
+        injectTypename(
+            environment.getGraphQLSchema(),
+            removeAlias(queryNode),
+            (GraphQLCompositeType) environment.getParentType());
     queryBuilder.queryNode(newQueryNode);
 
     return operationDefinition.transform(
