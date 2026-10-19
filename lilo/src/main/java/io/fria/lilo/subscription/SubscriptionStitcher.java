@@ -53,7 +53,8 @@ import reactor.core.Disposable;
  */
 final class SubscriptionStitcher {
 
-  private static final CompletableFuture<Void> DONE = CompletableFuture.completedFuture(null);
+  /** The result of a message that is handled once the handler returns. */
+  static final CompletableFuture<Void> DONE = CompletableFuture.completedFuture(null);
 
   private static final int POOL_CORE_SIZE = Math.max(4, Runtime.getRuntime().availableProcessors());
   private static final int POOL_MAX_SIZE = 4 * POOL_CORE_SIZE;

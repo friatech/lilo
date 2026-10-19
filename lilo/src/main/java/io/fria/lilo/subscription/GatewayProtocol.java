@@ -22,6 +22,7 @@ import static io.fria.lilo.subscription.GatewayMessages.errors;
 import static io.fria.lilo.subscription.GatewayMessages.sendConnectionAck;
 import static io.fria.lilo.subscription.GatewayMessages.sendPong;
 import static io.fria.lilo.subscription.GatewayMessages.trySendError;
+import static io.fria.lilo.subscription.SubscriptionStitcher.DONE;
 
 import graphql.ExecutionInput;
 import io.fria.lilo.GraphQLRequest;
@@ -39,8 +40,6 @@ import org.slf4j.LoggerFactory;
  * enforces the protocol's rules and dispatches it to the session registry or the stitcher.
  */
 final class GatewayProtocol {
-
-  private static final CompletableFuture<Void> DONE = CompletableFuture.completedFuture(null);
 
   // Logged under the handler's name: the gateway's classes are one component to an operator
   private static final Logger LOG = LoggerFactory.getLogger(SubscriptionGatewayHandler.class);
@@ -93,11 +92,7 @@ final class GatewayProtocol {
       case subscribe:
         return this.handleSubscribe(session, request);
       case complete:
-        // The client stops a single operation; the connection and other operations stay
-        final String operationId = request.getId();
-        if (operationId != null) {
-          this.registry.cancelOperation(session.getId(), operationId);
-        }
+        this.handleComplete(session, request);
         break;
       case pong:
         // pong is a one-way heartbeat answer
@@ -109,6 +104,16 @@ final class GatewayProtocol {
     }
 
     return DONE;
+  }
+
+  private void handleComplete(
+      final @NotNull WebSocketSessionWrapper session, final @NotNull SubscriptionMessage request) {
+
+    // The client stops a single operation; the connection and other operations stay
+    final String operationId = request.getId();
+    if (operationId != null) {
+      this.registry.cancelOperation(session.getId(), operationId);
+    }
   }
 
   private void handleConnectionInit(

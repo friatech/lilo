@@ -17,7 +17,6 @@ package io.fria.lilo.subscription;
 
 import static io.fria.lilo.subscription.SubscriptionMessageType.complete;
 import static io.fria.lilo.subscription.SubscriptionMessageType.connection_init;
-import static io.fria.lilo.subscription.SubscriptionMessageType.pong;
 import static io.fria.lilo.subscription.SubscriptionMessageType.subscribe;
 
 import io.fria.lilo.GraphQLQuery;
@@ -118,11 +117,8 @@ public class SubscriptionSourceHandler {
         this.handleNext(session, request.getPayload());
         break;
       case ping:
-        // Echo the ping payload back, if any
-        final SubscriptionMessage response = new SubscriptionMessage();
-        response.setType(pong);
-        response.setPayload(request.getPayload());
-        session.send(JsonUtils.toStr(response));
+        // Echoes the ping payload back, if any
+        GatewayMessages.sendPong(session, request.getPayload());
         break;
       case complete:
         // Source finished the operation
