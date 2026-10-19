@@ -55,6 +55,8 @@ implementation 'io.fria:lilo:24.5.0'
 - `maxQueryDepth(int)` and `maxQueryComplexity(int)` on `Lilo.builder()` reject a query that exceeds the limit with a GraphQL error and no data, before any source is called. They use graphql-java's standard `MaxQueryDepthInstrumentation` (root fields are at depth 1) and `MaxQueryComplexityInstrumentation` (every field counts 1), chained before your own `instrumentation(...)`. No limit is set by default; zero or negative values throw `IllegalArgumentException`.
 - `introspectionEnabled(false)` rejects `__schema` and `__type` queries on the gateway with a GraphQL error. It is per Lilo instance (graphql-java's per-request `INTROSPECTION_DISABLED` context flag, not the JVM-wide switch) and does not affect the introspection Lilo sends to its sources. Introspection is enabled by default.
 - `graphQLCustomizer(Consumer<GraphQL.Builder>)` runs each time the merged schema is built, after Lilo's own settings, so you can add a `PreparsedDocumentProvider`, an execution strategy and so on, or override Lilo's settings.
+- A customizer that replaces the instrumentation drops the `maxQueryDepth`/`maxQueryComplexity` limits and the `introspectionEnabled(false)` guard, and one that sets an execution strategy that does not extend graphql-java's `AsyncExecutionStrategy` or `AsyncSerialExecutionStrategy` bypasses the introspection guard; pass your instrumentation through `instrumentation(...)` instead.
+- An exception thrown by the customizer fails every schema load, and with it the requests waiting for the schema.
 
 ### Subscriptions
 

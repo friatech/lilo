@@ -29,17 +29,27 @@ Stitching engine (behavior changes for existing users):
 Subscriptions (behavior changes):
 
 - A client that sends `subscribe` before `connection_init` is now disconnected, and a second `connection_init` on a session closes it.
-- A `SubscriptionRetriever` now receives a `SubscriptionConnectionContext` (the `connection_init` payload and the handshake headers) as its `localContext` argument.
+- The `localContext` of a subscription used to be `null`. A `SubscriptionRetriever` now receives a `SubscriptionConnectionContext` (the `connection_init` payload and the handshake headers) as its `localContext` argument. Because single-flight schema loading uses the first caller's `localContext`, the same `SubscriptionConnectionContext` also reaches the `IntrospectionRetriever` (and the `RemoteRetrieverOptions.headers` hook of `DefaultRemoteIntrospectionRetriever`) when a subscription triggers a cold or invalidated schema load. Retrievers and header hooks must check the type with `instanceof` rather than cast `localContext`.
+- Custom `WebSocketSessionWrapper.send` implementations must now be thread-safe: the gateway sends to one session from the websocket thread, its stitch executor and the source connections' threads at the same time.
+- A source socket that closes while its operation is still active now ends the operation with an `error` frame (a generic error) instead of `complete`. A source that sent `complete` or `error` before closing, or a close requested by the gateway, is unaffected.
 - A session may run at most 50 operations at once, and stitching for subscriptions runs on a bounded pool. When a limit is hit the client gets an `error` frame ("Too many subscriptions on this connection" or "Too many concurrent subscription requests") instead of an exception.
 - Subscription errors (invalid payload, GraphQL errors, non-subscription operations, remote source failures) are reported to the client as `error` frames.
 - `SubscriptionWebSocketConfigurer`'s public constructor now takes the `GatewayWebSocketHandler` and the `LiloConfigProperties`. Applications that only use `@EnableLilo` are unaffected; code that constructs it directly must pass the properties.
 - `@EnableLilo` now also enables Spring's WebSocket support.
+
+Build and tooling:
+
 - Surefire runs with the Mockito agent (`-javaagent` and `-Xshare:off` in `argLine`) in `lilo` and `lilo-spring`; test JVMs only.
 
 ### Added
 
 - `GraphQLRequest` supports an optional `extensions` map (JSON, builder, getter/setter, defensively copied) that is passed on to the `ExecutionInput`; it is omitted from the JSON when absent.
 - Subscriptions: `ping`/`pong` and `error` messages, several operations per socket with per-operation `complete`, source handler lifecycle fixes (one `subscribe` per source, sources released on cancel and send failures), and `SubscriptionConnectionContext`.
+- `SubscriptionGatewayHandler(Lilo, Executor)` and `SubscriptionGatewayHandler(Lilo, Executor, int)` constructors to choose the stitch executor and the per-session operation cap.
+- `SubscriptionSourceHandler` and `SourceWebSocketHandler` constructors that take the `connection_init` payload sent to the source.
+- `SubscriptionSourcePublisher.getTermination()`, a signal that completes once the publisher is closed or failed without consuming events. Subclasses that override `close()` or `error()` must call `super`, otherwise the publisher never ends.
+- The source websocket session is now closed when its operation ends.
+- A public four-argument `GraphQLRequest(query, operationName, variables, extensions)` constructor.
 - `lilo-spring` properties: `lilo.allowed-origins` (default `*`; an empty list allows only same-origin requests), `lilo.send-time-limit` (default `10s`) and `lilo.send-buffer-size-limit` (default `524288` bytes). A slow client is disconnected with close status 4500 and its subscriptions are released. Client sends are no longer racy across threads.
 - `RemoteRetrieverOptions` for the default remote retrievers (timeouts, response cap, header hook).
 - `Lilo.builder()` options `maxQueryDepth`, `maxQueryComplexity` (graphql-java's standard instrumentations, chained before the user's instrumentation), `introspectionEnabled` (per instance, default `true`) and `graphQLCustomizer` (applied last when the merged schema is built).
@@ -55,7 +65,7 @@ Subscriptions (behavior changes):
 - Nested aliases (including inside fragments, and the same field twice with different arguments) are forwarded and read back by result key.
 - When a remote returns data and errors, the data is kept and the errors are reported. The interrupt flag is restored, and an all-sources-down failure is no longer wrapped in `ExecutionException`.
 - Schema loading is single-flight (one introspection per source for concurrent cold requests), `invalidate*` during a load is not lost, and an `Error` while a load starts no longer wedges the context.
-- Subscriptions no longer throw on a subscribe without an id or on a dead socket, and operations registered after a session close are cancelled.
+- A subscribe without an id now closes the session instead of throwing, a subscribe that is rejected (failed validation, over a limit) never throws even when sending its `error` frame fails on a dead socket, and operations registered after a session close are cancelled. Sending `pong` or `connection_ack` to a dead socket can still throw.
 
 ### Dependencies
 
@@ -69,3 +79,11 @@ Subscriptions (behavior changes):
 - Single-flight loading uses the first caller's `localContext`.
 - There is no timeout or backoff on schema loading; a hung introspection blocks requests until it completes.
 - The send limits are checked when another frame is queued; the servlet container's own send timeout still bounds the frame being written.
+- Subscription protocol violations close the session with a plain close (status 1000), not the graphql-transport-ws codes 4400, 4401, 4409 or 4429.
+- There is no `connection_init` timeout for clients and no `connection_ack` timeout for sources.
+- The per-session operation cap and the stitch executor cannot be configured through `lilo-spring` properties, only through the `SubscriptionGatewayHandler` constructors.
+- The per-session cap counts the larger of the registered operations and the stitches still running, so in the worst case a session holds about twice the cap in resources.
+- Remote error `extensions` are forwarded to clients verbatim.
+- A `graphQLCustomizer` that replaces the instrumentation drops the depth and complexity limits and the introspection guard; one that sets an execution strategy that does not extend graphql-java's `AsyncExecutionStrategy` or `AsyncSerialExecutionStrategy` bypasses the introspection guard. An exception thrown by the customizer fails every schema load.
+- `introspectionEnabled(false)` writes graphql-java's `INTROSPECTION_DISABLED` flag into the caller's own `GraphQLContext`.
+- `@EnableLilo` now also enables Spring's WebSocket support, so an application that subclasses `DelegatingWebSocketConfiguration` directly may get a duplicate bean definition.
