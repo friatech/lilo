@@ -18,7 +18,6 @@ package io.fria.lilo;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import graphql.ExecutionInput;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
@@ -160,10 +159,8 @@ public final class GraphQLRequest {
       final @Nullable Map<String, Object> extensions) {
     this.query = Objects.requireNonNull(query);
     this.operationName = operationName;
-    this.variables =
-        variables == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(variables));
-    this.extensions =
-        extensions == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(extensions));
+    this.variables = variables == null ? null : Maps.nullTolerantCopy(variables);
+    this.extensions = extensions == null ? null : Maps.nullTolerantCopy(extensions);
   }
 
   public GraphQLRequest() {
@@ -202,7 +199,7 @@ public final class GraphQLRequest {
 
     final GraphQLRequest that = (GraphQLRequest) o;
 
-    return this.query.equals(that.query)
+    return Objects.equals(this.query, that.query)
         && Objects.equals(this.operationName, that.operationName)
         && Objects.equals(this.variables, that.variables)
         && Objects.equals(this.extensions, that.extensions);
@@ -233,8 +230,7 @@ public final class GraphQLRequest {
   public void setVariables(final @Nullable Map<String, Object> variables) {
     // Defensive unmodifiable copy; LinkedHashMap keeps the iteration order and, unlike
     // Map.copyOf, tolerates null values
-    this.variables =
-        variables == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(variables));
+    this.variables = variables == null ? null : Maps.nullTolerantCopy(variables);
   }
 
   // Absent extensions are left out of the JSON so requests forwarded to remote sources keep their
@@ -245,8 +241,7 @@ public final class GraphQLRequest {
   }
 
   public void setExtensions(final @Nullable Map<String, Object> extensions) {
-    this.extensions =
-        extensions == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(extensions));
+    this.extensions = extensions == null ? null : Maps.nullTolerantCopy(extensions);
   }
 
   @Override
@@ -315,10 +310,7 @@ public final class GraphQLRequest {
 
     public @NotNull GraphQLRequestBuilder extensions(
         final @Nullable Map<String, Object> extensionsParam) {
-      this.extensions =
-          extensionsParam == null
-              ? null
-              : Collections.unmodifiableMap(new LinkedHashMap<>(extensionsParam));
+      this.extensions = extensionsParam == null ? null : Maps.nullTolerantCopy(extensionsParam);
       return this;
     }
 
@@ -334,10 +326,7 @@ public final class GraphQLRequest {
 
     public @NotNull GraphQLRequestBuilder variables(
         final @Nullable Map<String, Object> variablesParam) {
-      this.variables =
-          variablesParam == null
-              ? null
-              : Collections.unmodifiableMap(new LinkedHashMap<>(variablesParam));
+      this.variables = variablesParam == null ? null : Maps.nullTolerantCopy(variablesParam);
       return this;
     }
   }

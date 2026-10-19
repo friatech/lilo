@@ -43,7 +43,8 @@ public final class GraphQLQuery {
     this.request = JsonUtils.toObj(query, GraphQLRequest.class).orElseThrow();
     this.operationType = Objects.requireNonNull(operationType);
     this.queryNode = Objects.requireNonNull(queryNode);
-    // Defensive unmodifiable copies; LinkedHashMap keeps the iteration order and, unlike
+    // Defensive unmodifiable copies (kept inline: SpotBugs only recognises this exact shape when
+    // the fields are returned by the getters); LinkedHashMap keeps the iteration order and, unlike
     // Map.copyOf, tolerates null values (explicit null arguments / variables are valid GraphQL)
     this.arguments =
         Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(arguments)));
@@ -93,10 +94,7 @@ public final class GraphQLQuery {
 
     public @NotNull GraphQLQueryBuilder arguments(
         final @NotNull Map<String, Object> argumentsParam) {
-      this.arguments =
-          argumentsParam == null
-              ? null
-              : Collections.unmodifiableMap(new LinkedHashMap<>(argumentsParam));
+      this.arguments = argumentsParam == null ? null : Maps.nullTolerantCopy(argumentsParam);
       return this;
     }
 
@@ -128,10 +126,7 @@ public final class GraphQLQuery {
 
     public @NotNull GraphQLQuery.GraphQLQueryBuilder variables(
         final @Nullable Map<String, Object> variablesMap) {
-      this.variables =
-          variablesMap == null
-              ? null
-              : Collections.unmodifiableMap(new LinkedHashMap<>(variablesMap));
+      this.variables = variablesMap == null ? null : Maps.nullTolerantCopy(variablesMap);
       return this;
     }
   }

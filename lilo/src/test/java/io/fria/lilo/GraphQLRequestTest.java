@@ -150,4 +150,17 @@ class GraphQLRequestTest {
     Assertions.assertNotEquals(one, none);
     Assertions.assertTrue(one.toString().contains("extensions={a=1}"));
   }
+
+  @Test
+  void equalsAndHashCodeTolerateAMissingQuery() {
+
+    final GraphQLRequest noQuery = new GraphQLRequest();
+    final GraphQLRequest otherNoQuery = new GraphQLRequest();
+    final GraphQLRequest withQuery = GraphQLRequest.builder().query("{name}").build();
+
+    Assertions.assertEquals(noQuery, otherNoQuery);
+    Assertions.assertEquals(noQuery.hashCode(), otherNoQuery.hashCode());
+    Assertions.assertNotEquals(noQuery, withQuery);
+    Assertions.assertNotEquals(withQuery, noQuery);
+  }
 }
