@@ -11,11 +11,12 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check-lilo:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -32,10 +33,9 @@ jobs:
 
   # Runs the lilo core tests on a real JDK 11 (the module targets Java 11). Maven and the
   # compiler run on JDK 21 (--release 11); only surefire's forked test JVM is JDK 11.
-  # Maven itself runs on 21, so the enforcer rule would pass; it is skipped here because
-  # this job is only about the test runtime.
   test-lilo-jdk11:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -53,8 +53,18 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      - name: Verify JDK 11 is available
+        run: |
+          test -x "$JAVA_HOME_11_X64/bin/java"
+          "$JAVA_HOME_11_X64/bin/java" -version 2>&1 | grep -q 'version "11\.'
+
       - name: Test lilo on JDK 11
-        run: mvn -B -ntp -pl lilo test -Dgpg.skip -Dspotbugs.skip -Dcheckstyle.skip -Dfmt.skip -Denforcer.skip -Djvm="$JAVA_HOME_11_X64/bin/java"
+        run: mvn -B -ntp -pl lilo test -Dgpg.skip -Dspotbugs.skip -Dcheckstyle.skip -Dfmt.skip -Djvm="$JAVA_HOME_11_X64/bin/java"
+
+      - name: Verify tests ran on JDK 11
+        run: |
+          report=$(ls lilo/target/surefire-reports/*.xml | head -1)
+          grep -o 'java.version" value="[^"]*"' "$report" | tee /dev/stderr | grep -q 'value="11\.'
 
   check-samples:
     runs-on: ubuntu-latest

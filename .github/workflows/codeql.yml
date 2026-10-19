@@ -10,11 +10,12 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   analyze:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       security-events: write
       contents: read
@@ -36,7 +37,7 @@ jobs:
           build-mode: manual
 
       - name: Build
-        run: mvn -B -ntp -DskipTests -Dgpg.skip -Dspotbugs.skip -Denforcer.skip install
+        run: mvn -B -ntp -DskipTests -Dgpg.skip -Dspotbugs.skip -Denforcer.skip -Dcheckstyle.skip -Dfmt.skip install
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0

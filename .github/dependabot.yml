@@ -1,23 +1,9 @@
 version: 2
 updates:
+  # The root pom aggregates lilo and lilo-spring, so "/" covers them; listing the
+  # modules separately would open duplicate PRs. /samples is a separate aggregator.
   - package-ecosystem: maven
     directory: "/"
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-    groups:
-      maven-minor-patch:
-        update-types: [ minor, patch ]
-  - package-ecosystem: maven
-    directory: "/lilo"
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-    groups:
-      maven-minor-patch:
-        update-types: [ minor, patch ]
-  - package-ecosystem: maven
-    directory: "/lilo-spring"
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
