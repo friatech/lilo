@@ -45,7 +45,7 @@
     <!-- Dependency Versions -->
     <graphql-java.version>26.1</graphql-java.version>
     <jackson-databind.version>2.22.4</jackson-databind.version>
-    <reactor-core.version>3.6.6</reactor-core.version>
+    <reactor-core.version>3.8.7</reactor-core.version>
     <jetbrains-annotations.version>26.1.0</jetbrains-annotations.version>
     <junit-jupiter.version>5.10.2</junit-jupiter.version>
     <mockito.version>5.24.0</mockito.version>
