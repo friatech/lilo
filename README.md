@@ -43,6 +43,32 @@ implementation 'io.fria:lilo:24.5.0'
 - Collections returned by `GraphQLRequest`, `GraphQLQuery`, `GraphQLResult`, `GraphQLResultError` and `LiloSourceDataFetcherException` getters (variables, arguments, extensions, path, errors) are now read-only, and setters/builders store copies. Code that mutates `request.getVariables()` must call `setVariables(...)` with a new map instead.
 - graphql-java 23+ enables strict wiring: a `RuntimeWiring` that registers the same field twice now throws `StrictModeWiringException`. Stitching two sources that declare the same root field also fails at merge time with this exception.
 
+## Behavior and limitations
+
+- Lilo stitches root fields only. There is no type merging or entity resolution across sources.
+- Non-root types, enums, scalars and directives defined by several sources must be identical. Descriptions and comments are ignored in the comparison; any other difference, including the order of fields or enum values, fails at merge with an `IllegalArgumentException` naming the type and both sources.
+- Interface and union fields work because the gateway requests `__typename` from remote sources itself. A `DefinedSchemaSource` still needs its own type resolver for the source schema to build, and its data fetchers must return `__typename` in the returned `Map` for abstract types. Otherwise stitching throws "Please provide __typename for union types" (or "...for interface types"); this is an exception, not a GraphQL error in the result.
+- Aliases are forwarded to remote sources below the root field, and nested values are read by result key. Root field aliases are not forwarded.
+- When a remote source returns both data and errors, the data is kept and the errors are reported. When it returns only errors, the root field fails.
+- Schema loading is single-flight: concurrent first requests share one introspection per source, and `invalidate`/`invalidateAll` still force a reload. There is no timeout or backoff on schema loading, so a hung introspection blocks requests until it completes. Set timeouts on custom retrievers.
+
+### Default remote retrievers
+
+`DefaultRemoteQueryRetriever` and `DefaultRemoteIntrospectionRetriever` accept a `RemoteRetrieverOptions`. Defaults: 5 s connect timeout, 30 s request timeout, 10 MiB maximum response, redirects not followed, only `http`/`https` URLs, `Accept: application/json`. A non-2xx response whose body is a GraphQL response with `errors` is returned to the engine; any other non-2xx response throws `IllegalStateException` with the status and a truncated body.
+
+```java
+final RemoteRetrieverOptions options =
+    RemoteRetrieverOptions.builder()
+        .requestTimeout(Duration.ofSeconds(10))
+        .headers((liloContext, localContext) -> Map.of("Authorization", "Bearer " + token))
+        .build();
+
+final DefaultRemoteQueryRetriever retriever =
+    new DefaultRemoteQueryRetriever("https://example.com/graphql", options);
+```
+
+Each retriever owns an `HttpClient`, so create one per source and reuse it. The protected two-argument `retrieve(String, String)` still exists, but the default retrievers now call the options-aware overload, so a subclass overriding only the two-argument method is no longer invoked by `get`.
+
 ## Basic Usage
 
 Here is the story, Alice has 2 GraphQL microservices and she wants to make her gateway to dispatch
