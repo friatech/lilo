@@ -46,7 +46,7 @@ implementation 'io.fria:lilo:24.5.0'
 ## Behavior and limitations
 
 - Lilo stitches root fields only. There is no type merging or entity resolution across sources.
-- Non-root types, enums, scalars and directives defined by several sources must be identical. Descriptions and comments are ignored in the comparison; any other difference, including the order of fields or enum values, fails at merge; the root cause is an `IllegalArgumentException` naming the type and both sources (`stitch` may wrap it).
+- Non-root types, enums, scalars and directives defined by several sources must be identical. Descriptions, comments and the order of members (fields, arguments, input fields, enum values, union members, implemented interfaces and directive locations) are ignored in the comparison; any other difference, such as a field type, nullability, an argument type or an extra or missing member, fails at merge; the root cause is an `IllegalArgumentException` naming the type and both sources (`stitch` may wrap it).
 - Interface and union fields work because the gateway requests `__typename` from remote sources itself. A `DefinedSchemaSource` still needs its own type resolver for the source schema to build, and its data fetchers must return `__typename` in the returned `Map` for abstract types. Otherwise stitching throws "Please provide __typename for union types" (or "...for interface types"); this is an exception, not a GraphQL error in the result.
 - Aliases are forwarded to remote sources below the root field, and nested values are read by result key. Root field aliases are not forwarded.
 - When a remote source returns both data and errors, the data is kept and the errors are reported. When it returns only errors, the errors are reported.

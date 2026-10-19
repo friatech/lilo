@@ -17,25 +17,37 @@ package io.fria.lilo;
 
 import graphql.GraphQLError;
 import graphql.language.AstPrinter;
+import graphql.language.DirectiveDefinition;
+import graphql.language.DirectiveLocation;
+import graphql.language.EnumTypeDefinition;
+import graphql.language.EnumValueDefinition;
 import graphql.language.FieldDefinition;
+import graphql.language.InputObjectTypeDefinition;
+import graphql.language.InputValueDefinition;
+import graphql.language.InterfaceTypeDefinition;
 import graphql.language.NamedNode;
+import graphql.language.Node;
 import graphql.language.ObjectTypeDefinition;
 import graphql.language.OperationTypeDefinition;
 import graphql.language.SDLDefinition;
 import graphql.language.SchemaDefinition;
+import graphql.language.Type;
 import graphql.language.TypeDefinition;
 import graphql.language.TypeName;
+import graphql.language.UnionTypeDefinition;
 import graphql.schema.DataFetcher;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import graphql.schema.idl.TypeRuntimeWiring;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -145,8 +157,9 @@ final class SchemaMerger {
       final @NotNull Map<String, SourceDefinition> definitions) {
 
     final String name = ((NamedNode<?>) definition).getName();
-    // The compact printer omits descriptions: documentation is not part of a type's structure
-    final String printed = AstPrinter.printAstCompact(definition);
+    // The compact printer omits descriptions: documentation is not part of a type's structure.
+    // Member order is not part of it either, so members are sorted before printing.
+    final String printed = AstPrinter.printAstCompact(normalize(definition));
     final SourceDefinition existing = definitions.get(keyPrefix + name);
 
     if (existing != null) {
@@ -170,6 +183,83 @@ final class SchemaMerger {
               "Type %s from source %s could not be added: %s",
               name, schemaSource.getName(), error.get().getMessage()));
     }
+  }
+
+  /**
+   * Returns a copy of the definition whose members (fields, arguments, input values, enum values,
+   * union members, implemented interfaces and directive locations) are sorted by name, so that two
+   * definitions differing only in member order print the same. The source node is not modified.
+   */
+  private static @NotNull Node<?> normalize(final @NotNull SDLDefinition<?> definition) {
+
+    if (definition instanceof ObjectTypeDefinition) {
+      final ObjectTypeDefinition d = (ObjectTypeDefinition) definition;
+      return d.transform(
+          b ->
+              b.fieldDefinitions(sortFields(d.getFieldDefinitions()))
+                  .implementz(sortTypes(d.getImplements())));
+    } else if (definition instanceof InterfaceTypeDefinition) {
+      final InterfaceTypeDefinition d = (InterfaceTypeDefinition) definition;
+      return d.transform(
+          b ->
+              b.definitions(sortFields(d.getFieldDefinitions()))
+                  .implementz(sortTypes(d.getImplements())));
+    } else if (definition instanceof InputObjectTypeDefinition) {
+      final InputObjectTypeDefinition d = (InputObjectTypeDefinition) definition;
+      return d.transform(
+          b -> b.inputValueDefinitions(sortInputValues(d.getInputValueDefinitions())));
+    } else if (definition instanceof EnumTypeDefinition) {
+      final EnumTypeDefinition d = (EnumTypeDefinition) definition;
+      return d.transform(
+          b ->
+              b.enumValueDefinitions(
+                  sortedBy(d.getEnumValueDefinitions(), EnumValueDefinition::getName)));
+    } else if (definition instanceof UnionTypeDefinition) {
+      final UnionTypeDefinition d = (UnionTypeDefinition) definition;
+      return d.transform(b -> b.memberTypes(sortTypes(d.getMemberTypes())));
+    } else if (definition instanceof DirectiveDefinition) {
+      final DirectiveDefinition d = (DirectiveDefinition) definition;
+      return d.transform(
+          b ->
+              b.inputValueDefinitions(sortInputValues(d.getInputValueDefinitions()))
+                  .directiveLocations(
+                      sortedBy(d.getDirectiveLocations(), DirectiveLocation::getName)));
+    }
+
+    return definition;
+  }
+
+  private static @NotNull List<FieldDefinition> sortFields(
+      final @NotNull List<FieldDefinition> fields) {
+
+    final List<FieldDefinition> normalized =
+        fields.stream()
+            .map(
+                f ->
+                    f.transform(
+                        b ->
+                            b.inputValueDefinitions(sortInputValues(f.getInputValueDefinitions()))))
+            .collect(Collectors.toList());
+
+    return sortedBy(normalized, FieldDefinition::getName);
+  }
+
+  private static @NotNull List<InputValueDefinition> sortInputValues(
+      final @NotNull List<InputValueDefinition> inputValues) {
+    return sortedBy(inputValues, InputValueDefinition::getName);
+  }
+
+  @SuppressWarnings("rawtypes")
+  private static @NotNull List<Type> sortTypes(final @NotNull List<Type> types) {
+    return sortedBy(types, AstPrinter::printAstCompact);
+  }
+
+  private static <T> @NotNull List<T> sortedBy(
+      final @NotNull List<T> items, final @NotNull Function<T, String> key) {
+
+    final List<T> sorted = new ArrayList<>(items);
+    sorted.sort(Comparator.comparing(key));
+    return sorted;
   }
 
   private static void addOperationType(
