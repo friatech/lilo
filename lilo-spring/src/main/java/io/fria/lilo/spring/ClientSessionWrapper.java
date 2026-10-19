@@ -58,6 +58,8 @@ public final class ClientSessionWrapper implements WebSocketSessionWrapper {
   /** Session attribute holding the decorator that serialises and bounds the sends of a session. */
   public static final String DECORATOR_ATTRIBUTE = "lilo.send.decorator";
 
+  private static final System.Logger LOG = System.getLogger(ClientSessionWrapper.class.getName());
+
   private final @NotNull WebSocketSession nativeSession;
   private final @Nullable ConcurrentWebSocketSessionDecorator decorator;
   private final @Nullable Object sendLock;
@@ -180,7 +182,11 @@ public final class ClientSessionWrapper implements WebSocketSessionWrapper {
    * and flushed by the writing thread. If the session exceeds its send time or buffer size limit,
    * it is closed with {@link CloseStatus#SESSION_NOT_RELIABLE} and the frame is dropped. The limits
    * are checked only when a send finds another thread writing; the thread that is writing is bound
-   * only by the container's own blocking send timeout.
+   * only by the container's own blocking send timeout. The thread that hits a limit closes the
+   * session and may block on the container's native close, which sends a close frame and is bounded
+   * by the container's blocking send timeout (e.g. 20 seconds on Tomcat). If that close fails with
+   * an {@link IOException}, a {@link RuntimeException} is thrown that carries the limit breach as a
+   * suppressed exception.
    *
    * <p>An undecorated session sends under its lock: concurrent callers wait for each other.
    *
@@ -206,6 +212,29 @@ public final class ClientSessionWrapper implements WebSocketSessionWrapper {
     }
   }
 
+  /**
+   * Closes a session that exceeded its send limits. The close may block on the container's native
+   * close, which sends a close frame and is bounded by the container's blocking send timeout.
+   */
+  private static void closeUnreliable(
+      final @NotNull ConcurrentWebSocketSessionDecorator session,
+      final @NotNull SessionLimitExceededException limitExceeded) {
+    try {
+      session.close(limitExceeded.getStatus());
+    } catch (final IllegalStateException closeFailure) {
+      // Already closed meanwhile, like the sends to a closed session
+      closeFailure.addSuppressed(limitExceeded);
+      LOG.log(
+          System.Logger.Level.DEBUG,
+          "Session " + session.getId() + " exceeded its send limits and was already closed",
+          closeFailure);
+    } catch (final IOException closeFailure) {
+      final RuntimeException failure = new RuntimeException(closeFailure);
+      failure.addSuppressed(limitExceeded);
+      throw failure;
+    }
+  }
+
   private void sendDecorated(
       final @NotNull ConcurrentWebSocketSessionDecorator session, final @NotNull String message) {
     try {
@@ -215,11 +244,7 @@ public final class ClientSessionWrapper implements WebSocketSessionWrapper {
     } catch (final SessionLimitExceededException e) {
       // The client does not keep up: close it, as Spring's own handlers do; its close releases
       // its operations
-      try {
-        session.close(e.getStatus());
-      } catch (final IOException closeFailure) {
-        throw new RuntimeException(closeFailure);
-      }
+      closeUnreliable(session, e);
     } catch (final IllegalStateException e) {
       // Session is closed but still tries to send
     } catch (final IOException e) {

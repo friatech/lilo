@@ -15,6 +15,7 @@
  */
 package io.fria.lilo.spring;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -37,6 +38,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -49,6 +51,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
+import org.springframework.web.socket.handler.SessionLimitExceededException;
 
 class ClientSessionWrapperTest {
 
@@ -133,7 +136,7 @@ class ClientSessionWrapperTest {
   }
 
   @Test
-  void delegatesIdOpenAndAttributes() {
+  void delegatesIdOpenAndAttributes() throws IOException {
     final RecordingWebSocketSession nativeSession = new RecordingWebSocketSession("s-1");
     nativeSession.getAttributes().put("key", "value");
 
@@ -241,16 +244,6 @@ class ClientSessionWrapperTest {
     try {
       final Future<?> blocked = senders.submit(() -> wrap(nativeSession).send(frame(0)));
       assertTrue(nativeSession.awaitFirstSend(5, TimeUnit.SECONDS));
-
-      System.err.println(
-          "DBG buffer="
-              + ((ConcurrentWebSocketSessionDecorator)
-                      nativeSession.getAttributes().get(ClientSessionWrapper.DECORATOR_ATTRIBUTE))
-                  .getBufferSize()
-              + " limit="
-              + ((ConcurrentWebSocketSessionDecorator)
-                      nativeSession.getAttributes().get(ClientSessionWrapper.DECORATOR_ATTRIBUTE))
-                  .getBufferSizeLimit());
       senders.submit(() -> wrap(nativeSession).send(frame(1))).get(2, TimeUnit.SECONDS);
       assertTrue(nativeSession.isOpen());
 
@@ -269,6 +262,66 @@ class ClientSessionWrapperTest {
     // Later sends to the closed session are dropped
     wrap(nativeSession).send(frame(3));
     assertFalse(nativeSession.sent().contains(frame(3)));
+  }
+
+  /** Blocks one sender, queues one frame and returns the third send's outcome. */
+  private static Future<?> exceedLimit(
+      final RecordingWebSocketSession nativeSession,
+      final CountDownLatch release,
+      final ExecutorService senders)
+      throws Exception {
+    ClientSessionWrapper.decorate(nativeSession, TIME_LIMIT, frame(0).length() + 1);
+    nativeSession.blockSendsUntil(release);
+    senders.submit(() -> wrap(nativeSession).send(frame(0)));
+    assertTrue(nativeSession.awaitFirstSend(5, TimeUnit.SECONDS));
+    senders.submit(() -> wrap(nativeSession).send(frame(1))).get(2, TimeUnit.SECONDS);
+    final Future<?> third = senders.submit(() -> wrap(nativeSession).send(frame(2)));
+    try {
+      third.get(2, TimeUnit.SECONDS);
+    } catch (final ExecutionException e) {
+      // Inspected by the caller
+    }
+    return third;
+  }
+
+  @Test
+  void failedCloseKeepsTheLimitBreachAsSuppressed() throws Exception {
+    final RecordingWebSocketSession nativeSession = new RecordingWebSocketSession();
+    final IOException closeFailure = new IOException("close frame not sent");
+    nativeSession.failCloseWith(closeFailure);
+    final CountDownLatch release = new CountDownLatch(1);
+    final ExecutorService senders = Executors.newFixedThreadPool(3);
+
+    try {
+      final Future<?> third = exceedLimit(nativeSession, release, senders);
+
+      final ExecutionException thrown =
+          assertThrows(ExecutionException.class, () -> third.get(1, TimeUnit.SECONDS));
+      final RuntimeException failure = assertInstanceOf(RuntimeException.class, thrown.getCause());
+      assertSame(closeFailure, failure.getCause());
+      assertEquals(1, failure.getSuppressed().length);
+      assertInstanceOf(SessionLimitExceededException.class, failure.getSuppressed()[0]);
+    } finally {
+      release.countDown();
+      senders.shutdownNow();
+    }
+  }
+
+  @Test
+  void closeOfAnAlreadyClosedSessionAfterALimitBreachIsSwallowed() throws Exception {
+    final RecordingWebSocketSession nativeSession = new RecordingWebSocketSession();
+    nativeSession.failCloseWith(new IllegalStateException("already closed"));
+    final CountDownLatch release = new CountDownLatch(1);
+    final ExecutorService senders = Executors.newFixedThreadPool(3);
+
+    try {
+      final Future<?> third = exceedLimit(nativeSession, release, senders);
+
+      assertDoesNotThrow(() -> third.get(1, TimeUnit.SECONDS));
+    } finally {
+      release.countDown();
+      senders.shutdownNow();
+    }
   }
 
   @Test

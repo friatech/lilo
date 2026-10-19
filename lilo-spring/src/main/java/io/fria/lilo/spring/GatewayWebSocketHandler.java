@@ -69,7 +69,9 @@ public class GatewayWebSocketHandler extends AbstractWebSocketHandler {
    * the sender, and a session whose write takes longer than {@code sendTimeLimit} or whose queue
    * grows beyond {@code sendBufferSizeLimit} bytes is closed as not reliable. The limits are
    * checked only when another send arrives; the container's own blocking send timeout remains the
-   * backstop for the single thread that is writing.
+   * backstop for the single thread that is writing. The thread that hits a limit closes the session
+   * and may block on the container's native close, which sends a close frame and is bounded by the
+   * container's blocking send timeout (e.g. 20 seconds on Tomcat).
    *
    * @param lilo Lilo object instance or bean
    * @param subscriptionPath subscription path for handling subscription requests. Mostly it's

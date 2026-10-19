@@ -58,6 +58,7 @@ final class RecordingWebSocketSession implements WebSocketSession {
   private final @NotNull CountDownLatch firstSendEntered = new CountDownLatch(1);
   private volatile @Nullable CloseStatus closeStatus;
   private final @NotNull CountDownLatch closed = new CountDownLatch(1);
+  private volatile @Nullable Exception closeFailure;
 
   RecordingWebSocketSession() {
     this("spring-session");
@@ -83,6 +84,11 @@ final class RecordingWebSocketSession implements WebSocketSession {
   boolean awaitFirstSend(final long timeout, final @NotNull TimeUnit unit)
       throws InterruptedException {
     return this.firstSendEntered.await(timeout, unit);
+  }
+
+  /** Makes close fail with the given IOException or RuntimeException, leaving the session open. */
+  void failCloseWith(final @NotNull Exception failure) {
+    this.closeFailure = failure;
   }
 
   /** Waits until the session is closed. */
@@ -201,12 +207,19 @@ final class RecordingWebSocketSession implements WebSocketSession {
   }
 
   @Override
-  public void close() {
+  public void close() throws IOException {
     this.close(CloseStatus.NORMAL);
   }
 
   @Override
-  public void close(final @NotNull CloseStatus status) {
+  public void close(final @NotNull CloseStatus status) throws IOException {
+    final Exception failure = this.closeFailure;
+    if (failure instanceof IOException) {
+      throw (IOException) failure;
+    }
+    if (failure instanceof RuntimeException) {
+      throw (RuntimeException) failure;
+    }
     if (this.open.compareAndSet(true, false)) {
       this.closeStatus = status;
       this.closed.countDown();
