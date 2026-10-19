@@ -17,6 +17,7 @@ package io.fria.lilo.subscription;
 
 import static io.fria.lilo.subscription.GatewayMessages.INVALID_PAYLOAD;
 import static io.fria.lilo.subscription.GatewayMessages.MISSING_QUERY;
+import static io.fria.lilo.subscription.GatewayMessages.TOO_MANY_OPERATIONS;
 import static io.fria.lilo.subscription.GatewayMessages.errors;
 import static io.fria.lilo.subscription.GatewayMessages.sendConnectionAck;
 import static io.fria.lilo.subscription.GatewayMessages.sendPong;
@@ -174,13 +175,29 @@ final class GatewayProtocol {
       return DONE;
     }
 
-    final GatewayOperation operation = this.registry.register(session, operationId);
+    final GatewaySessionRegistry.Registration registration =
+        this.registry.register(session, operationId);
+    final GatewayOperation operation = registration.operation();
 
     if (operation == null) {
+      this.reject(session, operationId, registration.rejection());
       return DONE;
     }
 
     return this.stitcher.submit(operation, executionInput);
+  }
+
+  /** Answers a subscribe the registry did not register. */
+  private void reject(
+      final @NotNull WebSocketSessionWrapper session,
+      final @NotNull String operationId,
+      final @Nullable GatewaySessionRegistry.Rejection rejection) {
+
+    if (rejection == GatewaySessionRegistry.Rejection.TOO_MANY_OPERATIONS) {
+      trySendError(session, operationId, errors(TOO_MANY_OPERATIONS));
+    } else {
+      this.registry.closeSession(session);
+    }
   }
 
   /**

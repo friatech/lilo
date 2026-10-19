@@ -119,22 +119,22 @@ final class SubscriptionStitcher {
   CompletableFuture<Void> submit(
       final @NotNull GatewayOperation operation, final @NotNull ExecutionInput executionInput) {
 
-    final AtomicInteger inFlight = operation.state().inFlight;
+    final GatewaySessionRegistry.SessionState state = operation.state();
     final CompletableFuture<ExecutionResult> stitch = new CompletableFuture<>();
     // Counted before submitting; released exactly once, when the stitch finished or never started
-    inFlight.incrementAndGet();
+    state.stitchSubmitted();
     try {
       // Offloaded: with a cached schema the stitch runs the source's retriever inline
       this.executor.execute(() -> this.stitch(executionInput, stitch));
     } catch (final RuntimeException e) {
-      inFlight.decrementAndGet();
+      state.stitchFinished();
       notSubmitted(operation, e);
       return DONE;
     }
 
     return stitch.handle(
         (result, throwable) -> {
-          inFlight.decrementAndGet();
+          state.stitchFinished();
           this.tryStart(operation, result, throwable);
           return null;
         });

@@ -15,10 +15,6 @@
  */
 package io.fria.lilo.subscription;
 
-import static io.fria.lilo.subscription.GatewayMessages.TOO_MANY_OPERATIONS;
-import static io.fria.lilo.subscription.GatewayMessages.errors;
-import static io.fria.lilo.subscription.GatewayMessages.trySendError;
-
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -88,14 +84,13 @@ final class GatewaySessionRegistry {
   }
 
   /**
-   * Registers a new operation of the session, before it is stitched. A request beyond the cap is
-   * answered with an {@code error} message; a lost race or a session closed meanwhile closes the
-   * session.
+   * Registers a new operation of the session, before it is stitched. Nothing is sent here: the
+   * caller answers a rejected request as the returned registration says.
    *
-   * @return the registered operation, or null if it was rejected; the caller sends nothing more
+   * @return the registered operation, or why it was not registered
    */
-  @Nullable
-  GatewayOperation register(
+  @NotNull
+  Registration register(
       final @NotNull WebSocketSessionWrapper session, final @NotNull String operationId) {
 
     final SessionState state =
@@ -108,26 +103,23 @@ final class GatewaySessionRegistry {
     // counts as well: otherwise subscribe followed by complete would bypass the cap. Every
     // in-flight stitch belongs to a registered operation unless that was completed, so the larger
     // of the two numbers is the session's real usage; their sum would count most operations twice.
-    if (Math.max(operations.size(), state.inFlight.get()) >= this.maxOperationsPerSession) {
-      trySendError(session, operationId, errors(TOO_MANY_OPERATIONS));
-      return null;
+    if (Math.max(operations.size(), state.stitchesInFlight()) >= this.maxOperationsPerSession) {
+      return Registration.rejected(Rejection.TOO_MANY_OPERATIONS);
     }
 
     if (operations.putIfAbsent(operationId, operation) != null) {
       // Lost a race against a concurrent subscribe with the same id
-      this.closeSession(session);
-      return null;
+      return Registration.rejected(Rejection.CLOSE_SESSION);
     }
 
     if (this.isDetached(operation)) {
       // The session was closed meanwhile. Its close may already have drained this map before the
       // operation was added, so remove it here rather than rely on closeSession finding it.
       operation.release();
-      this.closeSession(session);
-      return null;
+      return Registration.rejected(Rejection.CLOSE_SESSION);
     }
 
-    return operation;
+    return new Registration(operation, null);
   }
 
   /** Whether the operation's session closed or its operation map is no longer the live one. */
@@ -180,6 +172,43 @@ final class GatewaySessionRegistry {
     }
   }
 
+  /** Why a subscribe was not registered. */
+  enum Rejection {
+    /** The session is at its cap: answer with an {@code error} message, the session stays open. */
+    TOO_MANY_OPERATIONS,
+    /** A lost race against a subscribe with the same id, or a session closed meanwhile. */
+    CLOSE_SESSION
+  }
+
+  /** Outcome of {@link #register}: either the registered operation or why there is none. */
+  static final class Registration {
+
+    private final @Nullable GatewayOperation operation;
+    private final @Nullable Rejection rejection;
+
+    private Registration(
+        final @Nullable GatewayOperation operation, final @Nullable Rejection rejection) {
+      this.operation = operation;
+      this.rejection = rejection;
+    }
+
+    private static @NotNull Registration rejected(final @NotNull Rejection rejection) {
+      return new Registration(null, rejection);
+    }
+
+    /** The registered operation, or null if the subscribe was rejected. */
+    @Nullable
+    GatewayOperation operation() {
+      return this.operation;
+    }
+
+    /** Why the subscribe was rejected, or null if it was registered. */
+    @Nullable
+    Rejection rejection() {
+      return this.rejection;
+    }
+  }
+
   /** Per-session state: the registered operations and the stitches still running for them. */
   static final class SessionState {
 
@@ -187,6 +216,20 @@ final class GatewaySessionRegistry {
     final @NotNull Map<String, GatewayOperation> operations = new ConcurrentHashMap<>();
 
     /** Stitches submitted and not yet finished, including those of completed operations. */
-    final @NotNull AtomicInteger inFlight = new AtomicInteger();
+    private final @NotNull AtomicInteger inFlight = new AtomicInteger();
+
+    /** Counts a stitch before it is submitted. */
+    void stitchSubmitted() {
+      this.inFlight.incrementAndGet();
+    }
+
+    /** Releases a counted stitch: exactly once, when it finished or was never started. */
+    void stitchFinished() {
+      this.inFlight.decrementAndGet();
+    }
+
+    int stitchesInFlight() {
+      return this.inFlight.get();
+    }
   }
 }
