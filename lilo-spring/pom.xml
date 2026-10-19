@@ -44,6 +44,7 @@
     <!-- Check the spring boot documentation -->
     <!-- https://docs.spring.io/spring-boot/docs/current/reference/html/dependency-versions.html -->
     <!-- Dependency Versions -->
+    <jetbrains-annotations.version>26.1.0</jetbrains-annotations.version>
     <lilo.version>24.5.1-SNAPSHOT</lilo.version>
     <spring.version>7.0.9</spring.version>
     <spring-boot.version>4.1.1</spring-boot.version>
@@ -70,6 +71,31 @@
       <groupId>io.fria</groupId>
       <artifactId>lilo</artifactId>
       <version>${lilo.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-core</artifactId>
+      <version>${spring.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-context</artifactId>
+      <version>${spring.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-web</artifactId>
+      <version>${spring.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.jetbrains</groupId>
+      <artifactId>annotations</artifactId>
+      <version>${jetbrains-annotations.version}</version>
+      <scope>provided</scope>
     </dependency>
 
     <dependency>
