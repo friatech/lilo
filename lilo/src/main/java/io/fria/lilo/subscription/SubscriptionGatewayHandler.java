@@ -15,19 +15,11 @@
  */
 package io.fria.lilo.subscription;
 
-import static io.fria.lilo.subscription.GatewayMessages.EXECUTION_FAILED;
 import static io.fria.lilo.subscription.GatewayMessages.INVALID_PAYLOAD;
 import static io.fria.lilo.subscription.GatewayMessages.MISSING_QUERY;
-import static io.fria.lilo.subscription.GatewayMessages.NOT_A_SUBSCRIPTION;
-import static io.fria.lilo.subscription.GatewayMessages.TOO_MANY_REQUESTS;
 import static io.fria.lilo.subscription.GatewayMessages.errors;
-import static io.fria.lilo.subscription.GatewayMessages.errorsOf;
-import static io.fria.lilo.subscription.GatewayMessages.logFailure;
-import static io.fria.lilo.subscription.GatewayMessages.safe;
 import static io.fria.lilo.subscription.GatewayMessages.sendConnectionAck;
-import static io.fria.lilo.subscription.GatewayMessages.sendNext;
 import static io.fria.lilo.subscription.GatewayMessages.sendPong;
-import static io.fria.lilo.subscription.GatewayMessages.trySendComplete;
 import static io.fria.lilo.subscription.GatewayMessages.trySendError;
 import static io.fria.lilo.subscription.SubscriptionMessageType.complete;
 import static io.fria.lilo.subscription.SubscriptionMessageType.connection_init;
@@ -36,28 +28,17 @@ import static io.fria.lilo.subscription.SubscriptionMessageType.pong;
 import static io.fria.lilo.subscription.SubscriptionMessageType.subscribe;
 
 import graphql.ExecutionInput;
-import graphql.ExecutionResult;
-import graphql.GraphQLError;
-import graphql.execution.reactive.SubscriptionPublisher;
 import io.fria.lilo.GraphQLRequest;
 import io.fria.lilo.JsonUtils;
 import io.fria.lilo.Lilo;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import reactor.core.Disposable;
 
 /**
  * SubscriptionGatewayHandler manages websocket communication and handles the interaction between
@@ -88,17 +69,10 @@ public final class SubscriptionGatewayHandler {
   /** Default cap on the operations one session may have registered at the same time. */
   private static final int DEFAULT_MAX_OPERATIONS_PER_SESSION = 50;
 
-  private static final int POOL_CORE_SIZE = Math.max(4, Runtime.getRuntime().availableProcessors());
-  private static final int POOL_MAX_SIZE = 4 * POOL_CORE_SIZE;
-  private static final int POOL_QUEUE_CAPACITY = 256;
-  private static final long POOL_KEEP_ALIVE_SECONDS = 60;
-
   private static final Logger LOG = LoggerFactory.getLogger(SubscriptionGatewayHandler.class);
-  private static final AtomicInteger THREAD_COUNT = new AtomicInteger();
 
-  private final @NotNull Lilo lilo;
-  private final @NotNull Executor executor;
   private final @NotNull GatewaySessionRegistry registry;
+  private final @NotNull SubscriptionStitcher stitcher;
 
   /**
    * Constructs a handler instance using lilo.
@@ -113,7 +87,7 @@ public final class SubscriptionGatewayHandler {
    * @param lilo global lilo instance
    */
   public SubscriptionGatewayHandler(final @NotNull Lilo lilo) {
-    this(lilo, newDefaultExecutor());
+    this(lilo, SubscriptionStitcher.newDefaultExecutor());
   }
 
   /**
@@ -151,41 +125,10 @@ public final class SubscriptionGatewayHandler {
       throw new IllegalArgumentException("maxOperationsPerSession must be greater than zero");
     }
 
-    this.lilo = Objects.requireNonNull(lilo);
-    this.executor = Objects.requireNonNull(executor);
     this.registry = new GatewaySessionRegistry(maxOperationsPerSession);
-  }
-
-  private static @NotNull Executor newDefaultExecutor() {
-    final ThreadPoolExecutor pool =
-        new ThreadPoolExecutor(
-            POOL_CORE_SIZE,
-            POOL_MAX_SIZE,
-            POOL_KEEP_ALIVE_SECONDS,
-            TimeUnit.SECONDS,
-            new ArrayBlockingQueue<>(POOL_QUEUE_CAPACITY),
-            SubscriptionGatewayHandler::newThread);
-    pool.allowCoreThreadTimeOut(true);
-    return pool;
-  }
-
-  private static @NotNull Thread newThread(final @NotNull Runnable runnable) {
-    final Thread thread =
-        new Thread(runnable, "lilo-subscription-" + THREAD_COUNT.incrementAndGet());
-    thread.setDaemon(true);
-    return thread;
-  }
-
-  private static @Nullable SubscriptionSourcePublisher upstreamOf(final @Nullable Object data) {
-
-    if (!(data instanceof SubscriptionPublisher)) {
-      return null;
-    }
-
-    final Object upstream = ((SubscriptionPublisher) data).getUpstreamPublisher();
-    return upstream instanceof SubscriptionSourcePublisher
-        ? (SubscriptionSourcePublisher) upstream
-        : null;
+    this.stitcher =
+        new SubscriptionStitcher(
+            Objects.requireNonNull(lilo), Objects.requireNonNull(executor), this.registry);
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -357,180 +300,6 @@ public final class SubscriptionGatewayHandler {
       return DONE;
     }
 
-    final GatewaySessionRegistry.SessionState state = operation.state();
-
-    final CompletableFuture<ExecutionResult> stitch = new CompletableFuture<>();
-    // Counted before submitting; released exactly once, when the stitch finished or never started
-    state.inFlight.incrementAndGet();
-    try {
-      // Offloaded: with a cached schema the stitch runs the source's retriever inline
-      this.executor.execute(() -> this.stitch(executionInput, stitch));
-    } catch (final RuntimeException e) {
-      state.inFlight.decrementAndGet();
-      final boolean rejected = e instanceof RejectedExecutionException;
-      LOG.warn(
-          "Subscription {} not started: the stitching executor {}",
-          safe(operationId),
-          rejected ? "is saturated" : "failed: " + safe(e.toString()));
-      LOG.debug("Stitching executor failure", e);
-      if (operation.release()) {
-        trySendError(session, operationId, errors(rejected ? TOO_MANY_REQUESTS : EXECUTION_FAILED));
-      }
-      return DONE;
-    }
-
-    return stitch.handle(
-        (result, throwable) -> {
-          state.inFlight.decrementAndGet();
-          try {
-            this.start(session, operation, operationId, result, throwable);
-          } catch (final RuntimeException e) {
-            LOG.warn(
-                "Subscription {} could not be started: {}", safe(operationId), safe(e.toString()));
-            LOG.debug("Subscription start failure", e);
-            // Never leave a half started operation registered
-            if (operation.release()) {
-              operation.cancel();
-              trySendError(session, operationId, errors(EXECUTION_FAILED));
-            }
-          }
-          return null;
-        });
-  }
-
-  /**
-   * Runs on the executor: starts the stitch and passes its outcome on. The future returned by
-   * whenComplete is ignored: its callback only completes {@code outcome} and cannot fail.
-   */
-  @SuppressWarnings("FutureReturnValueIgnored")
-  private void stitch(
-      final @NotNull ExecutionInput executionInput,
-      final @NotNull CompletableFuture<ExecutionResult> outcome) {
-    try {
-      this.lilo
-          .stitchAsync(executionInput)
-          .whenComplete(
-              (result, throwable) -> {
-                if (throwable == null) {
-                  outcome.complete(result);
-                } else {
-                  outcome.completeExceptionally(throwable);
-                }
-              });
-    } catch (final Throwable e) {
-      // Any failure, an Error included, must complete the outcome: otherwise the operation's
-      // placeholder and its in-flight slot are never released. The outcome's handler logs it.
-      outcome.completeExceptionally(e);
-
-      if (e instanceof VirtualMachineError) {
-        // Not swallowed: the JVM is in trouble, so let the executor thread see it
-        throw (VirtualMachineError) e;
-      }
-    }
-  }
-
-  /** Runs when stitching a subscribe finished: starts forwarding or reports why it cannot. */
-  private void start(
-      final @NotNull WebSocketSessionWrapper session,
-      final @NotNull GatewayOperation operation,
-      final @NotNull String operationId,
-      final @Nullable ExecutionResult result,
-      final @Nullable Throwable throwable) {
-
-    if (throwable != null || result == null) {
-      // The failure may be triggered by the client's query: no stack trace at warn
-      LOG.warn(
-          "Subscription {} could not be executed: {}",
-          safe(operationId),
-          safe(String.valueOf(throwable)));
-      LOG.debug("Subscription execution failure", throwable);
-      fail(session, operation, errors(EXECUTION_FAILED));
-      return;
-    }
-
-    final Object data = result.getData();
-    final SubscriptionSourcePublisher upstream = upstreamOf(data);
-
-    if (!result.getErrors().isEmpty()) {
-      if (upstream != null) {
-        upstream.close();
-      }
-
-      final List<Map<String, Object>> errors =
-          result.getErrors().stream()
-              .map(GraphQLError::toSpecification)
-              .collect(Collectors.toList());
-      fail(session, operation, errors);
-      return;
-    }
-
-    if (upstream == null) {
-      fail(session, operation, errors(NOT_A_SUBSCRIPTION));
-      return;
-    }
-
-    if (!operation.attach(upstream)) {
-      // Cancelled by the client or a session close while stitching: nothing is sent
-      upstream.close();
-      return;
-    }
-
-    final Disposable subscription =
-        upstream
-            .getFlux()
-            .subscribe(
-                payload -> {
-                  // Nothing follows a client complete, even an event already in flight
-                  if (!operation.isRegistered()) {
-                    return;
-                  }
-
-                  sendNext(session, operationId, payload);
-                },
-                e -> {
-                  // The source failed this operation. Only report it if it was still active.
-                  // This also runs when sending a next to the client failed.
-                  if (operation.release()) {
-                    logFailure(operationId, e);
-                    try {
-                      trySendError(session, operationId, errorsOf(e));
-                    } finally {
-                      // Releases the source in every case
-                      operation.cancel();
-                    }
-                  }
-                },
-                () -> {
-                  // The source finished this operation. Only report it if the operation was still
-                  // active, i.e. neither the client nor a session close cancelled it meanwhile.
-                  if (operation.release()) {
-                    try {
-                      trySendComplete(session, operationId);
-                    } finally {
-                      operation.cancel();
-                    }
-                  }
-                });
-
-    operation.setSubscription(subscription);
-
-    if (this.registry.isDetached(operation)) {
-      // Defensive: registration already checked this, but a stale map must never keep forwarding
-      if (operation.release()) {
-        operation.cancel();
-      }
-      this.registry.closeSession(session);
-    }
-  }
-
-  /** Reports an operation that could not start, unless it was cancelled meanwhile. */
-  private static void fail(
-      final @NotNull WebSocketSessionWrapper session,
-      final @NotNull GatewayOperation operation,
-      final @NotNull List<Map<String, Object>> errors) {
-
-    if (operation.release()) {
-      trySendError(session, operation.id(), errors);
-    }
+    return this.stitcher.submit(operation, executionInput);
   }
 }
