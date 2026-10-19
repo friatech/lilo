@@ -37,6 +37,7 @@ public class SubscriptionRetrieverImpl implements SubscriptionRetriever {
 
   public SubscriptionRetrieverImpl(final @NotNull String subscriptionWsUrl) {
     this.subscriptionWsUrl = subscriptionWsUrl;
+    // Large events need no bigger container buffer: SourceWebSocketHandler takes them in fragments
     this.webSocketClient = new StandardWebSocketClient();
   }
 

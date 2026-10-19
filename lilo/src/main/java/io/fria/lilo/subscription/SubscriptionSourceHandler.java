@@ -197,8 +197,29 @@ public class SubscriptionSourceHandler {
    * @param session the closed session
    */
   public void handleSessionClose(final @Nullable WebSocketSessionWrapper session) {
+    this.handleSessionClose(session, null);
+  }
+
+  /**
+   * Like {@link #handleSessionClose(WebSocketSessionWrapper)}, with the close status the transport
+   * reported. The status becomes part of the failure, so that a source session closed by the
+   * container, e.g. with {@code 1009 The decoded text message was too big ...}, is diagnosable from
+   * the gateway's log instead of ending the operation without a trace.
+   *
+   * @param session the closed session
+   * @param closeReason the close code and reason as reported by the transport, or null if unknown;
+   *     bounded and stripped of control characters before use
+   */
+  public void handleSessionClose(
+      final @Nullable WebSocketSessionWrapper session, final @Nullable String closeReason) {
     this.endedBySource = true;
-    this.publisher.error(SubscriptionSourceException.protocolViolation(SOURCE_CLOSED));
+
+    final String message =
+        closeReason == null || closeReason.isBlank()
+            ? SOURCE_CLOSED
+            : SOURCE_CLOSED + ": " + SubscriptionSourceException.bound(closeReason);
+
+    this.publisher.error(SubscriptionSourceException.protocolViolation(message));
   }
 
   private static @NotNull String safe(final @NotNull Throwable throwable) {

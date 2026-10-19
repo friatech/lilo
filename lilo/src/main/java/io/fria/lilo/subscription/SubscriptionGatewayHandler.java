@@ -558,6 +558,7 @@ public final class SubscriptionGatewayHandler {
                   // The source failed this operation. Only report it if it was still active.
                   // This also runs when sending a next to the client failed.
                   if (operations.remove(operationId, operation)) {
+                    logFailure(operationId, e);
                     try {
                       trySendError(session, operationId, errorsOf(e));
                     } finally {
@@ -593,6 +594,23 @@ public final class SubscriptionGatewayHandler {
       }
       this.closeSession(session);
     }
+  }
+
+  /**
+   * Logs an operation that failed once it ran. An error the source reported (e.g. an authorization
+   * failure) is forwarded to the client and is logged at DEBUG only. Anything else, a protocol
+   * violation, a source socket that closed (e.g. with 1009) or a failure outside the core such as
+   * an oversized source message, reaches the client only as a generic error, so its cause is logged
+   * at WARN; this is the only place it is logged.
+   */
+  private static void logFailure(final @NotNull String operationId, final @NotNull Throwable e) {
+    if (e instanceof SubscriptionSourceException
+        && ((SubscriptionSourceException) e).isReportedBySource()) {
+      LOG.debug("Subscription {} failed at its source: {}", safe(operationId), safe(e.toString()));
+    } else {
+      LOG.warn("Subscription {} failed: {}", safe(operationId), safe(String.valueOf(e)));
+    }
+    LOG.debug("Subscription failure", e);
   }
 
   /** Reports an operation that could not start, unless it was cancelled meanwhile. */
