@@ -156,16 +156,16 @@ public final class LiloContext {
 
   /** Root fields served by remote sources; their payloads are keyed by result key. */
   private static @NotNull Set<FieldCoordinates> remoteRootFields(
-      final @NotNull List<SchemaSource> schemaSourceList) {
+      final @NotNull List<SchemaMerger.SourceSnapshot> snapshots) {
 
     final Set<FieldCoordinates> remoteRootFields = new HashSet<>();
 
-    for (final SchemaSource schemaSource : schemaSourceList) {
-      if (!(schemaSource instanceof RemoteSchemaSource) || schemaSource.isSchemaNotLoaded()) {
+    for (final SchemaMerger.SourceSnapshot snapshot : snapshots) {
+      if (!snapshot.isRemote()) {
         continue;
       }
 
-      final TypeDefinitionRegistry registry = schemaSource.getTypeDefinitionRegistry();
+      final TypeDefinitionRegistry registry = snapshot.getRegistry();
       final SchemaMerger.OperationTypeNames names = SchemaMerger.getOperationTypeNames(registry);
 
       Stream.of(names.getQuery(), names.getMutation(), names.getSubscription())
@@ -351,12 +351,16 @@ public final class LiloContext {
 
   private @NotNull GraphQL createGraphQL(final @NotNull List<SchemaSource> schemaSourceList) {
 
+    // One read of every source's state, shared by the merge and the remote root field set, so an
+    // invalidate during the build cannot make them disagree
+    final List<SchemaMerger.SourceSnapshot> snapshots = SchemaMerger.snapshot(schemaSourceList);
+
     final TypeDefinitionRegistry combinedRegistry = new TypeDefinitionRegistry();
     final RuntimeWiring.Builder runtimeWiringBuilder = RuntimeWiring.newRuntimeWiring();
-    SchemaMerger.mergeSchemas(schemaSourceList, combinedRegistry, runtimeWiringBuilder);
+    SchemaMerger.mergeSnapshots(snapshots, combinedRegistry, runtimeWiringBuilder);
 
     final RuntimeWiring runtimeWiring =
-        finalizeWiring(combinedRegistry, runtimeWiringBuilder, remoteRootFields(schemaSourceList));
+        finalizeWiring(combinedRegistry, runtimeWiringBuilder, remoteRootFields(snapshots));
 
     final GraphQLSchema graphQLSchema =
         new SchemaGenerator().makeExecutableSchema(combinedRegistry, runtimeWiring);

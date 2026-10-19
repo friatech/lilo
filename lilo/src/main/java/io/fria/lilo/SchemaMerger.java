@@ -79,8 +79,49 @@ final class SchemaMerger {
         names.get("query"), names.get("mutation"), names.get("subscription"));
   }
 
+  /**
+   * Reads the loaded state of each source once. A source can be invalidated at any time, so
+   * everything built from one load (the merged schema and the set of remote root fields) must use
+   * the same snapshot instead of asking the sources again.
+   */
+  static @NotNull List<SourceSnapshot> snapshot(
+      final @NotNull Collection<SchemaSource> schemaSources) {
+
+    final List<SourceSnapshot> snapshots = new ArrayList<>();
+
+    for (final SchemaSource schemaSource : schemaSources) {
+
+      if (schemaSource == null) {
+        continue;
+      }
+
+      // The registry is written last when a source loads and is the only field invalidate
+      // clears, so reading it first and the wiring next yields a wiring of the same load or newer
+      final TypeDefinitionRegistry registry = schemaSource.typeDefinitionRegistry;
+      final RuntimeWiring wiring = schemaSource.runtimeWiring;
+
+      if (registry != null && wiring != null) {
+        snapshots.add(
+            new SourceSnapshot(
+                schemaSource.getName(),
+                schemaSource instanceof RemoteSchemaSource,
+                registry,
+                wiring));
+      }
+    }
+
+    return snapshots;
+  }
+
   static void mergeSchemas(
       final @NotNull Collection<SchemaSource> schemaSources,
+      final @NotNull TypeDefinitionRegistry combinedRegistry,
+      final RuntimeWiring.@NotNull Builder runtimeWiringBuilder) {
+    mergeSnapshots(snapshot(schemaSources), combinedRegistry, runtimeWiringBuilder);
+  }
+
+  static void mergeSnapshots(
+      final @NotNull List<SourceSnapshot> snapshots,
       final @NotNull TypeDefinitionRegistry combinedRegistry,
       final RuntimeWiring.@NotNull Builder runtimeWiringBuilder) {
 
@@ -95,20 +136,16 @@ final class SchemaMerger {
     // Keyed by definition name; remembers the first source that added it and its printed form
     final Map<String, SourceDefinition> definitions = new HashMap<>();
 
-    for (final SchemaSource schemaSource : schemaSources) {
+    for (final SourceSnapshot schemaSource : snapshots) {
 
-      if (schemaSource == null || schemaSource.isSchemaNotLoaded()) {
-        continue;
-      }
-
-      final TypeDefinitionRegistry sourceRegistry = schemaSource.getTypeDefinitionRegistry();
+      final TypeDefinitionRegistry sourceRegistry = schemaSource.getRegistry();
       final OperationTypeNames operationTypeNames = getOperationTypeNames(sourceRegistry);
 
       queryTypeName = checkName(queryTypeName, operationTypeNames.query);
       mutationTypeName = checkName(mutationTypeName, operationTypeNames.mutation);
       subscriptionTypeName = checkName(subscriptionTypeName, operationTypeNames.subscription);
 
-      final RuntimeWiring sourceWiring = schemaSource.getRuntimeWiring();
+      final RuntimeWiring sourceWiring = schemaSource.getWiring();
       final Map<String, Map<String, DataFetcher>> dataFetchers = sourceWiring.getDataFetchers();
 
       mergeFieldDefinitions(
@@ -152,7 +189,7 @@ final class SchemaMerger {
   private static void addDefinition(
       final @NotNull SDLDefinition<?> definition,
       final @NotNull String keyPrefix,
-      final @NotNull SchemaSource schemaSource,
+      final @NotNull SourceSnapshot schemaSource,
       final @NotNull TypeDefinitionRegistry combinedRegistry,
       final @NotNull Map<String, SourceDefinition> definitions) {
 
@@ -373,6 +410,45 @@ final class SchemaMerger {
 
     runtimeWiringBuilder.type(
         TypeRuntimeWiring.newTypeWiring(typeName).dataFetchers(ownDataFetchers).build());
+  }
+
+  /** The loaded state of one source, read once. */
+  static final class SourceSnapshot {
+
+    private final String name;
+    private final boolean remote;
+    private final TypeDefinitionRegistry registry;
+    private final RuntimeWiring wiring;
+
+    SourceSnapshot(
+        final @NotNull String name,
+        final boolean remote,
+        final @NotNull TypeDefinitionRegistry registry,
+        final @NotNull RuntimeWiring wiring) {
+      this.name = name;
+      this.remote = remote;
+      this.registry = registry;
+      this.wiring = wiring;
+    }
+
+    @NotNull
+    String getName() {
+      return this.name;
+    }
+
+    @NotNull
+    TypeDefinitionRegistry getRegistry() {
+      return this.registry;
+    }
+
+    @NotNull
+    RuntimeWiring getWiring() {
+      return this.wiring;
+    }
+
+    boolean isRemote() {
+      return this.remote;
+    }
   }
 
   private static final class SourceDefinition {
