@@ -48,7 +48,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 final class QueryTransformer {
 
@@ -191,72 +190,6 @@ final class QueryTransformer {
     return selectionSet.transform(builder -> builder.selections(newSelections));
   }
 
-  private static @NotNull FragmentDefinition removeAlias(
-      final @NotNull FragmentDefinition fragment) {
-
-    final SelectionSet selectionSet = fragment.getSelectionSet();
-
-    if (selectionSet == null) {
-      return fragment;
-    }
-
-    final List<Selection> newSelections =
-        selectionSet.getSelections().stream()
-            .map(
-                s -> {
-                  if (s instanceof Field) {
-                    return removeAlias((Field) s);
-                  }
-
-                  return s;
-                })
-            .collect(Collectors.toList());
-
-    return fragment.transform(
-        builder ->
-            builder.selectionSet(SelectionSet.newSelectionSet(newSelections).build()).build());
-  }
-
-  private static @NotNull Field removeAlias(final @NotNull Field field) {
-
-    final List<Selection> newSelections = removeAliasInChildren(field);
-
-    return field.transform(
-        builder -> {
-          if (newSelections != null) {
-            builder
-                .alias(null)
-                .selectionSet(SelectionSet.newSelectionSet(newSelections).build())
-                .build();
-          } else {
-            builder.alias(null).build();
-          }
-        });
-  }
-
-  private static @Nullable List<Selection> removeAliasInChildren(final @NotNull Field field) {
-
-    final SelectionSet selectionSet = field.getSelectionSet();
-
-    List<Selection> newSelections = null;
-
-    if (selectionSet != null) {
-      newSelections =
-          selectionSet.getSelections().stream()
-              .map(
-                  s -> {
-                    if (s instanceof Field) {
-                      return removeAlias((Field) s);
-                    }
-
-                    return s;
-                  })
-              .collect(Collectors.toList());
-    }
-
-    return newSelections;
-  }
-
   private static @NotNull List<Definition> transformDefinitions(
       final @NotNull DataFetchingEnvironment environment,
       final @NotNull List<Definition> originalDefinitions,
@@ -345,7 +278,6 @@ final class QueryTransformer {
         .filter(d -> d instanceof FragmentDefinition)
         .map(d -> (FragmentDefinition) d)
         .filter(fd -> usedFragmentNames.contains(fd.getName()))
-        .map(QueryTransformer::removeAlias)
         .map(fd -> injectTypename(schema, fd))
         .collect(Collectors.toList());
   }
@@ -362,10 +294,14 @@ final class QueryTransformer {
             .filter(v -> usedReferenceNames.contains(v.getName()))
             .collect(Collectors.toList());
 
+    // Only the root alias is dropped: the root fetcher takes the single value of the source's data
+    // whatever its key. Nested aliases are forwarded, so the source keys its payload by result key
+    // and the same field may be selected twice with different arguments.
+    final Field rootField = queryNode.transform(builder -> builder.alias(null));
     final Field newQueryNode =
         injectTypename(
             environment.getGraphQLSchema(),
-            removeAlias(queryNode),
+            rootField,
             (GraphQLCompositeType) environment.getParentType());
     queryBuilder.queryNode(newQueryNode);
 

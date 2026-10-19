@@ -22,7 +22,10 @@ import graphql.GraphQL;
 import graphql.execution.DataFetcherExceptionHandler;
 import graphql.execution.instrumentation.Instrumentation;
 import graphql.language.InterfaceTypeDefinition;
+import graphql.language.ObjectTypeDefinition;
 import graphql.language.UnionTypeDefinition;
+import graphql.schema.FieldCoordinates;
+import graphql.schema.GraphQLCodeRegistry;
 import graphql.schema.GraphQLScalarType;
 import graphql.schema.GraphQLSchema;
 import graphql.schema.TypeResolver;
@@ -32,6 +35,7 @@ import graphql.schema.idl.TypeDefinitionRegistry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -74,7 +78,14 @@ public final class LiloContext {
 
   private static @NotNull RuntimeWiring finalizeWiring(
       final @NotNull TypeDefinitionRegistry typeRegistry,
-      final @NotNull RuntimeWiring.Builder runtimeWiringBuilder) {
+      final @NotNull RuntimeWiring.Builder runtimeWiringBuilder,
+      final @NotNull Set<FieldCoordinates> remoteRootFields) {
+
+    // Applies only to fields without an explicit data fetcher, so the root fetchers wired by
+    // SchemaMerger keep precedence; scalars and type resolvers are wired independently of it
+    runtimeWiringBuilder.codeRegistry(
+        GraphQLCodeRegistry.newCodeRegistry()
+            .defaultDataFetcher(new ResultKeyDataFetcherFactory(remoteRootFields)));
 
     final var dummyCoercing = new DummyCoercing();
 
@@ -121,6 +132,37 @@ public final class LiloContext {
 
       return env.getSchema().getObjectType(typeName.toString());
     };
+  }
+
+  /** Root fields served by remote sources; their payloads are keyed by result key. */
+  private static @NotNull Set<FieldCoordinates> remoteRootFields(
+      final @NotNull List<SchemaSource> schemaSourceList) {
+
+    final Set<FieldCoordinates> remoteRootFields = new HashSet<>();
+
+    for (final SchemaSource schemaSource : schemaSourceList) {
+      if (!(schemaSource instanceof RemoteSchemaSource) || schemaSource.isSchemaNotLoaded()) {
+        continue;
+      }
+
+      final TypeDefinitionRegistry registry = schemaSource.getTypeDefinitionRegistry();
+      final SchemaMerger.OperationTypeNames names = SchemaMerger.getOperationTypeNames(registry);
+
+      Stream.of(names.getQuery(), names.getMutation(), names.getSubscription())
+          .filter(Objects::nonNull)
+          .map(registry::getTypeOrNull)
+          .filter(t -> t instanceof ObjectTypeDefinition)
+          .map(t -> (ObjectTypeDefinition) t)
+          .forEach(
+              t ->
+                  t.getFieldDefinitions()
+                      .forEach(
+                          f ->
+                              remoteRootFields.add(
+                                  FieldCoordinates.coordinates(t.getName(), f.getName()))));
+    }
+
+    return remoteRootFields;
   }
 
   private static @NotNull Map<String, SchemaSource> toSourceMap(
@@ -203,7 +245,8 @@ public final class LiloContext {
     final RuntimeWiring.Builder runtimeWiringBuilder = RuntimeWiring.newRuntimeWiring();
     SchemaMerger.mergeSchemas(schemaSourceList, combinedRegistry, runtimeWiringBuilder);
 
-    final RuntimeWiring runtimeWiring = finalizeWiring(combinedRegistry, runtimeWiringBuilder);
+    final RuntimeWiring runtimeWiring =
+        finalizeWiring(combinedRegistry, runtimeWiringBuilder, remoteRootFields(schemaSourceList));
 
     final GraphQLSchema graphQLSchema =
         new SchemaGenerator().makeExecutableSchema(combinedRegistry, runtimeWiring);
