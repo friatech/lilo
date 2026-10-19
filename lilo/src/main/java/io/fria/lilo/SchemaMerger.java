@@ -28,6 +28,7 @@ import graphql.schema.idl.TypeDefinitionRegistry;
 import graphql.schema.idl.TypeRuntimeWiring;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -217,8 +218,23 @@ final class SchemaMerger {
 
     final ObjectTypeDefinition typeDefinition = (ObjectTypeDefinition) typeOptional.get();
     fieldDefinitions.addAll(typeDefinition.getFieldDefinitions());
+
+    // Only wire the data fetchers of fields this source defines. A source wiring may contain
+    // fetchers for fields served by other sources, and graphql-java's strict wiring mode rejects
+    // registering the same field twice.
+    final Map<String, DataFetcher> typeDataFetchers = dataFetchers.getOrDefault(typeName, Map.of());
+    final Map<String, DataFetcher> ownDataFetchers = new HashMap<>();
+
+    for (final FieldDefinition fieldDefinition : typeDefinition.getFieldDefinitions()) {
+      final DataFetcher dataFetcher = typeDataFetchers.get(fieldDefinition.getName());
+
+      if (dataFetcher != null) {
+        ownDataFetchers.put(fieldDefinition.getName(), dataFetcher);
+      }
+    }
+
     runtimeWiringBuilder.type(
-        TypeRuntimeWiring.newTypeWiring(typeName).dataFetchers(dataFetchers.get(typeName)).build());
+        TypeRuntimeWiring.newTypeWiring(typeName).dataFetchers(ownDataFetchers).build());
   }
 
   static final class OperationTypeNames {
