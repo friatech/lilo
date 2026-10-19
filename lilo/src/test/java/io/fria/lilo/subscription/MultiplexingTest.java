@@ -30,6 +30,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,8 +41,14 @@ class MultiplexingTest {
   private static final String SCHEMA =
       "type Query { hello: String }\ntype Subscription { ticks: String }";
 
-  private final List<SubscriptionSourcePublisher> publishers = new CopyOnWriteArrayList<>();
+  private final List<ProbePublisher> publishers = new CopyOnWriteArrayList<>();
   private SubscriptionGatewayHandler gateway;
+
+  /** Runs inside the data fetcher, i.e. while the gateway is stitching a subscribe. */
+  private volatile @NotNull Runnable onStitch = () -> {};
+
+  /** When set, new publishers record close() without completing, like a slow upstream. */
+  private volatile boolean deferClose;
 
   private static void assertClosed(final @NotNull SubscriptionSourcePublisher publisher) {
     // a completed multicast sink completes late subscribers immediately; an open one would time out
@@ -80,9 +87,9 @@ class MultiplexingTest {
                     .dataFetcher(
                         "ticks",
                         env -> {
-                          final SubscriptionSourcePublisher publisher =
-                              new SubscriptionSourcePublisher();
+                          final ProbePublisher publisher = new ProbePublisher(this.deferClose);
                           this.publishers.add(publisher);
+                          this.onStitch.run();
                           return publisher;
                         }))
             .build();
@@ -139,6 +146,52 @@ class MultiplexingTest {
     assertDoesNotThrow(
         () -> this.gateway.handleMessage(session, "{\"id\":\"a\",\"type\":\"complete\"}"));
     assertTrue(session.isOpen());
+  }
+
+  @Test
+  void completeStopsForwardingEvenIfTheUpstreamIsSlowToClose() {
+    this.deferClose = true;
+    final RecordingSession session = RecordingSession.init(this.gateway);
+    subscribe(this.gateway, session, "a");
+    subscribe(this.gateway, session, "b");
+    final ProbePublisher publisherA = this.publishers.get(0);
+    final ProbePublisher publisherB = this.publishers.get(1);
+
+    this.gateway.handleMessage(session, "{\"id\":\"a\",\"type\":\"complete\"}");
+
+    // The source was told to stop "a", but its flux is still live: only disposing the gateway's
+    // forwarding subscription keeps these events away from the client
+    assertEquals(1, publisherA.closeCalls.get());
+    publisherA.send(Map.of("data", Map.of("ticks", "a1")));
+    publisherA.finishClose();
+    publisherB.send(Map.of("data", Map.of("ticks", "b1")));
+
+    assertTrue(messagesFor(session, "a").isEmpty());
+    assertEquals(1, messagesFor(session, "b").size());
+    assertEquals(0, publisherB.closeCalls.get());
+    assertTrue(session.isOpen());
+  }
+
+  @Test
+  void sessionCloseDuringStitchingCancelsTheNewOperation() {
+    final RecordingSession session = RecordingSession.init(this.gateway);
+    subscribe(this.gateway, session, "a");
+    // The socket closes after the subscribe for "b" was accepted but before it is registered
+    this.onStitch = () -> this.gateway.handleSessionClose(session);
+
+    subscribe(this.gateway, session, "b");
+
+    assertFalse(session.isOpen());
+    assertEquals(2, this.publishers.size());
+    assertClosed(this.publishers.get(0));
+    assertClosed(this.publishers.get(1));
+    assertEquals(1, this.publishers.get(1).closeCalls.get());
+
+    // Nothing of the closed session remains: a fresh session (same id) may reuse "b"
+    this.onStitch = () -> {};
+    final RecordingSession next = RecordingSession.init(this.gateway);
+    subscribe(this.gateway, next, "b");
+    assertTrue(next.isOpen());
   }
 
   @Test
@@ -202,8 +255,11 @@ class MultiplexingTest {
     subscribe(this.gateway, session, "a");
 
     assertFalse(session.isOpen());
-    for (final SubscriptionSourcePublisher publisher : this.publishers) {
+    // The duplicate is rejected before stitching, so no second upstream is ever created
+    assertEquals(1, this.publishers.size());
+    for (final ProbePublisher publisher : this.publishers) {
       assertClosed(publisher);
+      assertEquals(1, publisher.closeCalls.get());
     }
   }
 
@@ -217,5 +273,28 @@ class MultiplexingTest {
     assertTrue(session.isOpen());
     this.publishers.get(1).send(Map.of("data", Map.of("ticks", "a2")));
     assertEquals(1, messagesFor(session, "a").size());
+  }
+
+  /** Upstream double that counts close() calls and can defer the actual completion. */
+  private static final class ProbePublisher extends SubscriptionSourcePublisher {
+
+    private final AtomicInteger closeCalls = new AtomicInteger();
+    private final boolean deferClose;
+
+    private ProbePublisher(final boolean deferClose) {
+      this.deferClose = deferClose;
+    }
+
+    @Override
+    public void close() {
+      this.closeCalls.incrementAndGet();
+      if (!this.deferClose) {
+        super.close();
+      }
+    }
+
+    void finishClose() {
+      super.close();
+    }
   }
 }

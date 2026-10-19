@@ -96,8 +96,12 @@ public final class SubscriptionGatewayHandler {
       session.send(JsonUtils.toStr(response));
     } else if (subscribe == requestType) {
       final String operationId = Objects.requireNonNull(request.getId());
+      // Taken before stitching: a close that lands while stitching detaches this map, which the
+      // registration in subscribe detects
+      final Map<String, Operation> operations =
+          this.sessionOperations.computeIfAbsent(session.getId(), id -> new ConcurrentHashMap<>());
 
-      if (this.isActive(session, operationId)) {
+      if (operations.containsKey(operationId)) {
         // graphql-transport-ws: a subscribe with an id that is already active closes the
         // connection (4409 Subscriber already exists)
         this.closeSession(session);
@@ -108,7 +112,8 @@ public final class SubscriptionGatewayHandler {
       final Map<String, Object> stitchResult =
           this.lilo.stitch(graphQLRequest.toExecutionInput()).toSpecification();
 
-      this.subscribe(session, (SubscriptionPublisher) stitchResult.get("data"), operationId);
+      this.subscribe(
+          session, operations, (SubscriptionPublisher) stitchResult.get("data"), operationId);
     } else if (complete == requestType) {
       // The client stops a single operation; the connection and other operations stay
       final String operationId = request.getId();
@@ -168,13 +173,6 @@ public final class SubscriptionGatewayHandler {
     }
   }
 
-  private boolean isActive(
-      final @NotNull WebSocketSessionWrapper session, final @NotNull String operationId) {
-
-    final Map<String, Operation> operations = this.sessionOperations.get(session.getId());
-    return operations != null && operations.containsKey(operationId);
-  }
-
   private GraphQLRequest payloadToQuery(final Object payload) {
 
     final Optional<GraphQLRequest> graphQLRequest =
@@ -189,14 +187,13 @@ public final class SubscriptionGatewayHandler {
 
   private void subscribe(
       final @NotNull WebSocketSessionWrapper session,
+      final @NotNull Map<String, Operation> operations,
       final @NotNull SubscriptionPublisher publisher,
       final @NotNull String operationId) {
 
     final SubscriptionSourcePublisher upstream =
         (SubscriptionSourcePublisher) publisher.getUpstreamPublisher();
     final Operation operation = new Operation(upstream);
-    final Map<String, Operation> operations =
-        this.sessionOperations.computeIfAbsent(session.getId(), id -> new ConcurrentHashMap<>());
 
     if (operations.putIfAbsent(operationId, operation) != null) {
       // Lost a race against a concurrent subscribe with the same id
@@ -233,8 +230,13 @@ public final class SubscriptionGatewayHandler {
 
     operation.setSubscription(subscription);
 
-    if (!session.isOpen()) {
-      // The session was closed while subscribing; make sure nothing is left behind
+    if (!session.isOpen() || this.sessionOperations.get(session.getId()) != operations) {
+      // The session was closed while subscribing. Its close may already have removed and drained
+      // this map before the operation was added, so cancel the operation here rather than rely on
+      // closeSession finding it.
+      if (operations.remove(operationId, operation)) {
+        operation.cancel();
+      }
       this.closeSession(session);
     }
   }
