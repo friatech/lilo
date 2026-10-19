@@ -23,9 +23,16 @@ public class DefaultRemoteQueryRetriever extends AbstractDefaultRemoteRetriever
     implements SyncQueryRetriever {
 
   private final String schemaUrl;
+  private final RemoteRetrieverOptions options;
 
   public DefaultRemoteQueryRetriever(final @NotNull String schemaUrl) {
+    this(schemaUrl, RemoteRetrieverOptions.defaults());
+  }
+
+  public DefaultRemoteQueryRetriever(
+      final @NotNull String schemaUrl, final @NotNull RemoteRetrieverOptions options) {
     this.schemaUrl = Objects.requireNonNull(schemaUrl);
+    this.options = Objects.requireNonNull(options);
   }
 
   @Override
@@ -35,6 +42,10 @@ public class DefaultRemoteQueryRetriever extends AbstractDefaultRemoteRetriever
       @NotNull final GraphQLQuery graphQLQuery,
       @Nullable final Object localContext) {
 
-    return this.retrieve(this.schemaUrl, graphQLQuery.getQuery());
+    return this.retrieve(
+        this.schemaUrl,
+        graphQLQuery.getQuery(),
+        this.options,
+        this.options.getHeaders().apply(liloContext, localContext));
   }
 }

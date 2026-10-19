@@ -23,9 +23,16 @@ public class DefaultRemoteIntrospectionRetriever extends AbstractDefaultRemoteRe
     implements SyncIntrospectionRetriever {
 
   private final String schemaUrl;
+  private final RemoteRetrieverOptions options;
 
   public DefaultRemoteIntrospectionRetriever(final @NotNull String schemaUrl) {
+    this(schemaUrl, RemoteRetrieverOptions.defaults());
+  }
+
+  public DefaultRemoteIntrospectionRetriever(
+      final @NotNull String schemaUrl, final @NotNull RemoteRetrieverOptions options) {
     this.schemaUrl = Objects.requireNonNull(schemaUrl);
+    this.options = Objects.requireNonNull(options);
   }
 
   @Override
@@ -35,6 +42,10 @@ public class DefaultRemoteIntrospectionRetriever extends AbstractDefaultRemoteRe
       @NotNull final String query,
       @Nullable final Object localContext) {
 
-    return this.retrieve(this.schemaUrl, query);
+    return this.retrieve(
+        this.schemaUrl,
+        query,
+        this.options,
+        this.options.getHeaders().apply(liloContext, localContext));
   }
 }
