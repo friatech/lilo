@@ -19,6 +19,8 @@ import static io.fria.lilo.subscription.SubscriptionMessageType.complete;
 import static io.fria.lilo.subscription.SubscriptionMessageType.connection_ack;
 import static io.fria.lilo.subscription.SubscriptionMessageType.connection_init;
 import static io.fria.lilo.subscription.SubscriptionMessageType.next;
+import static io.fria.lilo.subscription.SubscriptionMessageType.ping;
+import static io.fria.lilo.subscription.SubscriptionMessageType.pong;
 import static io.fria.lilo.subscription.SubscriptionMessageType.subscribe;
 
 import graphql.execution.reactive.SubscriptionPublisher;
@@ -57,20 +59,32 @@ public final class SubscriptionGatewayHandler {
 
     Objects.requireNonNull(session);
 
-    final Optional<SubscriptionMessage> requestOptional =
-        JsonUtils.toObj(message, SubscriptionMessage.class);
-
-    if (requestOptional.isEmpty()) {
+    final SubscriptionMessage request;
+    try {
+      request = JsonUtils.toObj(message, SubscriptionMessage.class).orElse(null);
+    } catch (final IllegalArgumentException e) {
+      // graphql-transport-ws: an invalid or unknown message closes the connection
+      this.closeSession(session);
       return;
     }
 
-    final SubscriptionMessage request = requestOptional.get();
+    if (request == null || request.getType() == null) {
+      this.closeSession(session);
+      return;
+    }
+
     final SubscriptionMessageType requestType = request.getType();
 
     if (connection_init == requestType) {
       // Emulating new connection
       final var response =
           SubscriptionMessage.builder().type(connection_ack).payload(new HashMap<>()).build();
+      session.send(JsonUtils.toStr(response));
+    } else if (ping == requestType) {
+      // Echo the ping payload back, if any
+      final SubscriptionMessage response = new SubscriptionMessage();
+      response.setType(pong);
+      response.setPayload(request.getPayload());
       session.send(JsonUtils.toStr(response));
     } else if (subscribe == requestType) {
       final GraphQLRequest graphQLRequest = this.payloadToQuery(request.getPayload());
@@ -83,6 +97,10 @@ public final class SubscriptionGatewayHandler {
           Objects.requireNonNull(request.getId()));
     } else if (complete == requestType) {
       // This is when client requests session close
+      this.closeSession(session);
+    } else if (pong != requestType) {
+      // pong is a one-way heartbeat answer; server-to-client only types (connection_ack, next,
+      // error) are invalid from a client
       this.closeSession(session);
     }
   }

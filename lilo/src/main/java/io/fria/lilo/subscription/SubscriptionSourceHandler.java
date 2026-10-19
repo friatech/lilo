@@ -17,14 +17,16 @@ package io.fria.lilo.subscription;
 
 import static io.fria.lilo.subscription.SubscriptionMessageType.complete;
 import static io.fria.lilo.subscription.SubscriptionMessageType.connection_init;
+import static io.fria.lilo.subscription.SubscriptionMessageType.error;
 import static io.fria.lilo.subscription.SubscriptionMessageType.next;
+import static io.fria.lilo.subscription.SubscriptionMessageType.ping;
+import static io.fria.lilo.subscription.SubscriptionMessageType.pong;
 import static io.fria.lilo.subscription.SubscriptionMessageType.subscribe;
 
 import io.fria.lilo.GraphQLQuery;
 import io.fria.lilo.JsonUtils;
 import java.util.HashMap;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.UUID;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -45,14 +47,20 @@ public class SubscriptionSourceHandler {
 
     Objects.requireNonNull(session);
 
-    final Optional<SubscriptionMessage> requestOptional =
-        JsonUtils.toObj(message, SubscriptionMessage.class);
-
-    if (requestOptional.isEmpty()) {
+    final SubscriptionMessage request;
+    try {
+      request = JsonUtils.toObj(message, SubscriptionMessage.class).orElse(null);
+    } catch (final IllegalArgumentException e) {
+      // Invalid or unknown message from the source: give up on this connection
+      this.closeSource(session);
       return;
     }
 
-    final SubscriptionMessage request = requestOptional.get();
+    if (request == null) {
+      this.closeSource(session);
+      return;
+    }
+
     final SubscriptionMessageType requestType = request.getType();
 
     if (SubscriptionMessageType.connection_ack == requestType) {
@@ -76,7 +84,26 @@ public class SubscriptionSourceHandler {
                 Objects.requireNonNull(session).send(JsonUtils.toStr(completeMessage));
               })
           .subscribe();
+    } else if (ping == requestType) {
+      // Echo the ping payload back, if any
+      final SubscriptionMessage response = new SubscriptionMessage();
+      response.setType(pong);
+      response.setPayload(request.getPayload());
+      session.send(JsonUtils.toStr(response));
+    } else if (complete == requestType) {
+      // Source finished the operation
+      this.publisher.close();
+    } else if (error == requestType) {
+      this.publisher.error(
+          new IllegalStateException("Source error: " + JsonUtils.toStr(request.getPayload())));
     }
+  }
+
+  private void closeSource(final @NotNull WebSocketSessionWrapper session) {
+    if (session.isOpen()) {
+      session.close();
+    }
+    this.publisher.close();
   }
 
   public void handleSessionClose(final @Nullable WebSocketSessionWrapper session) {

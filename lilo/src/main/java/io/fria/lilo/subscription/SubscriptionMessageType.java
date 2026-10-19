@@ -20,5 +20,8 @@ public enum SubscriptionMessageType {
   connection_ack,
   subscribe,
   complete,
-  next
+  next,
+  ping,
+  pong,
+  error
 }

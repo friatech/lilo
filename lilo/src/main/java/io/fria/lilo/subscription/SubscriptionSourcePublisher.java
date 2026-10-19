@@ -29,6 +29,15 @@ public class SubscriptionSourcePublisher implements Publisher<Object> {
     this.sink.emitComplete((signalType, emitResult) -> false);
   }
 
+  /**
+   * Fails the publisher so that every subscriber receives the given error.
+   *
+   * @param error failure to propagate
+   */
+  public void error(final @NotNull Throwable error) {
+    this.sink.emitError(error, (signalType, emitResult) -> false);
+  }
+
   public Flux<Object> getFlux() {
     return this.sink.asFlux();
   }
