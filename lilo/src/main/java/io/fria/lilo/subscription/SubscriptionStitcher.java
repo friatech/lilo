@@ -57,7 +57,6 @@ final class SubscriptionStitcher {
   static final CompletableFuture<Void> DONE = CompletableFuture.completedFuture(null);
 
   private static final int POOL_CORE_SIZE = Math.max(4, Runtime.getRuntime().availableProcessors());
-  private static final int POOL_MAX_SIZE = 4 * POOL_CORE_SIZE;
   private static final int POOL_QUEUE_CAPACITY = 256;
   private static final long POOL_KEEP_ALIVE_SECONDS = 60;
 
@@ -80,10 +79,23 @@ final class SubscriptionStitcher {
 
   /** The bounded pool of daemon threads a handler owns unless it is given an executor. */
   static @NotNull Executor newDefaultExecutor() {
+    return newDefaultExecutor(POOL_CORE_SIZE);
+  }
+
+  /**
+   * The default pool with another core size: it grows to four times that (at most {@link
+   * Integer#MAX_VALUE} threads) and queues up to 256 more requests.
+   */
+  static @NotNull Executor newDefaultExecutor(final int coreSize) {
+    if (coreSize <= 0) {
+      throw new IllegalArgumentException("coreSize must be greater than zero");
+    }
+
+    final int maxSize = coreSize > Integer.MAX_VALUE / 4 ? Integer.MAX_VALUE : 4 * coreSize;
     final ThreadPoolExecutor pool =
         new ThreadPoolExecutor(
-            POOL_CORE_SIZE,
-            POOL_MAX_SIZE,
+            coreSize,
+            maxSize,
             POOL_KEEP_ALIVE_SECONDS,
             TimeUnit.SECONDS,
             new ArrayBlockingQueue<>(POOL_QUEUE_CAPACITY),

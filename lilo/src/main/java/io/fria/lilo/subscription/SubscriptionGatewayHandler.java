@@ -69,6 +69,35 @@ public final class SubscriptionGatewayHandler {
   }
 
   /**
+   * Constructs a handler instance using lilo that stitches subscriptions on its own default pool,
+   * as {@link #SubscriptionGatewayHandler(Lilo)} does, and limits the operations of each session. A
+   * subscribe beyond the limit is answered with an {@code error} message and the session stays
+   * open.
+   *
+   * @param lilo global lilo instance
+   * @param maxOperationsPerSession most operations one session may have at the same time (default
+   *     50), greater than zero
+   */
+  public SubscriptionGatewayHandler(final @NotNull Lilo lilo, final int maxOperationsPerSession) {
+    this(lilo, SubscriptionStitcher.newDefaultExecutor(), maxOperationsPerSession);
+  }
+
+  /**
+   * Creates a stitch pool shaped like the one {@link #SubscriptionGatewayHandler(Lilo)} owns, with
+   * the given number of core threads: daemon threads named {@code lilo-subscription-N}, growing to
+   * four times the core size, with up to 256 queued requests, and idle threads ending after 60
+   * seconds. Pass it to {@link #SubscriptionGatewayHandler(Lilo, Executor)} or {@link
+   * #SubscriptionGatewayHandler(Lilo, Executor, int)} to size the pool.
+   *
+   * @param coreSize core threads of the pool (by default max(4, available processors)), greater
+   *     than zero
+   * @return a new pool; it is not shut down by the handler, its idle threads end on their own
+   */
+  public static @NotNull Executor defaultExecutor(final int coreSize) {
+    return SubscriptionStitcher.newDefaultExecutor(coreSize);
+  }
+
+  /**
    * Constructs a handler instance using lilo that stitches subscriptions on the given executor. The
    * stitch runs the source's {@link SubscriptionRetriever}, which may block while it connects to
    * the source, so the executor should not be the websocket thread or a small shared pool. It
