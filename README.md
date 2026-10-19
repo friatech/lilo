@@ -39,6 +39,8 @@ implementation 'io.fria:lilo:24.5.0'
 
 - Building Lilo itself needs JDK 21 (the build tooling requires it). The produced bytecode targets Java 11 (`lilo`) and Java 17 (`lilo-spring`).
 - `lilo-spring` no longer supports Spring Boot 3. Use an earlier release if you are on Boot 3.
+- `DefaultRemoteQueryRetriever`, `DefaultRemoteIntrospectionRetriever`, `GraphQLQuery`, `GraphQLRequest`, `LiloContext` and `SubscriptionGatewayHandler` are now `final`.
+- Collections returned by `GraphQLRequest`, `GraphQLQuery`, `GraphQLResult`, `GraphQLResultError` and `LiloSourceDataFetcherException` getters (variables, arguments, extensions, path, errors) are now read-only, and setters/builders store copies. Code that mutates `request.getVariables()` must call `setVariables(...)` with a new map instead.
 - graphql-java 23+ enables strict wiring: a `RuntimeWiring` that registers the same field twice now throws `StrictModeWiringException`. Stitching two sources that declare the same root field also fails at merge time with this exception.
 
 ## Basic Usage
