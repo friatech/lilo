@@ -43,7 +43,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <!-- Dependency Versions -->
-    <graphql-java.version>23.1</graphql-java.version>
+    <graphql-java.version>24.4</graphql-java.version>
     <jackson-databind.version>2.22.4</jackson-databind.version>
     <reactor-core.version>3.6.6</reactor-core.version>
     <jetbrains-annotations.version>26.1.0</jetbrains-annotations.version>
