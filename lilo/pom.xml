@@ -36,7 +36,7 @@
   </developers>
 
   <properties>
-    <java.version>[11,12)</java.version>
+    <build.java.version>[21,)</build.java.version>
     <maven.compiler.release>11</maven.compiler.release>
     <maven.min.version>3.6.3</maven.min.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -178,7 +178,7 @@
                   <version>${maven.min.version}</version>
                 </requireMavenVersion>
                 <requireJavaVersion>
-                  <version>${java.version}</version>
+                  <version>${build.java.version}</version>
                 </requireJavaVersion>
               </rules>
             </configuration>
