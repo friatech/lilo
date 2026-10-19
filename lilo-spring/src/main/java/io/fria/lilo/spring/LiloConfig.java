@@ -16,7 +16,9 @@
 package io.fria.lilo.spring;
 
 import io.fria.lilo.Lilo;
+import io.fria.lilo.subscription.SubscriptionGatewayHandler;
 import java.util.Objects;
+import java.util.concurrent.Executor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.context.annotation.Bean;
@@ -43,17 +45,39 @@ public class LiloConfig {
    * GatewayWebSocketHandler bean definition
    *
    * @param lilo Lilo instance
-   * @param configProperties LiloConfig properties for getting subscription path and send limits
+   * @param configProperties LiloConfig properties for getting subscription path, send limits,
+   *     subscription pool size and operations per session
    * @return GatewayWebSocketHandler bean singleton instance
    */
   @Bean
   public @NotNull GatewayWebSocketHandler gatewayWebSocketHandler(
       final @NotNull Lilo lilo, final @NotNull LiloConfigProperties configProperties) {
+    final String subscriptionPath = Objects.requireNonNull(configProperties.getSubscriptionPath());
     return new GatewayWebSocketHandler(
-        lilo,
-        Objects.requireNonNull(configProperties.getSubscriptionPath()),
+        subscriptionGatewayHandler(lilo, configProperties),
+        subscriptionPath,
         configProperties.getSendTimeLimit(),
         configProperties.getSendBufferSizeLimit());
+  }
+
+  private static @NotNull SubscriptionGatewayHandler subscriptionGatewayHandler(
+      final @NotNull Lilo lilo, final @NotNull LiloConfigProperties configProperties) {
+
+    final Integer poolSize = configProperties.getSubscriptionPoolSize();
+    final Integer maxOperations = configProperties.getMaxOperationsPerSession();
+
+    if (poolSize == null && maxOperations == null) {
+      // Exactly the handler's own defaults
+      return new SubscriptionGatewayHandler(lilo);
+    }
+
+    final Executor executor =
+        SubscriptionPool.create(
+            poolSize == null ? GatewayLimits.defaultSubscriptionPoolSize() : poolSize);
+    return new SubscriptionGatewayHandler(
+        lilo,
+        executor,
+        maxOperations == null ? GatewayLimits.DEFAULT_MAX_OPERATIONS_PER_SESSION : maxOperations);
   }
 
   /**

@@ -52,6 +52,7 @@ Build and tooling:
 - The source websocket session is now closed when its operation ends.
 - A public four-argument `GraphQLRequest(query, operationName, variables, extensions)` constructor.
 - `lilo-spring` properties: `lilo.allowed-origins` (default `*`; an empty list allows only same-origin requests), `lilo.send-time-limit` (default `10s`) and `lilo.send-buffer-size-limit` (default `524288` bytes). A slow client is disconnected with close status 4500 and its subscriptions are released. Client sends are no longer racy across threads.
+- `lilo-spring` properties `lilo.subscription-pool-size` (default max(4, available processors)) and `lilo.max-operations-per-session` (default `50`) to size the subscription stitch pool and cap the operations of one client connection, and a `GatewayWebSocketHandler(SubscriptionGatewayHandler, String, Duration, int)` constructor that takes a gateway handler built in code.
 - `RemoteRetrieverOptions` for the default remote retrievers (timeouts, response cap, header hook).
 - `Lilo.builder()` options `maxQueryDepth`, `maxQueryComplexity` (graphql-java's standard instrumentations, chained before the user's instrumentation), `introspectionEnabled` (per instance, default `true`) and `graphQLCustomizer` (applied last when the merged schema is built).
 - `lilo-spring` tests, configuration metadata descriptions and defaults.

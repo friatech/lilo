@@ -16,6 +16,7 @@
 package io.fria.lilo.spring;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Duration;
@@ -77,5 +78,44 @@ class LiloConfigPropertiesTest {
     assertThrows(
         IllegalArgumentException.class, () -> properties.setSendTimeLimit(Duration.ofMillis(-1)));
     assertThrows(IllegalArgumentException.class, () -> properties.setSendBufferSizeLimit(-1));
+  }
+
+  @Test
+  void subscriptionPoolSizeAndOperationCapAreUnsetByDefault() {
+    final LiloConfigProperties properties = bind(Map.of());
+
+    assertNull(properties.getSubscriptionPoolSize());
+    assertNull(properties.getMaxOperationsPerSession());
+  }
+
+  @Test
+  void bindsSubscriptionPoolSizeAndOperationCap() {
+    final LiloConfigProperties properties =
+        bind(
+            Map.of(
+                "lilo.subscription-pool-size", "8",
+                "lilo.max-operations-per-session", "3"));
+
+    assertEquals(8, properties.getSubscriptionPoolSize());
+    assertEquals(3, properties.getMaxOperationsPerSession());
+  }
+
+  @Test
+  void rejectsInvalidSubscriptionPoolSizeAndOperationCap() {
+    assertThrows(BindException.class, () -> bind(Map.of("lilo.subscription-pool-size", "0")));
+    assertThrows(
+        BindException.class,
+        () -> bind(Map.of("lilo.subscription-pool-size", String.valueOf(Integer.MAX_VALUE))));
+    assertThrows(BindException.class, () -> bind(Map.of("lilo.max-operations-per-session", "0")));
+    final LiloConfigProperties properties = new LiloConfigProperties();
+    assertThrows(IllegalArgumentException.class, () -> properties.setSubscriptionPoolSize(-1));
+    assertThrows(IllegalArgumentException.class, () -> properties.setMaxOperationsPerSession(-1));
+
+    // null restores the default
+    properties.setSubscriptionPoolSize(4);
+    properties.setSubscriptionPoolSize(null);
+    properties.setMaxOperationsPerSession(null);
+    assertNull(properties.getSubscriptionPoolSize());
+    assertNull(properties.getMaxOperationsPerSession());
   }
 }
