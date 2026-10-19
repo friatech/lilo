@@ -63,14 +63,17 @@ final class GraphQLAssembler {
   private final DataFetcherExceptionHandler dataFetcherExceptionHandler;
   private final @Nullable Instrumentation instrumentation;
   private final @Nullable Consumer<GraphQL.Builder> graphQLCustomizer;
+  private final @Nullable String schemaDescription;
 
   GraphQLAssembler(
       final @NotNull DataFetcherExceptionHandler dataFetcherExceptionHandler,
       final @Nullable Instrumentation instrumentation,
-      final @Nullable Consumer<GraphQL.Builder> graphQLCustomizer) {
+      final @Nullable Consumer<GraphQL.Builder> graphQLCustomizer,
+      final @Nullable String schemaDescription) {
     this.dataFetcherExceptionHandler = dataFetcherExceptionHandler;
     this.instrumentation = instrumentation;
     this.graphQLCustomizer = graphQLCustomizer;
+    this.schemaDescription = schemaDescription;
   }
 
   /**
@@ -213,8 +216,14 @@ final class GraphQLAssembler {
     final RuntimeWiring runtimeWiring =
         finalizeWiring(combinedRegistry, runtimeWiringBuilder, remoteRootFields(snapshots));
 
-    final GraphQLSchema graphQLSchema =
+    final GraphQLSchema generatedSchema =
         new SchemaGenerator().makeExecutableSchema(combinedRegistry, runtimeWiring);
+
+    // Applied on every assembly, so a re-merge keeps the description
+    final GraphQLSchema graphQLSchema =
+        this.schemaDescription == null
+            ? generatedSchema
+            : generatedSchema.transformWithoutTypes(b -> b.description(this.schemaDescription));
 
     final GraphQL.Builder builder =
         GraphQL.newGraphQL(graphQLSchema)

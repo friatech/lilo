@@ -44,6 +44,7 @@ Build and tooling:
 
 ### Added
 
+- `Lilo.builder().schemaDescription(String)` sets the description of the merged gateway schema (`__schema.description`), kept across schema re-merges. Descriptions of the source schemas are not merged.
 - `GraphQLRequest` supports an optional `extensions` map (JSON, builder, getter/setter, defensively copied) that is passed on to the `ExecutionInput`; it is omitted from the JSON when absent.
 - Subscriptions: `ping`/`pong` and `error` messages, several operations per socket with per-operation `complete`, source handler lifecycle fixes (one `subscribe` per source, sources released on cancel and send failures), and `SubscriptionConnectionContext`.
 - `SubscriptionGatewayHandler(Lilo, Executor)` and `SubscriptionGatewayHandler(Lilo, Executor, int)` constructors to choose the stitch executor and the per-session operation cap.
