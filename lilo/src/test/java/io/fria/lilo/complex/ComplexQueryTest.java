@@ -903,7 +903,7 @@ class ComplexQueryTest {
     ENUM_2_VALUE_C
   }
 
-  private static final class Type1 {
+  static final class Type1 {
     private final String someString;
     private final List<TypeChild1> children;
 
@@ -924,7 +924,7 @@ class ComplexQueryTest {
       return this.someString;
     }
 
-    private static final class Type1Builder {
+    static final class Type1Builder {
       private String someString;
       private List<TypeChild1> children;
 
@@ -944,7 +944,7 @@ class ComplexQueryTest {
     }
   }
 
-  private static final class Type2 {
+  static final class Type2 {
     private final String someString;
     private final List<TypeChild2> children;
 
@@ -965,7 +965,7 @@ class ComplexQueryTest {
       return this.someString;
     }
 
-    private static final class Type2Builder {
+    static final class Type2Builder {
       private String someString;
       private List<TypeChild2> children;
 
@@ -985,7 +985,7 @@ class ComplexQueryTest {
     }
   }
 
-  private static final class TypeChild1 {
+  static final class TypeChild1 {
     private final String someString;
     private final List<TypeGrandChild1> grandChildren;
 
@@ -1006,7 +1006,7 @@ class ComplexQueryTest {
       return this.someString;
     }
 
-    private static final class TypeChild1Builder {
+    static final class TypeChild1Builder {
       private String someString;
       private List<TypeGrandChild1> grandChildren;
 
@@ -1026,7 +1026,7 @@ class ComplexQueryTest {
     }
   }
 
-  private static final class TypeChild2 {
+  static final class TypeChild2 {
     private final String someString;
     private final List<TypeGrandChild2> grandChildren;
 
@@ -1047,7 +1047,7 @@ class ComplexQueryTest {
       return this.someString;
     }
 
-    private static final class TypeChild2Builder {
+    static final class TypeChild2Builder {
       private String someString;
       private List<TypeGrandChild2> grandChildren;
 
@@ -1067,7 +1067,7 @@ class ComplexQueryTest {
     }
   }
 
-  private static final class TypeGrandChild1 {
+  static final class TypeGrandChild1 {
 
     private final List<String> stringList;
     private final List<Integer> intList;
@@ -1189,7 +1189,7 @@ class ComplexQueryTest {
       return this.typeUnionList;
     }
 
-    private static final class TypeGrandChild1Builder {
+    static final class TypeGrandChild1Builder {
       private List<String> stringList;
       private List<Integer> intList;
       private List<Float> floatList;
@@ -1312,7 +1312,7 @@ class ComplexQueryTest {
     }
   }
 
-  private static final class TypeGrandChild2 {
+  static final class TypeGrandChild2 {
 
     private final List<String> stringList;
     private final List<Integer> intList;
@@ -1434,7 +1434,7 @@ class ComplexQueryTest {
       return this.typeUnionList;
     }
 
-    private static final class TypeGrandChild2Builder {
+    static final class TypeGrandChild2Builder {
       private List<String> stringList;
       private List<Integer> intList;
       private List<Float> floatList;
@@ -1557,7 +1557,7 @@ class ComplexQueryTest {
     }
   }
 
-  private static final class TypeImplemented1 {
+  static final class TypeImplemented1 {
 
     private final String someString;
 
@@ -1570,7 +1570,7 @@ class ComplexQueryTest {
     }
   }
 
-  private static final class TypeExtended1 {
+  static final class TypeExtended1 {
 
     private final String someString;
 
@@ -1583,7 +1583,7 @@ class ComplexQueryTest {
     }
   }
 
-  private static final class TypeImplemented2 {
+  static final class TypeImplemented2 {
 
     private final String someString;
 
@@ -1596,7 +1596,7 @@ class ComplexQueryTest {
     }
   }
 
-  private static final class TypeExtended2 {
+  static final class TypeExtended2 {
 
     private final String someString;
 
@@ -1609,7 +1609,7 @@ class ComplexQueryTest {
     }
   }
 
-  private static final class TypeCommon {
+  static final class TypeCommon {
 
     private final String someString;
 
@@ -1622,7 +1622,7 @@ class ComplexQueryTest {
     }
   }
 
-  private static final class TypeImplementedCommon {
+  static final class TypeImplementedCommon {
 
     private final String someString;
 
@@ -1635,7 +1635,7 @@ class ComplexQueryTest {
     }
   }
 
-  private static final class TypeExtendedCommon {
+  static final class TypeExtendedCommon {
 
     private final String someString;
     private final String someOtherString;
@@ -1654,7 +1654,7 @@ class ComplexQueryTest {
     }
   }
 
-  private static final class TypeUnionCommonInt {
+  static final class TypeUnionCommonInt {
 
     private final Integer someInteger;
 

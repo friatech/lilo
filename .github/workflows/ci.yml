@@ -29,6 +29,7 @@ jobs:
           cache: maven
 
       - name: Build with Maven, SpotBugs and format check
+        # fmt-maven-plugin version comes from the pom pins (2.29); keep root, lilo and lilo-spring in sync
         run: mvn -B -ntp verify com.spotify.fmt:fmt-maven-plugin:check -Dgpg.skip
 
   # Runs the lilo core tests on a real JDK 11 (the module targets Java 11). Maven and the
