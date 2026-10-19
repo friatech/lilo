@@ -47,10 +47,7 @@ public final class Lilo {
 
   public @NotNull ExecutionResult stitch(final @NotNull ExecutionInput executionInput) {
 
-    if (IntrospectionFetchingMode.FETCH_BEFORE_EVERY_REQUEST
-        == this.context.getIntrospectionFetchingMode()) {
-      this.context.invalidateAll();
-    }
+    this.invalidateIfFetchingBeforeEveryRequest();
 
     return this.context.getGraphQL(executionInput).execute(executionInput);
   }
@@ -63,14 +60,19 @@ public final class Lilo {
   public @NotNull CompletableFuture<ExecutionResult> stitchAsync(
       final @NotNull ExecutionInput executionInput) {
 
-    if (IntrospectionFetchingMode.FETCH_BEFORE_EVERY_REQUEST
-        == this.context.getIntrospectionFetchingMode()) {
-      this.context.invalidateAll();
-    }
+    this.invalidateIfFetchingBeforeEveryRequest();
 
     return this.context
         .getGraphQLAsync(executionInput)
         .thenCompose(graphQL -> graphQL.executeAsync(executionInput));
+  }
+
+  private void invalidateIfFetchingBeforeEveryRequest() {
+
+    if (IntrospectionFetchingMode.FETCH_BEFORE_EVERY_REQUEST
+        == this.context.getIntrospectionFetchingMode()) {
+      this.context.invalidateAll();
+    }
   }
 
   public static final class LiloBuilder {
