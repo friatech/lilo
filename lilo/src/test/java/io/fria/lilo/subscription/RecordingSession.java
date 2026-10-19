@@ -37,9 +37,25 @@ final class RecordingSession implements WebSocketSessionWrapper {
   /** Runs before a message is recorded; it may block or throw to simulate a slow or broken peer. */
   private volatile @NotNull Consumer<String> onSend = message -> {};
 
+  private final @NotNull String id;
+
+  RecordingSession() {
+    this(SESSION_ID);
+  }
+
+  RecordingSession(final @NotNull String id) {
+    this.id = id;
+  }
+
   /** Sends connection_init through the gateway handler, as a client would. */
   static @NotNull RecordingSession init(final @NotNull SubscriptionGatewayHandler handler) {
-    final RecordingSession session = new RecordingSession();
+    return init(handler, SESSION_ID);
+  }
+
+  /** Like {@link #init(SubscriptionGatewayHandler)}, for a session with its own id. */
+  static @NotNull RecordingSession init(
+      final @NotNull SubscriptionGatewayHandler handler, final @NotNull String id) {
+    final RecordingSession session = new RecordingSession(id);
     handler.handleMessage(session, "{\"type\":\"connection_init\"}");
     return session;
   }
@@ -51,7 +67,7 @@ final class RecordingSession implements WebSocketSessionWrapper {
 
   @Override
   public String getId() {
-    return SESSION_ID;
+    return this.id;
   }
 
   @Override

@@ -35,10 +35,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
@@ -69,39 +72,99 @@ public final class SubscriptionGatewayHandler {
   private static final String MISSING_QUERY = "Subscribe payload has no query";
   private static final String EXECUTION_FAILED = "Subscription could not be executed";
   private static final String NOT_A_SUBSCRIPTION = "Operation did not produce a subscription";
+  private static final String TOO_MANY_REQUESTS = "Too many concurrent subscription requests";
+  private static final String TOO_MANY_OPERATIONS = "Too many subscriptions on this connection";
+
+  /** Default cap on the operations one session may have registered at the same time. */
+  private static final int DEFAULT_MAX_OPERATIONS_PER_SESSION = 50;
+
+  private static final int POOL_CORE_SIZE = Math.max(4, Runtime.getRuntime().availableProcessors());
+  private static final int POOL_MAX_SIZE = 4 * POOL_CORE_SIZE;
+  private static final int POOL_QUEUE_CAPACITY = 256;
+  private static final long POOL_KEEP_ALIVE_SECONDS = 60;
 
   private static final Logger LOG = LoggerFactory.getLogger(SubscriptionGatewayHandler.class);
   private static final AtomicInteger THREAD_COUNT = new AtomicInteger();
 
   private final @NotNull Lilo lilo;
   private final @NotNull Executor executor;
+  private final int maxOperationsPerSession;
 
   /** session id -> (operation id -> operation) */
   private final @NotNull Map<String, Map<String, Operation>> sessionOperations =
       new ConcurrentHashMap<>();
 
   /**
-   * Constructs a handler instance using lilo. Subscriptions are stitched on a cached pool of daemon
-   * threads named {@code lilo-subscription-N} that the handler owns, so a source that is slow to
-   * connect never blocks the websocket thread that delivered the {@code subscribe}.
+   * Constructs a handler instance using lilo.
+   *
+   * <p>Subscriptions are stitched on a bounded pool of daemon threads named {@code
+   * lilo-subscription-N} that the handler owns, so a source that is slow to connect never blocks
+   * the websocket thread that delivered the {@code subscribe}. The pool has max(4, available
+   * processors) core threads, grows to four times that, and queues up to 256 more requests; a
+   * subscribe beyond that is answered with an {@code error} message. A session may have at most 50
+   * operations at the same time. Both limits keep clients from exhausting threads and memory.
    *
    * @param lilo global lilo instance
    */
   public SubscriptionGatewayHandler(final @NotNull Lilo lilo) {
-    this(lilo, Executors.newCachedThreadPool(SubscriptionGatewayHandler::newThread));
+    this(lilo, newDefaultExecutor());
   }
 
   /**
    * Constructs a handler instance using lilo that stitches subscriptions on the given executor. The
    * stitch runs the source's {@link SubscriptionRetriever}, which may block while it connects to
-   * the source, so the executor should not be the websocket thread or a small shared pool.
+   * the source, so the executor should not be the websocket thread or a small shared pool. It
+   * should be bounded: a subscribe it rejects is answered with an {@code error} message. A session
+   * may have at most 50 operations at the same time.
    *
    * @param lilo global lilo instance
    * @param executor executor that runs the stitching of each {@code subscribe}
    */
   public SubscriptionGatewayHandler(final @NotNull Lilo lilo, final @NotNull Executor executor) {
+    this(lilo, executor, DEFAULT_MAX_OPERATIONS_PER_SESSION);
+  }
+
+  /**
+   * Constructs a handler instance using lilo that stitches subscriptions on the given executor and
+   * limits the operations of each session. A subscribe beyond the limit is answered with an {@code
+   * error} message and the session stays open. The limit keeps one client from exhausting the
+   * gateway's and the sources' resources.
+   *
+   * @param lilo global lilo instance
+   * @param executor executor that runs the stitching of each {@code subscribe}; see {@link
+   *     #SubscriptionGatewayHandler(Lilo, Executor)}
+   * @param maxOperationsPerSession most operations one session may have at the same time (default
+   *     50), greater than zero
+   */
+  public SubscriptionGatewayHandler(
+      final @NotNull Lilo lilo,
+      final @NotNull Executor executor,
+      final int maxOperationsPerSession) {
+
+    if (maxOperationsPerSession <= 0) {
+      throw new IllegalArgumentException("maxOperationsPerSession must be greater than zero");
+    }
+
     this.lilo = Objects.requireNonNull(lilo);
     this.executor = Objects.requireNonNull(executor);
+    this.maxOperationsPerSession = maxOperationsPerSession;
+  }
+
+  private static @NotNull Executor newDefaultExecutor() {
+    final ThreadPoolExecutor pool =
+        new ThreadPoolExecutor(
+            POOL_CORE_SIZE,
+            POOL_MAX_SIZE,
+            POOL_KEEP_ALIVE_SECONDS,
+            TimeUnit.SECONDS,
+            new ArrayBlockingQueue<>(POOL_QUEUE_CAPACITY),
+            SubscriptionGatewayHandler::newThread);
+    pool.allowCoreThreadTimeOut(true);
+    return pool;
+  }
+
+  private static @NotNull String safe(final @Nullable String text) {
+    return SubscriptionSourceException.bound(String.valueOf(text));
   }
 
   private static @NotNull Thread newThread(final @NotNull Runnable runnable) {
@@ -276,6 +339,12 @@ public final class SubscriptionGatewayHandler {
         this.sessionOperations.computeIfAbsent(session.getId(), id -> new ConcurrentHashMap<>());
     final Operation operation = new Operation();
 
+    // A session's messages arrive one after the other, so a size check is enough here
+    if (operations.size() >= this.maxOperationsPerSession) {
+      sendError(session, operationId, errors(TOO_MANY_OPERATIONS));
+      return DONE;
+    }
+
     if (operations.putIfAbsent(operationId, operation) != null) {
       // Lost a race against a concurrent subscribe with the same id
       this.closeSession(session);
@@ -290,13 +359,16 @@ public final class SubscriptionGatewayHandler {
       return DONE;
     }
 
-    CompletableFuture<ExecutionResult> stitch;
+    final CompletableFuture<ExecutionResult> stitch = new CompletableFuture<>();
     try {
       // Offloaded: with a cached schema the stitch runs the source's retriever inline
-      stitch =
-          DONE.thenComposeAsync(unused -> this.lilo.stitchAsync(executionInput), this.executor);
-    } catch (final RuntimeException e) {
-      stitch = CompletableFuture.failedFuture(e);
+      this.executor.execute(() -> this.stitch(executionInput, stitch));
+    } catch (final RejectedExecutionException e) {
+      LOG.warn("Subscription {} rejected: the stitching executor is saturated", safe(operationId));
+      if (operations.remove(operationId, operation)) {
+        sendError(session, operationId, errors(TOO_MANY_REQUESTS));
+      }
+      return DONE;
     }
 
     return stitch.handle(
@@ -304,7 +376,9 @@ public final class SubscriptionGatewayHandler {
           try {
             this.start(session, operations, operation, operationId, result, throwable);
           } catch (final RuntimeException e) {
-            LOG.warn("Subscription {} could not be started", operationId, e);
+            LOG.warn(
+                "Subscription {} could not be started: {}", safe(operationId), safe(e.toString()));
+            LOG.debug("Subscription start failure", e);
             // Never leave a half started operation registered
             if (operations.remove(operationId, operation)) {
               operation.cancel();
@@ -313,6 +387,30 @@ public final class SubscriptionGatewayHandler {
           }
           return null;
         });
+  }
+
+  /**
+   * Runs on the executor: starts the stitch and passes its outcome on. The future returned by
+   * whenComplete is ignored: its callback only completes {@code outcome} and cannot fail.
+   */
+  @SuppressWarnings("FutureReturnValueIgnored")
+  private void stitch(
+      final @NotNull ExecutionInput executionInput,
+      final @NotNull CompletableFuture<ExecutionResult> outcome) {
+    try {
+      this.lilo
+          .stitchAsync(executionInput)
+          .whenComplete(
+              (result, throwable) -> {
+                if (throwable == null) {
+                  outcome.complete(result);
+                } else {
+                  outcome.completeExceptionally(throwable);
+                }
+              });
+    } catch (final RuntimeException e) {
+      outcome.completeExceptionally(e);
+    }
   }
 
   /** Runs when stitching a subscribe finished: starts forwarding or reports why it cannot. */
@@ -325,6 +423,12 @@ public final class SubscriptionGatewayHandler {
       final @Nullable Throwable throwable) {
 
     if (throwable != null || result == null) {
+      // The failure may be triggered by the client's query: no stack trace at warn
+      LOG.warn(
+          "Subscription {} could not be executed: {}",
+          safe(operationId),
+          safe(String.valueOf(throwable)));
+      LOG.debug("Subscription execution failure", throwable);
       this.fail(session, operations, operation, operationId, errors(EXECUTION_FAILED));
       return;
     }
@@ -397,7 +501,7 @@ public final class SubscriptionGatewayHandler {
                     try {
                       session.send(JsonUtils.toStr(completeMessage));
                     } catch (final RuntimeException sendFailure) {
-                      LOG.debug("Could not send complete for {}", operationId, sendFailure);
+                      LOG.debug("Could not send complete for {}", safe(operationId), sendFailure);
                     } finally {
                       operation.cancel();
                     }
@@ -435,7 +539,7 @@ public final class SubscriptionGatewayHandler {
     try {
       sendError(session, operationId, errors);
     } catch (final RuntimeException e) {
-      LOG.debug("Could not send error for {}", operationId, e);
+      LOG.debug("Could not send error for {}", safe(operationId), e);
     }
   }
 

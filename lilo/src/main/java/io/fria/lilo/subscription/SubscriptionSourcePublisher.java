@@ -82,9 +82,13 @@ public class SubscriptionSourcePublisher implements Publisher<Object> {
   }
 
   public void send(@NotNull final Object message) {
-    this.sink.tryEmitNext(message);
-    // A close that landed during this delivery could not emit; finish it now
-    this.emitTerminal();
+    try {
+      this.sink.tryEmitNext(message);
+    } finally {
+      // A close that landed during this delivery could not emit; finish it now, even if the
+      // delivery threw
+      this.emitTerminal();
+    }
   }
 
   @Override

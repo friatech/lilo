@@ -42,7 +42,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
@@ -57,6 +59,7 @@ class SubscriptionErrorTest {
   private static final String GENERIC_SOURCE_ERROR = "Subscription source reported an error";
 
   private final List<CountingPublisher> publishers = new CopyOnWriteArrayList<>();
+  private Lilo lilo;
   private SubscriptionGatewayHandler gateway;
 
   /** Runs inside the data fetcher, i.e. while the gateway is stitching a subscribe. */
@@ -140,9 +143,9 @@ class SubscriptionErrorTest {
                         }))
             .build();
 
-    final Lilo lilo =
+    this.lilo =
         Lilo.builder().addSource(DefinedSchemaSource.create("ticker", SCHEMA, wiring)).build();
-    this.gateway = new SubscriptionGatewayHandler(lilo);
+    this.gateway = new SubscriptionGatewayHandler(this.lilo);
   }
 
   // Gateway: invalid subscribe requests ------------------------------------------------------
@@ -625,17 +628,170 @@ class SubscriptionErrorTest {
     assertEquals("custom-executor", fetcherThreads.get(1).getName());
   }
 
+  @Test
+  void closeDuringAThrowingDeliveryStillFiresTermination() {
+    final SubscriptionSourcePublisher publisher = new SubscriptionSourcePublisher();
+    // A raw subscriber that closes the publisher from inside onNext and then throws
+    publisher.subscribe(
+        new org.reactivestreams.Subscriber<>() {
+          @Override
+          public void onSubscribe(final org.reactivestreams.Subscription subscription) {
+            subscription.request(Long.MAX_VALUE);
+          }
+
+          @Override
+          public void onNext(final Object item) {
+            publisher.close();
+            throw new IllegalStateException("delivery failed");
+          }
+
+          @Override
+          public void onError(final Throwable throwable) {}
+
+          @Override
+          public void onComplete() {}
+        });
+
+    assertThrows(IllegalStateException.class, () -> publisher.send("event"));
+
+    // The termination signal, which releases the source, fires regardless. The data flux itself
+    // cannot be checked: a subscriber that throws from onNext leaves reactor's sink unable to
+    // deliver its terminal signal, whatever the publisher does afterwards.
+    assertNull(publisher.getTermination().block(Duration.ofSeconds(2)));
+  }
+
+  // Resource bounds -------------------------------------------------------------------------
+
+  @Test
+  void rejectedStitchProducesErrorFrameAndLeavesNoOperation() {
+    final AtomicBoolean reject = new AtomicBoolean(true);
+    final Executor executor =
+        command -> {
+          if (reject.get()) {
+            throw new RejectedExecutionException("full");
+          }
+          new Thread(command).start();
+        };
+    final SubscriptionGatewayHandler bounded = new SubscriptionGatewayHandler(this.lilo, executor);
+    final RecordingSession session = RecordingSession.init(bounded);
+
+    await(bounded.handle(session, subscribeMessage("a", "subscription { ticks }")));
+
+    final List<SubscriptionMessage> frames = messagesFor(session, "a");
+    assertEquals(1, frames.size());
+    assertEquals(
+        List.of(Map.of("message", "Too many concurrent subscription requests")),
+        errorsOf(frames.get(0)));
+    assertTrue(session.isOpen());
+    assertTrue(this.publishers.isEmpty());
+
+    // The rejected id was not left registered
+    reject.set(false);
+    await(bounded.handle(session, subscribeMessage("a", "subscription { ticks }")));
+    assertTrue(session.isOpen());
+    assertEquals(1, this.publishers.size());
+  }
+
+  @Test
+  void perSessionOperationCapProducesErrorFrameAndFreedSlotIsReusable() {
+    final SubscriptionGatewayHandler capped =
+        new SubscriptionGatewayHandler(this.lilo, Runnable::run, 2);
+    final RecordingSession session = RecordingSession.init(capped);
+    final RecordingSession other = RecordingSession.init(capped, "other-session");
+
+    await(capped.handle(session, subscribeMessage("a", "subscription { ticks }")));
+    await(capped.handle(session, subscribeMessage("b", "subscription { ticks }")));
+    await(capped.handle(session, subscribeMessage("c", "subscription { ticks }")));
+
+    final List<SubscriptionMessage> frames = messagesFor(session, "c");
+    assertEquals(1, frames.size());
+    assertEquals(
+        List.of(Map.of("message", "Too many subscriptions on this connection")),
+        errorsOf(frames.get(0)));
+    assertTrue(session.isOpen());
+    assertEquals(2, this.publishers.size());
+
+    // The cap is per session
+    await(capped.handle(other, subscribeMessage("a", "subscription { ticks }")));
+    assertEquals(3, this.publishers.size());
+
+    // A completed operation frees its slot
+    capped.handleMessage(session, "{\"id\":\"a\",\"type\":\"complete\"}");
+    await(capped.handle(session, subscribeMessage("c", "subscription { ticks }")));
+    assertEquals(4, this.publishers.size());
+    assertEquals(1, messagesFor(session, "c").size());
+    assertTrue(session.isOpen());
+  }
+
+  @Test
+  void operationCapMustBePositive() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new SubscriptionGatewayHandler(this.lilo, Runnable::run, 0));
+  }
+
+  @Test
+  void defaultStitchPoolIsBounded() {
+    final CountDownLatch release = new CountDownLatch(1);
+    final AtomicBoolean block = new AtomicBoolean(false);
+    final SubscriptionGatewayHandler pooled =
+        new SubscriptionGatewayHandler(
+            remoteLilo(
+                (liloContext, schemaSource, query, publisher, localContext) -> {
+                  if (block.get()) {
+                    await(release);
+                  }
+                }));
+    // Loads the schema, so that later retrievers run on (and block) the pool threads
+    final RecordingSession warmUp = RecordingSession.init(pooled, "warm-up");
+    await(pooled.handle(warmUp, subscribeMessage("w", "subscription { ticks }")));
+    block.set(true);
+
+    // Every pool thread and every queue slot is taken by a blocked retriever; one more is refused
+    final int core = Math.max(4, Runtime.getRuntime().availableProcessors());
+    final int capacity = 4 * core + 256;
+    final List<CompletableFuture<Void>> pending = new java.util.ArrayList<>();
+    final List<RecordingSession> sessions = new java.util.ArrayList<>();
+    try {
+      for (int i = 0; i <= capacity; i++) {
+        // Spread over sessions to stay below the per-session cap
+        if (i % 40 == 0) {
+          sessions.add(RecordingSession.init(pooled, "session-" + sessions.size()));
+        }
+        pending.add(
+            pooled.handle(
+                sessions.get(sessions.size() - 1),
+                subscribeMessage("op-" + i, "subscription { ticks }")));
+      }
+
+      final List<SubscriptionMessage> errorFrames =
+          sessions.stream()
+              .flatMap(session -> messagesOfType(session, SubscriptionMessageType.error).stream())
+              .collect(Collectors.toList());
+      assertEquals(1, errorFrames.size());
+      assertEquals("op-" + capacity, errorFrames.get(0).getId());
+    } finally {
+      release.countDown();
+    }
+    for (final CompletableFuture<Void> future : pending) {
+      await(future);
+    }
+  }
+
   /** A remote source whose subscription retriever runs inside the gateway's stitch. */
   private static @NotNull Lilo remoteLilo(final @NotNull List<Thread> fetcherThreads) {
+    return remoteLilo(
+        (liloContext, schemaSource, query, publisher, localContext) ->
+            fetcherThreads.add(Thread.currentThread()));
+  }
+
+  private static @NotNull Lilo remoteLilo(final @NotNull SubscriptionRetriever retriever) {
     final GraphQL remote =
         GraphQL.newGraphQL(
                 new SchemaGenerator()
                     .makeExecutableSchema(
                         new SchemaParser().parse(SCHEMA), RuntimeWiring.newRuntimeWiring().build()))
             .build();
-    final SubscriptionRetriever retriever =
-        (liloContext, schemaSource, query, publisher, localContext) ->
-            fetcherThreads.add(Thread.currentThread());
 
     return Lilo.builder()
         .addSource(

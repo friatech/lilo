@@ -68,7 +68,14 @@ final class SubscriptionSourceException extends RuntimeException {
     return new SubscriptionSourceException(reason, null);
   }
 
-  private static @NotNull String bound(final @NotNull String text) {
+  /**
+   * Makes untrusted text safe for an exception message or a log line: at most 200 characters, with
+   * control characters (such as CR and LF) replaced by spaces.
+   *
+   * @param text text received from a client or a source
+   * @return bounded text without control characters
+   */
+  static @NotNull String bound(final @NotNull String text) {
     final String limited =
         text.length() > MAX_MESSAGE_LENGTH ? text.substring(0, MAX_MESSAGE_LENGTH) : text;
     // Control characters have no business in a log line or exception message
