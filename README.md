@@ -4,7 +4,8 @@
 
 **Lilo** is a super-fast GraphQL stitching library. The project is heavily inspired by [Atlassian Braid](https://bitbucket.org/atlassian/graphql-braid).
 **Lilo** focuses on simplicity and easy to use. You can find plenty of samples in the codebase and we aim to add more and more in every release.
-Please do not forget to check `/samples` directory.
+Please do not forget to check `/samples` directory: `samples/lilo` holds the core examples (`01` to `06`) and `samples/lilo-spring` holds the `lilo-spring` subscription example.
+The samples build against the `SNAPSHOT` version of Lilo, so run `./mvnw install -DskipTests -Dgpg.skip` at the repository root first, then build the sample you want.
 
 We are planning to add additional frameworks supports. For now SpringBoot is supported. If you will use `Lilo` with `SpringBoot`. Please check [Lilo Spring Documentation](lilo-spring/README.md).
 
@@ -51,6 +52,24 @@ implementation 'io.fria:lilo:24.5.0'
 - Aliases are forwarded to remote sources below the root field, and nested values are read by result key. Root field aliases are not forwarded.
 - When a remote source returns both data and errors, the data is kept and the errors are reported. When it returns only errors, the errors are reported.
 - Schema loading is single-flight: concurrent first requests share one introspection per source, and `invalidate`/`invalidateAll` still force a reload. There is no timeout or backoff on schema loading, so a hung introspection blocks requests until it completes. Set timeouts on custom retrievers.
+
+### Subscriptions
+
+- `ping` is answered with `pong` (the payload is echoed back); a client `pong` is ignored. A message that is not valid JSON, has no type, or has a server-only type (`connection_ack`, `next`, `error`) closes the session. A client must send `connection_init` before `subscribe`, otherwise the session is closed; a second `connection_init` on the same session also closes it.
+- One socket carries several operations, each tracked by its operation id. A client `complete` cancels only that operation, a duplicate active id closes the session, and a finished or failed id can be reused. A session may have at most 50 operations at once; further `subscribe` messages get an `error` frame ("Too many subscriptions on this connection") and the session stays open. Stitching runs on a bounded pool, and when it is saturated the `subscribe` gets an `error` frame ("Too many concurrent subscription requests").
+- Invalid subscribe payloads, GraphQL errors, non-subscription operations and failures reported by a remote source are sent to the client as `error` frames (the operation id plus a JSON array of GraphQL errors) instead of being thrown.
+- The `connection_init` payload and the handshake request headers reach a `SubscriptionRetriever` as the `localContext` argument, which is a `SubscriptionConnectionContext`:
+
+```java
+final SubscriptionConnectionContext context = (SubscriptionConnectionContext) localContext;
+final Map<String, Object> payload = context.getConnectionInitPayload();
+final String authorization = context.getHandshakeHeaders().get("authorization"); // names are lower-case, first value only
+```
+
+  Both maps are read-only at the top level and the headers can carry credentials (such as `Authorization` and `Cookie`), so do not log them.
+- With `lilo-spring`, `@EnableLilo` also enables Spring's WebSocket support, so you don't need to add `@EnableWebSocket`. Your application still needs Spring MVC and a WebSocket-capable servlet container (for example `spring-boot-starter-web` and `spring-boot-starter-websocket`).
+- `lilo.allowed-origins` lists the allowed WebSocket origin patterns. It defaults to `*` (every origin); an empty list allows only same-origin requests.
+- Each client connection has bounded sends. A client that takes longer than `lilo.send-time-limit` (default `10s`) to accept a frame, or whose queued frames exceed `lilo.send-buffer-size-limit` bytes (default `524288`), is disconnected with close status 4500 and its subscriptions are released. The limits are checked when another frame is queued; the servlet container's own send timeout still bounds the frame being written.
 
 ### Default remote retrievers
 
@@ -101,7 +120,7 @@ final Lilo lilo = Lilo.builder()
 ```
 
 But for a complete working example you need to serve the stitching logic from a GraphQL endpoint. (Probably `/graphql`)
-Please examine the `01-spring-boot-hello-world` example in `lilo-samples` folder.
+Please examine the `01-spring-boot-hello-world` example in the `samples/lilo` folder.
 
 In most cases, we need an authentication or some sort of header manipulation. In that case, creating custom
 introspection and query retrievers might help us to modify outgoing requests or incoming responses. The following
@@ -124,7 +143,7 @@ example shows a very basic example for custom retrievers.
     )
 ```
 
-For further details, you can examine the `02-spring-boot-basic-stitching` example in `lilo-samples` folder.
+For further details, you can examine the `02-spring-boot-basic-stitching` example in the `samples/lilo` folder.
 
 If Gateway distributes the messages to `Microservice A` and also contains an embedded schema then the architecture might
 be something like this:
