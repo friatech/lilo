@@ -49,16 +49,18 @@ import org.slf4j.LoggerFactory;
 
 public final class RemoteSchemaSource extends SchemaSource {
 
-  private static final Logger LOG = LoggerFactory.getLogger(RemoteSchemaSource.class);
-  private static final String INTROSPECTION_REQUEST =
+  // LOG, INTROSPECTION_REQUEST and the helpers below are package-private for the retriever flows;
+  // sharing LOG keeps the logger category of the messages unchanged
+  static final Logger LOG = LoggerFactory.getLogger(RemoteSchemaSource.class);
+  static final String INTROSPECTION_REQUEST =
       toStr(
           GraphQLRequest.builder()
               .query(GraphQLRequest.INTROSPECTION_QUERY)
               .operationName("IntrospectionQuery")
               .build());
 
-  private @NotNull final IntrospectionRetriever<?> introspectionRetriever;
-  private @NotNull final QueryRetriever<?> queryRetriever;
+  private @NotNull final RemoteIntrospectionFlow introspectionFlow;
+  private @NotNull final RemoteQueryFlow queryFlow;
   private @Nullable final SubscriptionRetriever subscriptionRetriever;
 
   private RemoteSchemaSource(
@@ -68,8 +70,8 @@ public final class RemoteSchemaSource extends SchemaSource {
       final @Nullable SubscriptionRetriever subscriptionRetriever) {
 
     super(schemaName);
-    this.introspectionRetriever = introspectionRetriever;
-    this.queryRetriever = queryRetriever;
+    this.introspectionFlow = RemoteIntrospectionFlow.of(introspectionRetriever);
+    this.queryFlow = RemoteQueryFlow.of(queryRetriever);
     this.subscriptionRetriever = subscriptionRetriever;
   }
 
@@ -108,7 +110,7 @@ public final class RemoteSchemaSource extends SchemaSource {
         subscriptionRetriever);
   }
 
-  private static @Nullable Object fetchData(
+  static @Nullable Object fetchData(
       final @NotNull CompletableFuture<ExecutionResult> graphQLResultFuture) {
     final ExecutionResult graphQLResult;
 
@@ -120,6 +122,11 @@ public final class RemoteSchemaSource extends SchemaSource {
     } catch (final ExecutionException e) {
       throw new RuntimeException(e);
     }
+
+    return fetchData(graphQLResult);
+  }
+
+  static @Nullable Object fetchData(final @NotNull ExecutionResult graphQLResult) {
 
     final List<GraphQLError> errors = graphQLResult.getErrors();
     final boolean hasErrors = errors != null && !errors.isEmpty();
@@ -143,7 +150,7 @@ public final class RemoteSchemaSource extends SchemaSource {
     return value;
   }
 
-  private static @NotNull ExecutionResult toExecutionResult(final @NotNull String queryResult) {
+  static @NotNull ExecutionResult toExecutionResult(final @NotNull String queryResult) {
 
     final Optional<GraphQLResult> graphQLResultOptional = toObj(queryResult, GraphQLResult.class);
 
@@ -161,15 +168,7 @@ public final class RemoteSchemaSource extends SchemaSource {
       final @NotNull GraphQLQuery query,
       final @Nullable Object localContext) {
 
-    if (this.queryRetriever instanceof AsyncQueryRetriever) {
-      final AsyncQueryRetriever queryRetriever = (AsyncQueryRetriever) this.queryRetriever;
-      final var queryResult = queryRetriever.get(liloContext, this, query, localContext);
-      return queryResult.thenApply(RemoteSchemaSource::toExecutionResult);
-    } else {
-      final SyncQueryRetriever queryRetriever = (SyncQueryRetriever) this.queryRetriever;
-      final var queryResult = queryRetriever.get(liloContext, this, query, localContext);
-      return CompletableFuture.supplyAsync(() -> RemoteSchemaSource.toExecutionResult(queryResult));
-    }
+    return this.queryFlow.execute(this, liloContext, query, localContext);
   }
 
   @Override
@@ -177,41 +176,7 @@ public final class RemoteSchemaSource extends SchemaSource {
   public @NotNull CompletableFuture<SchemaSource> loadSchema(
       final @NotNull LiloContext liloContext, final @Nullable Object localContext) {
 
-    if (this.introspectionRetriever instanceof AsyncIntrospectionRetriever) {
-      final AsyncIntrospectionRetriever introspectionRetriever =
-          (AsyncIntrospectionRetriever) this.introspectionRetriever;
-
-      return introspectionRetriever
-          .get(liloContext, this, INTROSPECTION_REQUEST, localContext)
-          .thenApply(res -> this.fetchIntrospection(res, liloContext))
-          .exceptionally(
-              e -> {
-                LOG.error(
-                    "Could not load introspection for {}", RemoteSchemaSource.this.schemaName);
-                LOG.debug("Introspection fetching exception", e);
-                return RemoteSchemaSource.this;
-              });
-    } else {
-      final SyncIntrospectionRetriever introspectionRetriever =
-          (SyncIntrospectionRetriever) this.introspectionRetriever;
-
-      return CompletableFuture.supplyAsync(
-          () -> {
-            final String introspectionResponse;
-
-            try {
-              introspectionResponse =
-                  introspectionRetriever.get(
-                      liloContext, RemoteSchemaSource.this, INTROSPECTION_REQUEST, localContext);
-            } catch (final Exception e) {
-              LOG.error("Could not load introspection for {}", RemoteSchemaSource.this.schemaName);
-              LOG.debug("Introspection fetching exception", e);
-              return RemoteSchemaSource.this;
-            }
-
-            return RemoteSchemaSource.this.fetchIntrospection(introspectionResponse, liloContext);
-          });
-    }
+    return this.introspectionFlow.loadSchema(this, liloContext, localContext);
   }
 
   private @NotNull CompletableFuture<Object> fetchData(
@@ -219,24 +184,12 @@ public final class RemoteSchemaSource extends SchemaSource {
       final @NotNull LiloContext liloContext,
       final @Nullable Object localContext) {
 
-    if (this.queryRetriever instanceof AsyncQueryRetriever) {
-      final var graphQLResultFuture =
-          RemoteSchemaSource.this.execute(liloContext, query, localContext);
-
-      return graphQLResultFuture.thenApply(executionResult -> fetchData(graphQLResultFuture));
-    } else {
-      return CompletableFuture.supplyAsync(
-          () -> {
-            final var graphQLResultFuture =
-                RemoteSchemaSource.this.execute(liloContext, query, localContext);
-
-            return fetchData(graphQLResultFuture);
-          });
-    }
+    return this.queryFlow.fetchData(this, liloContext, query, localContext);
   }
 
   @SuppressWarnings("HiddenField")
-  private @NotNull SchemaSource fetchIntrospection(
+  @NotNull
+  SchemaSource fetchIntrospection(
       final @NotNull String introspectionResponse, final @NotNull LiloContext liloContext) {
     final var introspectionResultOptional = toMap(introspectionResponse);
 
