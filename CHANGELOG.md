@@ -40,6 +40,7 @@ Subscriptions (behavior changes):
 - Subscriptions: `ping`/`pong` and `error` messages, several operations per socket with per-operation `complete`, source handler lifecycle fixes (one `subscribe` per source, sources released on cancel and send failures), and `SubscriptionConnectionContext`.
 - `lilo-spring` properties: `lilo.allowed-origins` (default `*`; an empty list allows only same-origin requests), `lilo.send-time-limit` (default `10s`) and `lilo.send-buffer-size-limit` (default `524288` bytes). A slow client is disconnected with close status 4500 and its subscriptions are released. Client sends are no longer racy across threads.
 - `RemoteRetrieverOptions` for the default remote retrievers (timeouts, response cap, header hook).
+- `Lilo.builder()` options `maxQueryDepth`, `maxQueryComplexity` (graphql-java's standard instrumentations, chained before the user's instrumentation), `introspectionEnabled` (per instance, default `true`) and `graphQLCustomizer` (applied last when the merged schema is built).
 - `lilo-spring` tests, configuration metadata descriptions and defaults.
 - SpotBugs runs in `verify` for `lilo` and `lilo-spring` and fails the build on findings.
 - A JDK 11 test job, Dependabot, CodeQL and hardened (pinned, least-privilege) GitHub Actions workflows. The JDK 11 job has not run in CI yet.

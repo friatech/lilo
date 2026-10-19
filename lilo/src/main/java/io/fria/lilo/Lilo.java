@@ -17,6 +17,7 @@ package io.fria.lilo;
 
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
+import graphql.GraphQL;
 import graphql.execution.DataFetcherExceptionHandler;
 import graphql.execution.instrumentation.Instrumentation;
 import io.fria.lilo.error.LiloDefaultDataFetcherExceptionHandler;
@@ -24,6 +25,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -80,6 +82,10 @@ public final class Lilo {
         IntrospectionFetchingMode.CACHE_UNTIL_INVALIDATION;
     private boolean retrySchemaLoad = true;
     private Instrumentation instrumentation;
+    private @Nullable Integer maxQueryDepth;
+    private @Nullable Integer maxQueryComplexity;
+    private boolean introspectionEnabled = true;
+    private @Nullable Consumer<GraphQL.Builder> graphQLCustomizer;
 
     @SuppressWarnings("checkstyle:WhitespaceAround")
     private LiloBuilder() {}
@@ -97,6 +103,9 @@ public final class Lilo {
               this.introspectionFetchingMode,
               this.retrySchemaLoad,
               this.instrumentation,
+              new LiloContext.RequestLimits(
+                  this.maxQueryDepth, this.maxQueryComplexity, this.introspectionEnabled),
+              this.graphQLCustomizer,
               this.schemaSources.values().toArray(new SchemaSource[0])));
     }
 
@@ -106,9 +115,41 @@ public final class Lilo {
       return this;
     }
 
+    /**
+     * Customizes the {@link GraphQL.Builder} of the merged gateway schema, for example to add a
+     * {@code PreparsedDocumentProvider} or an execution strategy. It is called every time the
+     * merged schema is built, after Lilo applied its own settings (the exception handler and the
+     * instrumentations), so it can also override them.
+     *
+     * @param graphQLCustomizer the customizer, or {@code null} for none
+     * @return this builder
+     */
+    @SuppressWarnings("HiddenField")
+    public @NotNull LiloBuilder graphQLCustomizer(
+        final @Nullable Consumer<GraphQL.Builder> graphQLCustomizer) {
+      this.graphQLCustomizer = graphQLCustomizer;
+      return this;
+    }
+
     @SuppressWarnings("HiddenField")
     public @NotNull LiloBuilder instrumentation(final @Nullable Instrumentation instrumentation) {
       this.instrumentation = instrumentation;
+      return this;
+    }
+
+    /**
+     * Enables or disables introspection ({@code __schema} and {@code __type}) on the gateway's own
+     * schema. It is enabled by default. When disabled, an introspection query gets a GraphQL error
+     * instead of data. It is a per-request setting of this Lilo instance (graphql-java's {@code
+     * Introspection.INTROSPECTION_DISABLED} context flag), not the JVM-wide switch, and it does not
+     * affect the introspection Lilo sends to its sources to load their schemas.
+     *
+     * @param introspectionEnabled {@code false} to reject introspection queries
+     * @return this builder
+     */
+    @SuppressWarnings("HiddenField")
+    public @NotNull LiloBuilder introspectionEnabled(final boolean introspectionEnabled) {
+      this.introspectionEnabled = introspectionEnabled;
       return this;
     }
 
@@ -116,6 +157,45 @@ public final class Lilo {
     public @NotNull LiloBuilder introspectionFetchingMode(
         final @NotNull IntrospectionFetchingMode introspectionFetchingMode) {
       this.introspectionFetchingMode = introspectionFetchingMode;
+      return this;
+    }
+
+    /**
+     * Rejects queries nested deeper than the given depth before any source is called, using
+     * graphql-java's {@code MaxQueryDepthInstrumentation}. Root fields are at depth 1. A rejected
+     * query gets a GraphQL error and no data. Not limited by default.
+     *
+     * @param maxQueryDepth the maximum depth, at least 1
+     * @return this builder
+     * @throws IllegalArgumentException if {@code maxQueryDepth} is zero or negative
+     */
+    @SuppressWarnings("HiddenField")
+    public @NotNull LiloBuilder maxQueryDepth(final int maxQueryDepth) {
+      if (maxQueryDepth <= 0) {
+        throw new IllegalArgumentException("maxQueryDepth must be positive: " + maxQueryDepth);
+      }
+
+      this.maxQueryDepth = maxQueryDepth;
+      return this;
+    }
+
+    /**
+     * Rejects queries whose complexity exceeds the given value before any source is called, using
+     * graphql-java's {@code MaxQueryComplexityInstrumentation}. Every selected field counts 1. A
+     * rejected query gets a GraphQL error and no data. Not limited by default.
+     *
+     * @param maxQueryComplexity the maximum complexity, at least 1
+     * @return this builder
+     * @throws IllegalArgumentException if {@code maxQueryComplexity} is zero or negative
+     */
+    @SuppressWarnings("HiddenField")
+    public @NotNull LiloBuilder maxQueryComplexity(final int maxQueryComplexity) {
+      if (maxQueryComplexity <= 0) {
+        throw new IllegalArgumentException(
+            "maxQueryComplexity must be positive: " + maxQueryComplexity);
+      }
+
+      this.maxQueryComplexity = maxQueryComplexity;
       return this;
     }
 

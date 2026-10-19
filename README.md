@@ -52,6 +52,9 @@ implementation 'io.fria:lilo:24.5.0'
 - Aliases are forwarded to remote sources below the root field, and nested values are read by result key. Root field aliases are not forwarded.
 - When a remote source returns both data and errors, the data is kept and the errors are reported. When it returns only errors, the errors are reported.
 - Schema loading is single-flight: concurrent first requests share one introspection per source, and `invalidate`/`invalidateAll` still force a reload. There is no timeout or backoff on schema loading, so a hung introspection blocks requests until it completes. Set timeouts on custom retrievers.
+- `maxQueryDepth(int)` and `maxQueryComplexity(int)` on `Lilo.builder()` reject a query that exceeds the limit with a GraphQL error and no data, before any source is called. They use graphql-java's standard `MaxQueryDepthInstrumentation` (root fields are at depth 1) and `MaxQueryComplexityInstrumentation` (every field counts 1), chained before your own `instrumentation(...)`. No limit is set by default; zero or negative values throw `IllegalArgumentException`.
+- `introspectionEnabled(false)` rejects `__schema` and `__type` queries on the gateway with a GraphQL error. It is per Lilo instance (graphql-java's per-request `INTROSPECTION_DISABLED` context flag, not the JVM-wide switch) and does not affect the introspection Lilo sends to its sources. Introspection is enabled by default.
+- `graphQLCustomizer(Consumer<GraphQL.Builder>)` runs each time the merged schema is built, after Lilo's own settings, so you can add a `PreparsedDocumentProvider`, an execution strategy and so on, or override Lilo's settings.
 
 ### Subscriptions
 

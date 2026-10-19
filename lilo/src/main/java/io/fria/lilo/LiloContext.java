@@ -19,8 +19,15 @@ import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 
 import graphql.ExecutionInput;
 import graphql.GraphQL;
+import graphql.analysis.MaxQueryComplexityInstrumentation;
+import graphql.analysis.MaxQueryDepthInstrumentation;
 import graphql.execution.DataFetcherExceptionHandler;
+import graphql.execution.instrumentation.ChainedInstrumentation;
 import graphql.execution.instrumentation.Instrumentation;
+import graphql.execution.instrumentation.InstrumentationState;
+import graphql.execution.instrumentation.SimplePerformantInstrumentation;
+import graphql.execution.instrumentation.parameters.InstrumentationExecutionParameters;
+import graphql.introspection.Introspection;
 import graphql.language.InterfaceTypeDefinition;
 import graphql.language.ObjectTypeDefinition;
 import graphql.language.UnionTypeDefinition;
@@ -44,6 +51,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jetbrains.annotations.NotNull;
@@ -61,7 +69,8 @@ public final class LiloContext {
   private final DataFetcherExceptionHandler dataFetcherExceptionHandler;
   private final IntrospectionFetchingMode introspectionFetchingMode;
   private final boolean retrySchemaLoad;
-  private final Instrumentation instrumentation;
+  private final @Nullable Instrumentation instrumentation;
+  private final @Nullable Consumer<GraphQL.Builder> graphQLCustomizer;
 
   /*
    * Concurrency model: the warm path only reads the volatile fields below and never locks. Every
@@ -88,12 +97,53 @@ public final class LiloContext {
       final @NotNull IntrospectionFetchingMode introspectionFetchingMode,
       final boolean retrySchemaLoad,
       final @Nullable Instrumentation instrumentation,
+      final @NotNull RequestLimits requestLimits,
+      final @Nullable Consumer<GraphQL.Builder> graphQLCustomizer,
       final @NotNull SchemaSource... schemaSources) {
     this.dataFetcherExceptionHandler = Objects.requireNonNull(dataFetcherExceptionHandler);
     this.introspectionFetchingMode = Objects.requireNonNull(introspectionFetchingMode);
     this.retrySchemaLoad = retrySchemaLoad;
-    this.instrumentation = instrumentation;
+    this.instrumentation =
+        combineInstrumentation(Objects.requireNonNull(requestLimits), instrumentation);
+    this.graphQLCustomizer = graphQLCustomizer;
     this.sourceMap = toSourceMap(Arrays.stream(schemaSources));
+  }
+
+  /**
+   * Puts Lilo's own instrumentations in front of the user's one. Without any limit configured the
+   * result is exactly the user's instrumentation, so the default behaviour does not change.
+   */
+  private static @Nullable Instrumentation combineInstrumentation(
+      final @NotNull RequestLimits requestLimits,
+      final @Nullable Instrumentation userInstrumentation) {
+
+    final List<Instrumentation> instrumentations = new ArrayList<>();
+
+    if (!requestLimits.isIntrospectionEnabled()) {
+      instrumentations.add(IntrospectionDisablingInstrumentation.INSTANCE);
+    }
+
+    final Integer maxQueryDepth = requestLimits.getMaxQueryDepth();
+
+    if (maxQueryDepth != null) {
+      instrumentations.add(new MaxQueryDepthInstrumentation(maxQueryDepth));
+    }
+
+    final Integer maxQueryComplexity = requestLimits.getMaxQueryComplexity();
+
+    if (maxQueryComplexity != null) {
+      instrumentations.add(new MaxQueryComplexityInstrumentation(maxQueryComplexity));
+    }
+
+    if (instrumentations.isEmpty()) {
+      return userInstrumentation;
+    }
+
+    if (userInstrumentation != null) {
+      instrumentations.add(userInstrumentation);
+    }
+
+    return new ChainedInstrumentation(instrumentations);
   }
 
   private static @NotNull RuntimeWiring finalizeWiring(
@@ -373,6 +423,11 @@ public final class LiloContext {
       builder.instrumentation(this.instrumentation);
     }
 
+    // Last, so the user can add to or override what Lilo set
+    if (this.graphQLCustomizer != null) {
+      this.graphQLCustomizer.accept(builder);
+    }
+
     return builder.build();
   }
 
@@ -418,6 +473,63 @@ public final class LiloContext {
       return false;
     } else { // if partially loaded then check the retry option
       return this.retrySchemaLoad;
+    }
+  }
+
+  /** Lilo's per-request limits; a {@code null} limit is not enforced. */
+  static final class RequestLimits {
+
+    private final @Nullable Integer maxQueryDepth;
+    private final @Nullable Integer maxQueryComplexity;
+    private final boolean introspectionEnabled;
+
+    RequestLimits(
+        final @Nullable Integer maxQueryDepth,
+        final @Nullable Integer maxQueryComplexity,
+        final boolean introspectionEnabled) {
+      this.maxQueryDepth = maxQueryDepth;
+      this.maxQueryComplexity = maxQueryComplexity;
+      this.introspectionEnabled = introspectionEnabled;
+    }
+
+    @Nullable
+    Integer getMaxQueryDepth() {
+      return this.maxQueryDepth;
+    }
+
+    @Nullable
+    Integer getMaxQueryComplexity() {
+      return this.maxQueryComplexity;
+    }
+
+    boolean isIntrospectionEnabled() {
+      return this.introspectionEnabled;
+    }
+  }
+
+  /**
+   * Disables introspection for every execution of the gateway's own schema by setting
+   * graphql-java's per-request {@link Introspection#INTROSPECTION_DISABLED} flag in the request's
+   * {@code GraphQLContext}. It runs as an instrumentation of the merged {@link GraphQL}, so it
+   * covers {@code stitch}, {@code stitchAsync}, subscriptions and direct use of {@link
+   * #getMergedGraphQL()}, and it leaves the JVM-wide switch and the introspection Lilo sends to its
+   * sources untouched. The flag is always overwritten, so a request cannot enable introspection
+   * again.
+   */
+  private static final class IntrospectionDisablingInstrumentation
+      extends SimplePerformantInstrumentation {
+
+    private static final IntrospectionDisablingInstrumentation INSTANCE =
+        new IntrospectionDisablingInstrumentation();
+
+    @Override
+    public @NotNull ExecutionInput instrumentExecutionInput(
+        final @NotNull ExecutionInput executionInput,
+        final @NotNull InstrumentationExecutionParameters parameters,
+        final @Nullable InstrumentationState state) {
+
+      executionInput.getGraphQLContext().put(Introspection.INTROSPECTION_DISABLED, true);
+      return executionInput;
     }
   }
 }
