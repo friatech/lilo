@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -205,6 +206,39 @@ class SingleFlightTest {
 
     Assertions.assertEquals(EXPECTED, lilo.stitch(QUERY).getData());
     Assertions.assertEquals(2, retriever.calls.get());
+  }
+
+  @Test
+  void errorThrownSynchronouslyByAsyncRetrieverDoesNotBlockLaterLoads() throws Exception {
+
+    final AtomicInteger calls = new AtomicInteger();
+    final var delegate = new TestUtils.TestIntrospectionRetriever(this.remote);
+    final AsyncIntrospectionRetriever retriever =
+        (liloContext, schemaSource, query, localContext) -> {
+          if (calls.incrementAndGet() == 1) {
+            throw new AssertionError("boom");
+          }
+
+          return CompletableFuture.completedFuture(
+              delegate.get(liloContext, schemaSource, query, localContext));
+        };
+    final Lilo lilo = this.lilo(retriever);
+
+    final Future<ExecutionResult> first = this.executor.submit(() -> lilo.stitch(QUERY));
+    final ExecutionException thrown =
+        Assertions.assertThrows(
+            ExecutionException.class, () -> first.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+    Throwable root = thrown;
+    while (root.getCause() != null) {
+      root = root.getCause();
+    }
+    Assertions.assertInstanceOf(AssertionError.class, root);
+    Assertions.assertEquals("boom", root.getMessage());
+
+    // The failed load must not stay in flight: the next request loads again and succeeds
+    final Future<ExecutionResult> second = this.executor.submit(() -> lilo.stitch(QUERY));
+    Assertions.assertEquals(EXPECTED, second.get(5, TimeUnit.SECONDS).getData());
+    Assertions.assertEquals(2, calls.get());
   }
 
   @Test

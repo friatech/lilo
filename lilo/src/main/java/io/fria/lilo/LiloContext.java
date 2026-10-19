@@ -258,7 +258,9 @@ public final class LiloContext {
 
     try {
       build = this.loadSources(localContext).thenApply(this::createGraphQL);
-    } catch (final RuntimeException e) {
+    } catch (final Throwable e) {
+      // A retriever may throw synchronously, including an Error; the load must still finish,
+      // otherwise it stays in flight and every later caller waits on it forever
       this.finishLoad(load, null, e);
       return load.copy();
     }
