@@ -36,9 +36,8 @@
   </developers>
 
   <properties>
-    <java.version>[17,18)</java.version>
-    <maven.compiler.source>17</maven.compiler.source>
-    <maven.compiler.target>17</maven.compiler.target>
+    <build.java.version>[21,)</build.java.version>
+    <maven.compiler.release>17</maven.compiler.release>
     <maven.min.version>3.6.3</maven.min.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -46,24 +45,24 @@
     <!-- https://docs.spring.io/spring-boot/docs/current/reference/html/dependency-versions.html -->
     <!-- Dependency Versions -->
     <lilo.version>24.5.1-SNAPSHOT</lilo.version>
-    <spring.version>6.1.8</spring.version>
-    <spring-boot.version>3.3.0</spring-boot.version>
-    <jakarta-servlet.version>6.0.0</jakarta-servlet.version>
+    <spring.version>7.0.9</spring.version>
+    <spring-boot.version>4.1.1</spring-boot.version>
+    <jakarta-servlet.version>6.1.0</jakarta-servlet.version>
     <!-- Plugin Versions -->
-    <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
-    <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
-    <maven-enforcer-plugin.version>3.4.1</maven-enforcer-plugin.version>
+    <maven-compiler-plugin.version>3.16.0</maven-compiler-plugin.version>
+    <maven-surefire-plugin.version>3.6.0</maven-surefire-plugin.version>
+    <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
     <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
-    <maven-javadoc-plugin.version>3.6.3</maven-javadoc-plugin.version>
-    <maven-checkstyle-plugin.version>3.3.1</maven-checkstyle-plugin.version>
+    <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
+    <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
     <maven-gpg-plugin.version>3.2.4</maven-gpg-plugin.version>
-    <spotbugs-maven-plugin.version>4.8.5.0</spotbugs-maven-plugin.version>
-    <fmt-maven-plugin.version>2.23</fmt-maven-plugin.version>
-    <apache-rat-plugin.version>0.16.1</apache-rat-plugin.version>
+    <spotbugs-maven-plugin.version>4.10.5.0</spotbugs-maven-plugin.version>
+    <fmt-maven-plugin.version>2.29</fmt-maven-plugin.version>
+    <apache-rat-plugin.version>0.18</apache-rat-plugin.version>
     <!-- Plugin Dependency Versions -->
-    <error-prone.version>2.27.1</error-prone.version>
-    <checkstyle.version>10.16.0</checkstyle.version>
-    <spotbugs.version>4.8.5</spotbugs.version>
+    <error-prone.version>2.50.0</error-prone.version>
+    <checkstyle.version>14.3.0</checkstyle.version>
+    <spotbugs.version>4.10.5</spotbugs.version>
   </properties>
 
   <dependencies>
@@ -106,11 +105,12 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>${maven-compiler-plugin.version}</version>
         <configuration>
-          <source>${maven.compiler.source}</source>
-          <target>${maven.compiler.target}</target>
+          <release>${maven.compiler.release}</release>
           <encoding>UTF-8</encoding>
           <compilerArgs>
             <arg>-XDcompilePolicy=simple</arg>
+            <arg>--should-stop=ifError=FLOW</arg>
+            <arg>-XDaddTypeAnnotationsToSymbol=true</arg>
             <arg>-Xplugin:ErrorProne -Xep:UnicodeInCode:OFF</arg>
           </compilerArgs>
           <annotationProcessorPaths>
@@ -157,7 +157,7 @@
                   <version>${maven.min.version}</version>
                 </requireMavenVersion>
                 <requireJavaVersion>
-                  <version>${java.version}</version>
+                  <version>${build.java.version}</version>
                 </requireJavaVersion>
               </rules>
             </configuration>
@@ -274,6 +274,10 @@
           <includes>
             <include>/src/**</include>
           </includes>
+          <excludes>
+            <exclude>**/.sdkmanrc</exclude>
+            <exclude>**/README.md</exclude>
+          </excludes>
         </configuration>
       </plugin>
     </plugins>
