@@ -21,11 +21,6 @@ import static io.fria.lilo.subscription.GatewayMessages.errors;
 import static io.fria.lilo.subscription.GatewayMessages.sendConnectionAck;
 import static io.fria.lilo.subscription.GatewayMessages.sendPong;
 import static io.fria.lilo.subscription.GatewayMessages.trySendError;
-import static io.fria.lilo.subscription.SubscriptionMessageType.complete;
-import static io.fria.lilo.subscription.SubscriptionMessageType.connection_init;
-import static io.fria.lilo.subscription.SubscriptionMessageType.ping;
-import static io.fria.lilo.subscription.SubscriptionMessageType.pong;
-import static io.fria.lilo.subscription.SubscriptionMessageType.subscribe;
 
 import graphql.ExecutionInput;
 import io.fria.lilo.GraphQLRequest;
@@ -80,29 +75,36 @@ final class GatewayProtocol {
       return DONE;
     }
 
-    if (request == null || request.getType() == null) {
+    final SubscriptionMessageType requestType = request == null ? null : request.getType();
+
+    if (requestType == null) {
       this.registry.closeSession(session);
       return DONE;
     }
 
-    final SubscriptionMessageType requestType = request.getType();
-
-    if (connection_init == requestType) {
-      this.handleConnectionInit(session, request);
-    } else if (ping == requestType) {
-      sendPong(session, request.getPayload());
-    } else if (subscribe == requestType) {
-      return this.handleSubscribe(session, request);
-    } else if (complete == requestType) {
-      // The client stops a single operation; the connection and other operations stay
-      final String operationId = request.getId();
-      if (operationId != null) {
-        this.registry.cancelOperation(session.getId(), operationId);
-      }
-    } else if (pong != requestType) {
-      // pong is a one-way heartbeat answer; server-to-client only types (connection_ack, next,
-      // error) are invalid from a client
-      this.registry.closeSession(session);
+    switch (requestType) {
+      case connection_init:
+        this.handleConnectionInit(session, request);
+        break;
+      case ping:
+        sendPong(session, request.getPayload());
+        break;
+      case subscribe:
+        return this.handleSubscribe(session, request);
+      case complete:
+        // The client stops a single operation; the connection and other operations stay
+        final String operationId = request.getId();
+        if (operationId != null) {
+          this.registry.cancelOperation(session.getId(), operationId);
+        }
+        break;
+      case pong:
+        // pong is a one-way heartbeat answer
+        break;
+      default:
+        // Server-to-client only types (connection_ack, next, error) are invalid from a client
+        this.registry.closeSession(session);
+        break;
     }
 
     return DONE;
