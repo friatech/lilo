@@ -20,8 +20,8 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Build with Maven and format check
-        run: mvn -B -ntp package com.spotify.fmt:fmt-maven-plugin:check -Denforcer.skip
+      - name: Build with Maven, SpotBugs and format check
+        run: mvn -B -ntp verify com.spotify.fmt:fmt-maven-plugin:check -Denforcer.skip -Dgpg.skip
 
   check-samples:
     runs-on: ubuntu-latest
@@ -37,7 +37,7 @@ jobs:
           cache: maven
 
       - name: Build lilo and cache
-        run: mvn -B -ntp clean install -DskipTests -Dgpg.skip -Dcheckstyle.skip -Denforcer.skip -Dmaven.javadoc.skip -Dmaven.source.skip
+        run: mvn -B -ntp clean install -DskipTests -Dgpg.skip -Dcheckstyle.skip -Dspotbugs.skip -Denforcer.skip -Dmaven.javadoc.skip -Dmaven.source.skip
 
       - name: Check lilo samples
         run: cd samples && mvn -B -ntp compile com.spotify.fmt:fmt-maven-plugin:check
