@@ -33,10 +33,11 @@ import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 public class GatewayWebSocketHandler extends AbstractWebSocketHandler {
 
   /** Default of the send time limit of a client session. */
-  public static final Duration DEFAULT_SEND_TIME_LIMIT = Duration.ofSeconds(10);
+  public static final Duration DEFAULT_SEND_TIME_LIMIT = GatewayLimits.DEFAULT_SEND_TIME_LIMIT;
 
   /** Default of the send buffer size limit of a client session, in bytes. */
-  public static final int DEFAULT_SEND_BUFFER_SIZE_LIMIT = 512 * 1024;
+  public static final int DEFAULT_SEND_BUFFER_SIZE_LIMIT =
+      GatewayLimits.DEFAULT_SEND_BUFFER_SIZE_LIMIT;
 
   private final @NotNull SubscriptionGatewayHandler gatewayHandler;
   private final @NotNull String subscriptionPath;
@@ -89,8 +90,8 @@ public class GatewayWebSocketHandler extends AbstractWebSocketHandler {
     this(
         lilo,
         subscriptionPath,
-        validSendTimeLimitMillis(sendTimeLimit),
-        validSendBufferSizeLimit(sendBufferSizeLimit));
+        GatewayLimits.validSendTimeLimitMillis(sendTimeLimit),
+        GatewayLimits.validSendBufferSizeLimit(sendBufferSizeLimit));
   }
 
   private GatewayWebSocketHandler(
@@ -102,22 +103,6 @@ public class GatewayWebSocketHandler extends AbstractWebSocketHandler {
     this.sendBufferSizeLimit = sendBufferSizeLimit;
     this.gatewayHandler = new SubscriptionGatewayHandler(lilo);
     this.subscriptionPath = subscriptionPath;
-  }
-
-  static int validSendTimeLimitMillis(final @NotNull Duration sendTimeLimit) {
-    final long millis = Objects.requireNonNull(sendTimeLimit, "sendTimeLimit").toMillis();
-    if (millis <= 0 || millis > Integer.MAX_VALUE) {
-      throw new IllegalArgumentException(
-          "Send time limit must be positive and at most " + Integer.MAX_VALUE + " ms");
-    }
-    return (int) millis;
-  }
-
-  static int validSendBufferSizeLimit(final int sendBufferSizeLimit) {
-    if (sendBufferSizeLimit <= 0) {
-      throw new IllegalArgumentException("Send buffer size limit must be positive");
-    }
-    return sendBufferSizeLimit;
   }
 
   /**

@@ -33,8 +33,8 @@ public class LiloConfigProperties {
   private @Nullable String graphQlPath = "/graphql";
   private @Nullable String subscriptionPath = "/graphql";
   private @NotNull List<String> allowedOrigins = List.of("*");
-  private @NotNull Duration sendTimeLimit = GatewayWebSocketHandler.DEFAULT_SEND_TIME_LIMIT;
-  private int sendBufferSizeLimit = GatewayWebSocketHandler.DEFAULT_SEND_BUFFER_SIZE_LIMIT;
+  private @NotNull Duration sendTimeLimit = GatewayLimits.DEFAULT_SEND_TIME_LIMIT;
+  private int sendBufferSizeLimit = GatewayLimits.DEFAULT_SEND_BUFFER_SIZE_LIMIT;
 
   /**
    * Origin patterns the subscription websocket endpoint accepts, as passed to Spring's {@code
@@ -96,7 +96,7 @@ public class LiloConfigProperties {
    * @param sendTimeLimit new send time limit; positive, at most {@link Integer#MAX_VALUE} ms
    */
   public void setSendTimeLimit(final @NotNull Duration sendTimeLimit) {
-    GatewayWebSocketHandler.validSendTimeLimitMillis(sendTimeLimit);
+    GatewayLimits.validSendTimeLimitMillis(sendTimeLimit);
     this.sendTimeLimit = sendTimeLimit;
   }
 
@@ -107,8 +107,7 @@ public class LiloConfigProperties {
    * @param sendBufferSizeLimit new send buffer size limit in bytes; positive
    */
   public void setSendBufferSizeLimit(final int sendBufferSizeLimit) {
-    this.sendBufferSizeLimit =
-        GatewayWebSocketHandler.validSendBufferSizeLimit(sendBufferSizeLimit);
+    this.sendBufferSizeLimit = GatewayLimits.validSendBufferSizeLimit(sendBufferSizeLimit);
   }
 
   /**
