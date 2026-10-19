@@ -15,10 +15,18 @@
  */
 package io.fria.lilo;
 
+import graphql.ExecutionInput;
+import graphql.ExecutionResult;
+import graphql.GraphQL;
 import graphql.language.Field;
 import graphql.language.OperationDefinition;
 import graphql.schema.idl.RuntimeWiring;
+import graphql.schema.idl.SchemaGenerator;
+import graphql.schema.idl.SchemaParser;
+import graphql.schema.idl.TypeRuntimeWiring;
 import java.util.Map;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -77,5 +85,92 @@ class NullSafetyTest {
 
     Assertions.assertEquals("{name}", query.getRequest().getQuery());
     Assertions.assertNull(query.getVariables());
+  }
+
+  @Test
+  void unionWithoutTypenameFailsWithClearMessage() {
+
+    final Lilo lilo =
+        remoteLilo(
+            "type Query { item: Item }\n"
+                + "union Item = A | B\n"
+                + "type A { x: String }\n"
+                + "type B { y: String }",
+            "{\"data\":{\"item\":{\"x\":\"value\"}}}");
+
+    final IllegalArgumentException exception =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                lilo.stitch(
+                    ExecutionInput.newExecutionInput()
+                        .query("{ item { ... on A { x } } }")
+                        .build()));
+
+    Assertions.assertEquals("Please provide __typename for union types", exception.getMessage());
+  }
+
+  @Test
+  void remoteResponseWithoutDataAndErrorsReportsError() {
+
+    final Lilo lilo = remoteLilo("type Query { greeting: String }", "{}");
+
+    final ExecutionResult result =
+        lilo.stitch(ExecutionInput.newExecutionInput().query("{ greeting }").build());
+
+    Assertions.assertFalse(result.getErrors().isEmpty());
+  }
+
+  @Test
+  void sourceWithoutMutationAndSubscriptionMerges() {
+
+    final Lilo lilo =
+        Lilo.builder()
+            .addSource(
+                DefinedSchemaSource.create(
+                    "project",
+                    "type Query { foo: Foo }\ntype Foo { name: String }",
+                    RuntimeWiring.newRuntimeWiring()
+                        .type(
+                            TypeRuntimeWiring.newTypeWiring("Query")
+                                .dataFetcher("foo", env -> Map.of("name", "bar")))
+                        .build()))
+            .build();
+
+    final ExecutionResult result =
+        lilo.stitch(ExecutionInput.newExecutionInput().query("{ foo { name } }").build());
+
+    Assertions.assertTrue(result.getErrors().isEmpty());
+    Assertions.assertEquals(Map.of("foo", Map.of("name", "bar")), result.getData());
+  }
+
+  private static Lilo remoteLilo(final String sdl, final String queryResponse) {
+
+    final RuntimeWiring wiring =
+        RuntimeWiring.newRuntimeWiring()
+            .type(TypeRuntimeWiring.newTypeWiring("Item").typeResolver(env -> null))
+            .build();
+    final GraphQL remote =
+        GraphQL.newGraphQL(
+                new SchemaGenerator().makeExecutableSchema(new SchemaParser().parse(sdl), wiring))
+            .build();
+
+    final SyncQueryRetriever fixedResponseRetriever =
+        new SyncQueryRetriever() {
+          @Override
+          public @NotNull String get(
+              final @NotNull LiloContext liloContext,
+              final @NotNull SchemaSource schemaSource,
+              final @NotNull GraphQLQuery query,
+              final @Nullable Object localContext) {
+            return queryResponse;
+          }
+        };
+
+    return Lilo.builder()
+        .addSource(
+            RemoteSchemaSource.create(
+                "remote", new TestUtils.TestIntrospectionRetriever(remote), fixedResponseRetriever))
+        .build();
   }
 }
