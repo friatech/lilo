@@ -44,6 +44,19 @@
       "sourceType": "io.fria.lilo.spring.LiloConfigProperties",
       "description": "How many bytes may wait to be sent to a subscription client before its session is closed as not reliable. Checked only when another frame is sent to the client while a send is in progress.",
       "defaultValue": 524288
+    },
+    {
+      "name": "lilo.subscription-pool-size",
+      "type": "java.lang.Integer",
+      "sourceType": "io.fria.lilo.spring.LiloConfigProperties",
+      "description": "Core size of the pool that stitches subscriptions. The pool grows to four times that and queues up to 256 more requests; a subscribe beyond that is answered with an error message. If not set, it's max(4, available processors)."
+    },
+    {
+      "name": "lilo.max-operations-per-session",
+      "type": "java.lang.Integer",
+      "sourceType": "io.fria.lilo.spring.LiloConfigProperties",
+      "description": "How many operations one subscription client session may have at the same time. A subscribe beyond that is answered with an error message and the session stays open.",
+      "defaultValue": 50
     }
   ],
   "hints": []

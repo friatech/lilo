@@ -16,7 +16,9 @@
 package io.fria.lilo.spring;
 
 import io.fria.lilo.Lilo;
+import io.fria.lilo.subscription.SubscriptionGatewayHandler;
 import java.util.Objects;
+import java.util.concurrent.Executor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.context.annotation.Bean;
@@ -43,17 +45,38 @@ public class LiloConfig {
    * GatewayWebSocketHandler bean definition
    *
    * @param lilo Lilo instance
-   * @param configProperties LiloConfig properties for getting subscription path and send limits
+   * @param configProperties LiloConfig properties for getting subscription path, send limits,
+   *     subscription pool size and operations per session
    * @return GatewayWebSocketHandler bean singleton instance
    */
   @Bean
   public @NotNull GatewayWebSocketHandler gatewayWebSocketHandler(
       final @NotNull Lilo lilo, final @NotNull LiloConfigProperties configProperties) {
+    final String subscriptionPath = Objects.requireNonNull(configProperties.getSubscriptionPath());
     return new GatewayWebSocketHandler(
-        lilo,
-        Objects.requireNonNull(configProperties.getSubscriptionPath()),
+        subscriptionGatewayHandler(lilo, configProperties),
+        subscriptionPath,
         configProperties.getSendTimeLimit(),
         configProperties.getSendBufferSizeLimit());
+  }
+
+  private static @NotNull SubscriptionGatewayHandler subscriptionGatewayHandler(
+      final @NotNull Lilo lilo, final @NotNull LiloConfigProperties configProperties) {
+
+    final Integer poolSize = configProperties.getSubscriptionPoolSize();
+    final Integer maxOperations = configProperties.getMaxOperationsPerSession();
+
+    // Every default (pool shape, thread names, the cap) stays with the core handler
+    if (poolSize == null) {
+      return maxOperations == null
+          ? new SubscriptionGatewayHandler(lilo)
+          : new SubscriptionGatewayHandler(lilo, maxOperations);
+    }
+
+    final Executor executor = SubscriptionGatewayHandler.defaultExecutor(poolSize);
+    return maxOperations == null
+        ? new SubscriptionGatewayHandler(lilo, executor)
+        : new SubscriptionGatewayHandler(lilo, executor, maxOperations);
   }
 
   /**

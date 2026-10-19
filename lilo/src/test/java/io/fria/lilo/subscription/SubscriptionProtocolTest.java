@@ -92,6 +92,47 @@ class SubscriptionProtocolTest {
   }
 
   @Test
+  void errorMessageFromClientClosesSession() {
+    final RecordingSession session = RecordingSession.init(this.gateway);
+
+    this.gateway.handleMessage(session, "{\"id\":\"1\",\"type\":\"error\",\"payload\":[]}");
+
+    assertFalse(session.isOpen());
+  }
+
+  @Test
+  void messageWithoutTypeClosesSession() {
+    final RecordingSession session = RecordingSession.init(this.gateway);
+
+    this.gateway.handleMessage(session, "{\"id\":\"1\"}");
+
+    assertFalse(session.isOpen());
+  }
+
+  @Test
+  void sourceHandlerIgnoresClientOnlyMessages() {
+    final RecordingSession session = new RecordingSession();
+    final SubscriptionSourceHandler handler = this.sourceHandler(new SubscriptionSourcePublisher());
+
+    handler.handleMessage(session, "{\"type\":\"connection_init\"}");
+    handler.handleMessage(session, "{\"id\":\"1\",\"type\":\"subscribe\",\"payload\":{}}");
+    handler.handleMessage(session, "{\"type\":\"pong\"}");
+
+    assertEquals(0, session.sent().size());
+    assertTrue(session.isOpen());
+  }
+
+  @Test
+  void sourceHandlerClosesOnMessageWithoutType() {
+    final RecordingSession session = new RecordingSession();
+    final SubscriptionSourceHandler handler = this.sourceHandler(new SubscriptionSourcePublisher());
+
+    handler.handleMessage(session, "{\"id\":\"1\"}");
+
+    assertFalse(session.isOpen());
+  }
+
+  @Test
   void malformedJsonClosesSession() {
     final RecordingSession session = RecordingSession.init(this.gateway);
 

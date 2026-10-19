@@ -36,6 +36,7 @@ Subscriptions (behavior changes):
 - Subscription errors (invalid payload, GraphQL errors, non-subscription operations, remote source failures) are reported to the client as `error` frames.
 - `SubscriptionWebSocketConfigurer`'s public constructor now takes the `GatewayWebSocketHandler` and the `LiloConfigProperties`. Applications that only use `@EnableLilo` are unaffected; code that constructs it directly must pass the properties.
 - `@EnableLilo` now also enables Spring's WebSocket support.
+- `GatewayWebSocketHandler` has a new `(SubscriptionGatewayHandler, String, Duration, int)` constructor next to `(Lilo, String, Duration, int)`, so a call that passes a literal `null` as the first argument no longer compiles (it is ambiguous); cast the `null` to the intended type. Binary compatibility is unaffected.
 
 Build and tooling:
 
@@ -46,12 +47,14 @@ Build and tooling:
 - `GraphQLRequest` supports an optional `extensions` map (JSON, builder, getter/setter, defensively copied) that is passed on to the `ExecutionInput`; it is omitted from the JSON when absent.
 - Subscriptions: `ping`/`pong` and `error` messages, several operations per socket with per-operation `complete`, source handler lifecycle fixes (one `subscribe` per source, sources released on cancel and send failures), and `SubscriptionConnectionContext`.
 - `SubscriptionGatewayHandler(Lilo, Executor)` and `SubscriptionGatewayHandler(Lilo, Executor, int)` constructors to choose the stitch executor and the per-session operation cap.
+- `SubscriptionGatewayHandler(Lilo, int)` to set the per-session operation cap and keep the default stitch pool, and `SubscriptionGatewayHandler.defaultExecutor(int)` to build the default pool with another core size.
 - `SubscriptionSourceHandler` and `SourceWebSocketHandler` constructors that take the `connection_init` payload sent to the source.
 - `SourceWebSocketHandler(query, publisher, connectionInitPayload, maxMessageSize)` and `SourceWebSocketHandler.DEFAULT_MAX_MESSAGE_SIZE` to bound the size of a source message, in characters (UTF-16 `char`s, not bytes); a bigger message fails the operation and the source session is closed. `SubscriptionSourceHandler.handleSessionClose(session, closeReason)` carries the transport's close status into the failure, and the gateway logs a failed operation once at `WARN` with its cause; an `error` message the source sent itself is logged at `DEBUG`.
 - `SubscriptionSourcePublisher.getTermination()`, a signal that completes once the publisher is closed or failed without consuming events. Subclasses that override `close()` or `error()` must call `super`, otherwise the publisher never ends.
 - The source websocket session is now closed when its operation ends.
 - A public four-argument `GraphQLRequest(query, operationName, variables, extensions)` constructor.
 - `lilo-spring` properties: `lilo.allowed-origins` (default `*`; an empty list allows only same-origin requests), `lilo.send-time-limit` (default `10s`) and `lilo.send-buffer-size-limit` (default `524288` bytes). A slow client is disconnected with close status 4500 and its subscriptions are released. Client sends are no longer racy across threads.
+- `lilo-spring` properties `lilo.subscription-pool-size` (default max(4, available processors)) and `lilo.max-operations-per-session` (default `50`) to size the subscription stitch pool and cap the operations of one client connection, and a `GatewayWebSocketHandler(SubscriptionGatewayHandler, String, Duration, int)` constructor that takes a gateway handler built in code.
 - `RemoteRetrieverOptions` for the default remote retrievers (timeouts, response cap, header hook).
 - `Lilo.builder()` options `maxQueryDepth`, `maxQueryComplexity` (graphql-java's standard instrumentations, chained before the user's instrumentation), `introspectionEnabled` (per instance, default `true`) and `graphQLCustomizer` (applied last when the merged schema is built).
 - `lilo-spring` tests, configuration metadata descriptions and defaults.

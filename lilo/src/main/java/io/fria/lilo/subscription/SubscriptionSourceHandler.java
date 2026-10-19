@@ -17,10 +17,6 @@ package io.fria.lilo.subscription;
 
 import static io.fria.lilo.subscription.SubscriptionMessageType.complete;
 import static io.fria.lilo.subscription.SubscriptionMessageType.connection_init;
-import static io.fria.lilo.subscription.SubscriptionMessageType.error;
-import static io.fria.lilo.subscription.SubscriptionMessageType.next;
-import static io.fria.lilo.subscription.SubscriptionMessageType.ping;
-import static io.fria.lilo.subscription.SubscriptionMessageType.pong;
 import static io.fria.lilo.subscription.SubscriptionMessageType.subscribe;
 
 import io.fria.lilo.GraphQLQuery;
@@ -106,38 +102,48 @@ public class SubscriptionSourceHandler {
       return;
     }
 
-    if (request == null || request.getType() == null) {
+    final SubscriptionMessageType requestType = request == null ? null : request.getType();
+
+    if (requestType == null) {
       this.closeSource(session, "Subscription source sent an invalid message");
       return;
     }
 
-    final SubscriptionMessageType requestType = request.getType();
-
-    if (SubscriptionMessageType.connection_ack == requestType) {
-      this.subscribe(session);
-    } else if (next == requestType) {
-      final Object payload = request.getPayload();
-
-      if (payload == null) {
-        this.closeSource(session, "Subscription source sent a next message without payload");
-        return;
-      }
-
-      this.publisher.send(payload);
-    } else if (ping == requestType) {
-      // Echo the ping payload back, if any
-      final SubscriptionMessage response = new SubscriptionMessage();
-      response.setType(pong);
-      response.setPayload(request.getPayload());
-      session.send(JsonUtils.toStr(response));
-    } else if (complete == requestType) {
-      // Source finished the operation
-      this.endedBySource = true;
-      this.publisher.close();
-    } else if (error == requestType) {
-      this.endedBySource = true;
-      this.publisher.error(SubscriptionSourceException.fromPayload(request.getPayload()));
+    switch (requestType) {
+      case connection_ack:
+        this.subscribe(session);
+        break;
+      case next:
+        this.handleNext(session, request.getPayload());
+        break;
+      case ping:
+        // Echoes the ping payload back, if any
+        GatewayMessages.sendPong(session, request.getPayload());
+        break;
+      case complete:
+        // Source finished the operation
+        this.endedBySource = true;
+        this.publisher.close();
+        break;
+      case error:
+        this.endedBySource = true;
+        this.publisher.error(SubscriptionSourceException.fromPayload(request.getPayload()));
+        break;
+      default:
+        // Client-to-server only types (connection_init, subscribe) and pong are ignored
+        break;
     }
+  }
+
+  private void handleNext(
+      final @NotNull WebSocketSessionWrapper session, final @Nullable Object payload) {
+
+    if (payload == null) {
+      this.closeSource(session, "Subscription source sent a next message without payload");
+      return;
+    }
+
+    this.publisher.send(payload);
   }
 
   private void subscribe(final @NotNull WebSocketSessionWrapper session) {

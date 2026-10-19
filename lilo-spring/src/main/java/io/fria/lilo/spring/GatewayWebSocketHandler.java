@@ -33,10 +33,11 @@ import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 public class GatewayWebSocketHandler extends AbstractWebSocketHandler {
 
   /** Default of the send time limit of a client session. */
-  public static final Duration DEFAULT_SEND_TIME_LIMIT = Duration.ofSeconds(10);
+  public static final Duration DEFAULT_SEND_TIME_LIMIT = GatewayLimits.DEFAULT_SEND_TIME_LIMIT;
 
   /** Default of the send buffer size limit of a client session, in bytes. */
-  public static final int DEFAULT_SEND_BUFFER_SIZE_LIMIT = 512 * 1024;
+  public static final int DEFAULT_SEND_BUFFER_SIZE_LIMIT =
+      GatewayLimits.DEFAULT_SEND_BUFFER_SIZE_LIMIT;
 
   private final @NotNull SubscriptionGatewayHandler gatewayHandler;
   private final @NotNull String subscriptionPath;
@@ -89,8 +90,33 @@ public class GatewayWebSocketHandler extends AbstractWebSocketHandler {
     this(
         lilo,
         subscriptionPath,
-        validSendTimeLimitMillis(sendTimeLimit),
-        validSendBufferSizeLimit(sendBufferSizeLimit));
+        GatewayLimits.validSendTimeLimitMillis(sendTimeLimit),
+        GatewayLimits.validSendBufferSizeLimit(sendBufferSizeLimit));
+  }
+
+  /**
+   * Constructor creates a GatewayWebSocketHandler that delegates to the given gateway handler, e.g.
+   * one built with its own stitch executor or per-session operation cap. The send limits work as in
+   * {@link #GatewayWebSocketHandler(Lilo, String, Duration, int)}.
+   *
+   * @param gatewayHandler handler of the graphql-transport-ws protocol of every client session; it
+   *     should not be shared with another websocket handler
+   * @param subscriptionPath subscription path for handling subscription requests. Mostly it's
+   *     /graphql
+   * @param sendTimeLimit how long a send to a client may take; positive, at most {@link
+   *     Integer#MAX_VALUE} milliseconds
+   * @param sendBufferSizeLimit how many bytes may wait to be sent to a client; positive
+   */
+  public GatewayWebSocketHandler(
+      final @NotNull SubscriptionGatewayHandler gatewayHandler,
+      final @NotNull String subscriptionPath,
+      final @NotNull Duration sendTimeLimit,
+      final int sendBufferSizeLimit) {
+    this(
+        Objects.requireNonNull(gatewayHandler, "gatewayHandler"),
+        subscriptionPath,
+        GatewayLimits.validSendTimeLimitMillis(sendTimeLimit),
+        GatewayLimits.validSendBufferSizeLimit(sendBufferSizeLimit));
   }
 
   private GatewayWebSocketHandler(
@@ -98,26 +124,23 @@ public class GatewayWebSocketHandler extends AbstractWebSocketHandler {
       final @NotNull String subscriptionPath,
       final int sendTimeLimitMillis,
       final int sendBufferSizeLimit) {
+    // Created only once the limits are valid
+    this(
+        new SubscriptionGatewayHandler(lilo),
+        subscriptionPath,
+        sendTimeLimitMillis,
+        sendBufferSizeLimit);
+  }
+
+  private GatewayWebSocketHandler(
+      final @NotNull SubscriptionGatewayHandler gatewayHandler,
+      final @NotNull String subscriptionPath,
+      final int sendTimeLimitMillis,
+      final int sendBufferSizeLimit) {
     this.sendTimeLimitMillis = sendTimeLimitMillis;
     this.sendBufferSizeLimit = sendBufferSizeLimit;
-    this.gatewayHandler = new SubscriptionGatewayHandler(lilo);
+    this.gatewayHandler = gatewayHandler;
     this.subscriptionPath = subscriptionPath;
-  }
-
-  static int validSendTimeLimitMillis(final @NotNull Duration sendTimeLimit) {
-    final long millis = Objects.requireNonNull(sendTimeLimit, "sendTimeLimit").toMillis();
-    if (millis <= 0 || millis > Integer.MAX_VALUE) {
-      throw new IllegalArgumentException(
-          "Send time limit must be positive and at most " + Integer.MAX_VALUE + " ms");
-    }
-    return (int) millis;
-  }
-
-  static int validSendBufferSizeLimit(final int sendBufferSizeLimit) {
-    if (sendBufferSizeLimit <= 0) {
-      throw new IllegalArgumentException("Send buffer size limit must be positive");
-    }
-    return sendBufferSizeLimit;
   }
 
   /**

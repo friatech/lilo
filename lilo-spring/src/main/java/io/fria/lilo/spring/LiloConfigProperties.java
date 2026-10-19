@@ -33,8 +33,10 @@ public class LiloConfigProperties {
   private @Nullable String graphQlPath = "/graphql";
   private @Nullable String subscriptionPath = "/graphql";
   private @NotNull List<String> allowedOrigins = List.of("*");
-  private @NotNull Duration sendTimeLimit = GatewayWebSocketHandler.DEFAULT_SEND_TIME_LIMIT;
-  private int sendBufferSizeLimit = GatewayWebSocketHandler.DEFAULT_SEND_BUFFER_SIZE_LIMIT;
+  private @NotNull Duration sendTimeLimit = GatewayLimits.DEFAULT_SEND_TIME_LIMIT;
+  private int sendBufferSizeLimit = GatewayLimits.DEFAULT_SEND_BUFFER_SIZE_LIMIT;
+  private @Nullable Integer subscriptionPoolSize;
+  private @Nullable Integer maxOperationsPerSession;
 
   /**
    * Origin patterns the subscription websocket endpoint accepts, as passed to Spring's {@code
@@ -91,12 +93,60 @@ public class LiloConfigProperties {
   }
 
   /**
+   * Core size of the pool that stitches subscriptions. The pool grows to four times that and queues
+   * up to 256 more requests; a subscribe beyond that is answered with an {@code error} message. If
+   * not set, it's max(4, available processors), the default of {@code SubscriptionGatewayHandler}.
+   *
+   * @return core size of the subscription stitch pool, or null if not set
+   */
+  public @Nullable Integer getSubscriptionPoolSize() {
+    return this.subscriptionPoolSize;
+  }
+
+  /**
+   * How many operations one subscription client session may have at the same time. A subscribe
+   * beyond that is answered with an {@code error} message and the session stays open. If not set,
+   * it's 50, the default of {@code SubscriptionGatewayHandler}.
+   *
+   * @return most operations of one client session, or null if not set
+   */
+  public @Nullable Integer getMaxOperationsPerSession() {
+    return this.maxOperationsPerSession;
+  }
+
+  /**
+   * setter for the core size of the subscription stitch pool. If not set, it's max(4, available
+   * processors).
+   *
+   * @param subscriptionPoolSize new core size; positive, or null for the default
+   */
+  public void setSubscriptionPoolSize(final @Nullable Integer subscriptionPoolSize) {
+    if (subscriptionPoolSize != null) {
+      GatewayLimits.validSubscriptionPoolSize(subscriptionPoolSize);
+    }
+    this.subscriptionPoolSize = subscriptionPoolSize;
+  }
+
+  /**
+   * setter for the most operations one subscription client session may have at the same time. If
+   * not set, it's 50.
+   *
+   * @param maxOperationsPerSession new cap; positive, or null for the default
+   */
+  public void setMaxOperationsPerSession(final @Nullable Integer maxOperationsPerSession) {
+    if (maxOperationsPerSession != null) {
+      GatewayLimits.validMaxOperationsPerSession(maxOperationsPerSession);
+    }
+    this.maxOperationsPerSession = maxOperationsPerSession;
+  }
+
+  /**
    * setter for the send time limit of subscription client sessions. If not set, it's 10 seconds.
    *
    * @param sendTimeLimit new send time limit; positive, at most {@link Integer#MAX_VALUE} ms
    */
   public void setSendTimeLimit(final @NotNull Duration sendTimeLimit) {
-    GatewayWebSocketHandler.validSendTimeLimitMillis(sendTimeLimit);
+    GatewayLimits.validSendTimeLimitMillis(sendTimeLimit);
     this.sendTimeLimit = sendTimeLimit;
   }
 
@@ -107,8 +157,7 @@ public class LiloConfigProperties {
    * @param sendBufferSizeLimit new send buffer size limit in bytes; positive
    */
   public void setSendBufferSizeLimit(final int sendBufferSizeLimit) {
-    this.sendBufferSizeLimit =
-        GatewayWebSocketHandler.validSendBufferSizeLimit(sendBufferSizeLimit);
+    this.sendBufferSizeLimit = GatewayLimits.validSendBufferSizeLimit(sendBufferSizeLimit);
   }
 
   /**
