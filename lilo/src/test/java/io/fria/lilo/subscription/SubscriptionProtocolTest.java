@@ -81,6 +81,17 @@ class SubscriptionProtocolTest {
   }
 
   @Test
+  void serverOnlyMessageFromClientClosesSession() {
+    final RecordingSession ackSession = RecordingSession.init(this.gateway);
+    this.gateway.handleMessage(ackSession, "{\"type\":\"connection_ack\"}");
+    assertFalse(ackSession.isOpen());
+
+    final RecordingSession nextSession = RecordingSession.init(this.gateway);
+    this.gateway.handleMessage(nextSession, "{\"id\":\"1\",\"type\":\"next\",\"payload\":{}}");
+    assertFalse(nextSession.isOpen());
+  }
+
+  @Test
   void malformedJsonClosesSession() {
     final RecordingSession session = RecordingSession.init(this.gateway);
 

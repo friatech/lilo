@@ -18,15 +18,20 @@ package io.fria.lilo.subscription;
 import io.fria.lilo.JsonUtils;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.jetbrains.annotations.NotNull;
 
-/** Test double that records everything sent to it and remembers whether it was closed. */
+/**
+ * Test double that records everything sent to it and remembers whether it was closed. It is safe to
+ * use from several threads: reactor threads may send while the test thread reads.
+ */
 final class RecordingSession implements WebSocketSessionWrapper {
 
   static final String SESSION_ID = "test-session";
 
-  private final @NotNull List<String> sent = new ArrayList<>();
-  private boolean open = true;
+  private final @NotNull List<String> sent = new CopyOnWriteArrayList<>();
+  private final @NotNull AtomicBoolean open = new AtomicBoolean(true);
 
   /** Sends connection_init through the gateway handler, as a client would. */
   static @NotNull RecordingSession init(final @NotNull SubscriptionGatewayHandler handler) {
@@ -37,7 +42,7 @@ final class RecordingSession implements WebSocketSessionWrapper {
 
   @Override
   public void close() {
-    this.open = false;
+    this.open.set(false);
   }
 
   @Override
@@ -47,7 +52,7 @@ final class RecordingSession implements WebSocketSessionWrapper {
 
   @Override
   public boolean isOpen() {
-    return this.open;
+    return this.open.get();
   }
 
   @Override
@@ -55,17 +60,17 @@ final class RecordingSession implements WebSocketSessionWrapper {
     this.sent.add(message);
   }
 
-  /** Returns the raw messages sent so far, in order. */
+  /** Returns a snapshot of the raw messages sent so far, in order. */
   @NotNull
   List<String> sent() {
-    return this.sent;
+    return List.copyOf(this.sent);
   }
 
   /** Returns the sent messages parsed as subscription messages, in order. */
   @NotNull
   List<SubscriptionMessage> sentMessages() {
     final List<SubscriptionMessage> messages = new ArrayList<>();
-    for (final String raw : this.sent) {
+    for (final String raw : this.sent()) {
       messages.add(JsonUtils.toObj(raw, SubscriptionMessage.class).orElseThrow());
     }
     return messages;
