@@ -55,7 +55,7 @@
     <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
     <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
     <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
-    <maven-gpg-plugin.version>3.2.4</maven-gpg-plugin.version>
+    <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
     <spotbugs-maven-plugin.version>4.10.5.0</spotbugs-maven-plugin.version>
     <fmt-maven-plugin.version>2.29</fmt-maven-plugin.version>
     <apache-rat-plugin.version>0.18</apache-rat-plugin.version>
@@ -274,6 +274,7 @@
           <includes>
             <include>/src/**</include>
           </includes>
+          <!-- rat 0.18 scans files outside src/ despite the includes; skip non-source metadata -->
           <excludes>
             <exclude>**/.sdkmanrc</exclude>
             <exclude>**/README.md</exclude>
