@@ -118,8 +118,7 @@ public class LiloConfigProperties {
    * setter for the core size of the subscription stitch pool. If not set, it's max(4, available
    * processors).
    *
-   * @param subscriptionPoolSize new core size; positive, at most {@code Integer.MAX_VALUE / 4}, or
-   *     null for the default
+   * @param subscriptionPoolSize new core size; positive, or null for the default
    */
   public void setSubscriptionPoolSize(final @Nullable Integer subscriptionPoolSize) {
     if (subscriptionPoolSize != null) {

@@ -103,9 +103,6 @@ class LiloConfigPropertiesTest {
   @Test
   void rejectsInvalidSubscriptionPoolSizeAndOperationCap() {
     assertThrows(BindException.class, () -> bind(Map.of("lilo.subscription-pool-size", "0")));
-    assertThrows(
-        BindException.class,
-        () -> bind(Map.of("lilo.subscription-pool-size", String.valueOf(Integer.MAX_VALUE))));
     assertThrows(BindException.class, () -> bind(Map.of("lilo.max-operations-per-session", "0")));
     final LiloConfigProperties properties = new LiloConfigProperties();
     assertThrows(IllegalArgumentException.class, () -> properties.setSubscriptionPoolSize(-1));

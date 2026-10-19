@@ -181,6 +181,9 @@ class GatewayWebSocketHandlerTest {
 
     assertEquals(1, stitches.size());
     assertEquals(List.of("connection_ack", "error"), types(session));
+    assertTrue(
+        session.sent().get(1).contains("Too many subscriptions on this connection"),
+        session.sent().get(1));
     assertEquals("/graphql", injected.getSubscriptionPath());
     assertEquals(Duration.ofMillis(250), injected.getSendTimeLimit());
     assertEquals(99, injected.getSendBufferSizeLimit());

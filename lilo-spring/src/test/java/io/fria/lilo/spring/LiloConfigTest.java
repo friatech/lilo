@@ -16,8 +16,6 @@
 package io.fria.lilo.spring;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.fria.lilo.JsonUtils;
@@ -27,9 +25,7 @@ import io.fria.lilo.SyncIntrospectionRetriever;
 import io.fria.lilo.SyncQueryRetriever;
 import io.fria.lilo.subscription.SubscriptionRetriever;
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.socket.TextMessage;
@@ -73,16 +69,13 @@ class LiloConfigTest {
         .toList();
   }
 
-  @Test
-  void configuredOperationCapReachesTheGateway() throws Exception {
-    final CountDownLatch stitching = new CountDownLatch(1);
-    final CountDownLatch release = new CountDownLatch(1);
-    // Holds the first operation's stitch, so it still counts when the second subscribe arrives
+  /** A gateway whose stitches block until {@code release}, so every operation stays in flight. */
+  private static GatewayWebSocketHandler gateway(
+      final LiloConfigProperties properties, final CountDownLatch release) {
     final SubscriptionRetriever retriever =
         (liloContext, schemaSource, query, publisher, localContext) -> {
-          stitching.countDown();
           try {
-            release.await(5, TimeUnit.SECONDS);
+            assertTrue(release.await(5, TimeUnit.SECONDS));
           } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
           }
@@ -94,22 +87,27 @@ class LiloConfigTest {
         Lilo.builder()
             .addSource(RemoteSchemaSource.create("ticker", introspection, queries, retriever))
             .build();
-    final LiloConfigProperties properties = new LiloConfigProperties();
-    properties.setMaxOperationsPerSession(1);
-    properties.setSubscriptionPoolSize(2);
+    return new LiloConfig().gatewayWebSocketHandler(lilo, properties);
+  }
 
-    final GatewayWebSocketHandler gateway =
-        new LiloConfig().gatewayWebSocketHandler(lilo, properties);
-    final RecordingWebSocketSession client = new RecordingWebSocketSession();
+  /** Subscribes one operation more than {@code cap} and checks that only the last is rejected. */
+  private static void assertCap(final LiloConfigProperties properties, final int cap)
+      throws Exception {
+    // The pools are not reachable from here: their daemon threads end after 60 idle seconds
+    final CountDownLatch release = new CountDownLatch(1);
     try {
+      final GatewayWebSocketHandler gateway = gateway(properties, release);
+      final RecordingWebSocketSession client = new RecordingWebSocketSession();
       gateway.afterConnectionEstablished(client);
       gateway.handleMessage(client, new TextMessage(INIT));
-      gateway.handleMessage(client, new TextMessage(subscribe("a")));
-      assertTrue(stitching.await(5, TimeUnit.SECONDS));
 
-      gateway.handleMessage(client, new TextMessage(subscribe("b")));
+      // Each stitch is counted when it is submitted, so the cap holds even before any one runs
+      for (int i = 0; i <= cap; i++) {
+        gateway.handleMessage(client, new TextMessage(subscribe("op" + i)));
+      }
 
       assertEquals(List.of("connection_ack", "error"), types(client));
+      assertTrue(client.sent().get(1).contains("\"id\":\"op" + cap + "\""), client.sent().get(1));
       assertTrue(client.sent().get(1).contains("Too many subscriptions on this connection"));
       assertTrue(client.isOpen());
     } finally {
@@ -118,31 +116,27 @@ class LiloConfigTest {
   }
 
   @Test
-  void subscriptionPoolIsShapedLikeTheHandlersOwn() throws Exception {
-    final ThreadPoolExecutor pool =
-        assertInstanceOf(ThreadPoolExecutor.class, SubscriptionPool.create(3));
-    try {
-      assertEquals(3, pool.getCorePoolSize());
-      assertEquals(12, pool.getMaximumPoolSize());
-      assertEquals(60, pool.getKeepAliveTime(TimeUnit.SECONDS));
-      assertTrue(pool.allowsCoreThreadTimeOut());
-      assertEquals(
-          256, assertInstanceOf(ArrayBlockingQueue.class, pool.getQueue()).remainingCapacity());
+  void configuredPoolSizeAndOperationCapReachTheGateway() throws Exception {
+    final LiloConfigProperties properties = new LiloConfigProperties();
+    properties.setMaxOperationsPerSession(1);
+    properties.setSubscriptionPoolSize(2);
 
-      final ArrayBlockingQueue<Thread> ran = new ArrayBlockingQueue<>(1);
-      pool.execute(() -> ran.add(Thread.currentThread()));
-      final Thread thread = ran.poll(5, TimeUnit.SECONDS);
-      assertTrue(thread != null && thread.isDaemon(), String.valueOf(thread));
-      assertTrue(thread.getName().startsWith("lilo-subscription-"), thread.getName());
-    } finally {
-      pool.shutdownNow();
-    }
+    assertCap(properties, 1);
   }
 
   @Test
-  void subscriptionPoolRejectsInvalidSizes() {
-    assertThrows(IllegalArgumentException.class, () -> SubscriptionPool.create(0));
-    assertThrows(
-        IllegalArgumentException.class, () -> SubscriptionPool.create(Integer.MAX_VALUE / 4 + 1));
+  void configuredOperationCapAloneKeepsTheDefaultPool() throws Exception {
+    final LiloConfigProperties properties = new LiloConfigProperties();
+    properties.setMaxOperationsPerSession(2);
+
+    assertCap(properties, 2);
+  }
+
+  @Test
+  void configuredPoolSizeAloneKeepsTheDefaultCap() throws Exception {
+    final LiloConfigProperties properties = new LiloConfigProperties();
+    properties.setSubscriptionPoolSize(1);
+
+    assertCap(properties, 50);
   }
 }

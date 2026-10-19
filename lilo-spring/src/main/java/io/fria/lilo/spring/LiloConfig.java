@@ -66,18 +66,17 @@ public class LiloConfig {
     final Integer poolSize = configProperties.getSubscriptionPoolSize();
     final Integer maxOperations = configProperties.getMaxOperationsPerSession();
 
-    if (poolSize == null && maxOperations == null) {
-      // Exactly the handler's own defaults
-      return new SubscriptionGatewayHandler(lilo);
+    // Every default (pool shape, thread names, the cap) stays with the core handler
+    if (poolSize == null) {
+      return maxOperations == null
+          ? new SubscriptionGatewayHandler(lilo)
+          : new SubscriptionGatewayHandler(lilo, maxOperations);
     }
 
-    final Executor executor =
-        SubscriptionPool.create(
-            poolSize == null ? GatewayLimits.defaultSubscriptionPoolSize() : poolSize);
-    return new SubscriptionGatewayHandler(
-        lilo,
-        executor,
-        maxOperations == null ? GatewayLimits.DEFAULT_MAX_OPERATIONS_PER_SESSION : maxOperations);
+    final Executor executor = SubscriptionGatewayHandler.defaultExecutor(poolSize);
+    return maxOperations == null
+        ? new SubscriptionGatewayHandler(lilo, executor)
+        : new SubscriptionGatewayHandler(lilo, executor, maxOperations);
   }
 
   /**
