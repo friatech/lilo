@@ -21,6 +21,12 @@ import org.jetbrains.annotations.NotNull;
 /**
  * WebSocketSessionWrapper encapsulates the basic session operations for making communication
  * framework-agnostic.
+ *
+ * <p>Lilo sends to one session from several threads at the same time: the websocket thread that
+ * delivered a client message, the gateway's stitch executor, and the threads of the source
+ * connections that deliver events. An implementation must therefore make {@link #send} thread-safe
+ * for one session, for example by serialising the writes, and should keep it from blocking
+ * indefinitely on a stalled client; it may drop the message or close the session instead.
  */
 public interface WebSocketSessionWrapper {
 
@@ -45,6 +51,12 @@ public interface WebSocketSessionWrapper {
    * Returns what the transport attached to the session, such as the handshake request headers under
    * {@link SubscriptionConnectionContext#HEADERS_ATTRIBUTE}.
    *
+   * <p>A binding for a transport other than lilo-spring that wants the handshake headers to reach
+   * {@link SubscriptionConnectionContext#getHandshakeHeaders()} stores them under {@link
+   * SubscriptionConnectionContext#HEADERS_ATTRIBUTE} as a {@code Map<String, String>} of header
+   * name to value, with lower-cased names (one value per header) as lilo-spring does; entries that
+   * are not string to string are ignored.
+   *
    * <p>The returned map may be the transport's live attribute map: callers must neither retain nor
    * mutate it, and should copy what they need.
    *
@@ -55,7 +67,8 @@ public interface WebSocketSessionWrapper {
   }
 
   /**
-   * Sends a string message
+   * Sends a string message. It may be called concurrently from several threads for the same session
+   * and must be thread-safe; see the type's documentation.
    *
    * @param message websocket string message
    */

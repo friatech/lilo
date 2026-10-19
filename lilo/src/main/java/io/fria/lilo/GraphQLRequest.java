@@ -141,6 +141,18 @@ public final class GraphQLRequest {
     this(query, operationName, variables, null);
   }
 
+  /**
+   * Creates a request with protocol extensions, such as an Automatic Persisted Queries hash. The
+   * variables and extensions are copied into unmodifiable maps that keep their iteration order and
+   * may hold null values. Absent extensions are left out of the request's JSON, so a request
+   * forwarded to a remote source keeps its previous shape.
+   *
+   * @param query GraphQL query text
+   * @param operationName name of the operation to run, or null for the only one
+   * @param variables variable values, or null for none
+   * @param extensions request extensions, or null for none; they reach the {@link ExecutionInput}
+   *     only when not empty
+   */
   public GraphQLRequest(
       final @NotNull String query,
       final @Nullable String operationName,

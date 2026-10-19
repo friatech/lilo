@@ -37,6 +37,30 @@ class GraphQLRequestTest {
   }
 
   @Test
+  void nullExtensionsAreDeserialisedAsAbsent() {
+
+    final GraphQLRequest request =
+        JsonUtils.toObj("{\"query\":\"{name}\",\"extensions\":null}", GraphQLRequest.class)
+            .orElseThrow();
+
+    Assertions.assertNull(request.getExtensions());
+    Assertions.assertTrue(request.toExecutionInput().getExtensions().isEmpty());
+  }
+
+  @Test
+  void nonObjectExtensionsAreRejected() {
+
+    final IllegalArgumentException e =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                JsonUtils.toObj(
+                    "{\"query\":\"{name}\",\"extensions\":\"not an object\"}",
+                    GraphQLRequest.class));
+    Assertions.assertEquals("Deserialization exception", e.getMessage());
+  }
+
+  @Test
   void extensionsReachExecutionInput() {
 
     final GraphQLRequest request =
