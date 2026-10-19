@@ -15,11 +15,23 @@
  */
 package io.fria.lilo.subscription;
 
+import static io.fria.lilo.subscription.GatewayMessages.EXECUTION_FAILED;
+import static io.fria.lilo.subscription.GatewayMessages.INVALID_PAYLOAD;
+import static io.fria.lilo.subscription.GatewayMessages.MISSING_QUERY;
+import static io.fria.lilo.subscription.GatewayMessages.NOT_A_SUBSCRIPTION;
+import static io.fria.lilo.subscription.GatewayMessages.TOO_MANY_OPERATIONS;
+import static io.fria.lilo.subscription.GatewayMessages.TOO_MANY_REQUESTS;
+import static io.fria.lilo.subscription.GatewayMessages.errors;
+import static io.fria.lilo.subscription.GatewayMessages.errorsOf;
+import static io.fria.lilo.subscription.GatewayMessages.logFailure;
+import static io.fria.lilo.subscription.GatewayMessages.safe;
+import static io.fria.lilo.subscription.GatewayMessages.sendConnectionAck;
+import static io.fria.lilo.subscription.GatewayMessages.sendNext;
+import static io.fria.lilo.subscription.GatewayMessages.sendPong;
+import static io.fria.lilo.subscription.GatewayMessages.trySendComplete;
+import static io.fria.lilo.subscription.GatewayMessages.trySendError;
 import static io.fria.lilo.subscription.SubscriptionMessageType.complete;
-import static io.fria.lilo.subscription.SubscriptionMessageType.connection_ack;
 import static io.fria.lilo.subscription.SubscriptionMessageType.connection_init;
-import static io.fria.lilo.subscription.SubscriptionMessageType.error;
-import static io.fria.lilo.subscription.SubscriptionMessageType.next;
 import static io.fria.lilo.subscription.SubscriptionMessageType.ping;
 import static io.fria.lilo.subscription.SubscriptionMessageType.pong;
 import static io.fria.lilo.subscription.SubscriptionMessageType.subscribe;
@@ -31,7 +43,6 @@ import graphql.execution.reactive.SubscriptionPublisher;
 import io.fria.lilo.GraphQLRequest;
 import io.fria.lilo.JsonUtils;
 import io.fria.lilo.Lilo;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -75,12 +86,6 @@ import reactor.core.Disposable;
 public final class SubscriptionGatewayHandler {
 
   private static final CompletableFuture<Void> DONE = CompletableFuture.completedFuture(null);
-  private static final String INVALID_PAYLOAD = "Subscribe payload is not a valid GraphQL request";
-  private static final String MISSING_QUERY = "Subscribe payload has no query";
-  private static final String EXECUTION_FAILED = "Subscription could not be executed";
-  private static final String NOT_A_SUBSCRIPTION = "Operation did not produce a subscription";
-  private static final String TOO_MANY_REQUESTS = "Too many concurrent subscription requests";
-  private static final String TOO_MANY_OPERATIONS = "Too many subscriptions on this connection";
 
   /** Default cap on the operations one session may have registered at the same time. */
   private static final int DEFAULT_MAX_OPERATIONS_PER_SESSION = 50;
@@ -173,26 +178,11 @@ public final class SubscriptionGatewayHandler {
     return pool;
   }
 
-  private static @NotNull String safe(final @Nullable String text) {
-    return SubscriptionSourceException.bound(String.valueOf(text));
-  }
-
   private static @NotNull Thread newThread(final @NotNull Runnable runnable) {
     final Thread thread =
         new Thread(runnable, "lilo-subscription-" + THREAD_COUNT.incrementAndGet());
     thread.setDaemon(true);
     return thread;
-  }
-
-  private static @NotNull List<Map<String, Object>> errors(final @NotNull String message) {
-    return List.of(Map.of("message", message));
-  }
-
-  private static @NotNull List<Map<String, Object>> errorsOf(final @NotNull Throwable throwable) {
-    if (throwable instanceof SubscriptionSourceException) {
-      return ((SubscriptionSourceException) throwable).getErrors();
-    }
-    return SubscriptionSourceException.genericErrors();
   }
 
   private static @Nullable SubscriptionSourcePublisher upstreamOf(final @Nullable Object data) {
@@ -205,16 +195,6 @@ public final class SubscriptionGatewayHandler {
     return upstream instanceof SubscriptionSourcePublisher
         ? (SubscriptionSourcePublisher) upstream
         : null;
-  }
-
-  private static void sendError(
-      final @NotNull WebSocketSessionWrapper session,
-      final @NotNull String operationId,
-      final @NotNull List<Map<String, Object>> errors) {
-
-    final SubscriptionMessage errorMessage =
-        SubscriptionMessage.builder().id(operationId).type(error).payload(errors).build();
-    session.send(JsonUtils.toStr(errorMessage));
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -265,11 +245,7 @@ public final class SubscriptionGatewayHandler {
     if (connection_init == requestType) {
       this.handleConnectionInit(session, request);
     } else if (ping == requestType) {
-      // Echo the ping payload back, if any
-      final SubscriptionMessage response = new SubscriptionMessage();
-      response.setType(pong);
-      response.setPayload(request.getPayload());
-      session.send(JsonUtils.toStr(response));
+      sendPong(session, request.getPayload());
     } else if (subscribe == requestType) {
       return this.handleSubscribe(session, request);
     } else if (complete == requestType) {
@@ -323,9 +299,7 @@ public final class SubscriptionGatewayHandler {
       return;
     }
 
-    final var response =
-        SubscriptionMessage.builder().type(connection_ack).payload(new HashMap<>()).build();
-    session.send(JsonUtils.toStr(response));
+    sendConnectionAck(session);
   }
 
   private @NotNull CompletableFuture<Void> handleSubscribe(
@@ -546,13 +520,7 @@ public final class SubscriptionGatewayHandler {
                     return;
                   }
 
-                  final var subscriptionMessage =
-                      SubscriptionMessage.builder()
-                          .id(operationId)
-                          .type(next)
-                          .payload(payload)
-                          .build();
-                  session.send(JsonUtils.toStr(subscriptionMessage));
+                  sendNext(session, operationId, payload);
                 },
                 e -> {
                   // The source failed this operation. Only report it if it was still active.
@@ -571,14 +539,8 @@ public final class SubscriptionGatewayHandler {
                   // The source finished this operation. Only report it if the operation was still
                   // active, i.e. neither the client nor a session close cancelled it meanwhile.
                   if (operations.remove(operationId, operation)) {
-                    final SubscriptionMessage completeMessage = new SubscriptionMessage();
-                    completeMessage.setId(operationId);
-                    completeMessage.setType(complete);
-
                     try {
-                      session.send(JsonUtils.toStr(completeMessage));
-                    } catch (final RuntimeException sendFailure) {
-                      LOG.debug("Could not send complete for {}", safe(operationId), sendFailure);
+                      trySendComplete(session, operationId);
                     } finally {
                       operation.cancel();
                     }
@@ -596,23 +558,6 @@ public final class SubscriptionGatewayHandler {
     }
   }
 
-  /**
-   * Logs an operation that failed once it ran. An error the source reported (e.g. an authorization
-   * failure) is forwarded to the client and is logged at DEBUG only. Anything else, a protocol
-   * violation, a source socket that closed (e.g. with 1009) or a failure outside the core such as
-   * an oversized source message, reaches the client only as a generic error, so its cause is logged
-   * at WARN; this is the only place it is logged.
-   */
-  private static void logFailure(final @NotNull String operationId, final @NotNull Throwable e) {
-    if (e instanceof SubscriptionSourceException
-        && ((SubscriptionSourceException) e).isReportedBySource()) {
-      LOG.debug("Subscription {} failed at its source: {}", safe(operationId), safe(e.toString()));
-    } else {
-      LOG.warn("Subscription {} failed: {}", safe(operationId), safe(String.valueOf(e)));
-    }
-    LOG.debug("Subscription failure", e);
-  }
-
   /** Reports an operation that could not start, unless it was cancelled meanwhile. */
   private void fail(
       final @NotNull WebSocketSessionWrapper session,
@@ -623,17 +568,6 @@ public final class SubscriptionGatewayHandler {
 
     if (operations.remove(operationId, operation)) {
       trySendError(session, operationId, errors);
-    }
-  }
-
-  private static void trySendError(
-      final @NotNull WebSocketSessionWrapper session,
-      final @NotNull String operationId,
-      final @NotNull List<Map<String, Object>> errors) {
-    try {
-      sendError(session, operationId, errors);
-    } catch (final RuntimeException e) {
-      LOG.debug("Could not send error for {}", safe(operationId), e);
     }
   }
 
