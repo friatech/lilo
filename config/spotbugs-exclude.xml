@@ -21,4 +21,18 @@
     <Field name="requestMappingHandlerMapping"/>
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
+
+  <!--
+    The Default* remote retrievers are public, non-final extension points, and making them final
+    would break subclasses in published code. Their constructors only null-check a plain String
+    URL argument before any resource is acquired, so a finalizer attack on a half-built instance
+    has nothing to exploit.
+  -->
+  <Match>
+    <Or>
+      <Class name="io.fria.lilo.DefaultRemoteQueryRetriever"/>
+      <Class name="io.fria.lilo.DefaultRemoteIntrospectionRetriever"/>
+    </Or>
+    <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+  </Match>
 </FindBugsFilter>
