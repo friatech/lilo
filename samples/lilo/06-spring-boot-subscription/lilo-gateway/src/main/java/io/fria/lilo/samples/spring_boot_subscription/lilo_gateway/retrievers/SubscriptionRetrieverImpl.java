@@ -21,6 +21,8 @@ import io.fria.lilo.SchemaSource;
 import io.fria.lilo.samples.spring_boot_subscription.lilo_gateway.handlers.SourceWebSocketHandler;
 import io.fria.lilo.subscription.SubscriptionRetriever;
 import io.fria.lilo.subscription.SubscriptionSourcePublisher;
+import jakarta.websocket.ContainerProvider;
+import jakarta.websocket.WebSocketContainer;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.concurrent.ExecutionException;
@@ -32,12 +34,19 @@ import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 
 public class SubscriptionRetrieverImpl implements SubscriptionRetriever {
 
+  private static final int MAX_SOURCE_MESSAGE_BYTES = 10 * 1024 * 1024;
+
   private final @NotNull String subscriptionWsUrl;
   private final @NotNull WebSocketClient webSocketClient;
 
   public SubscriptionRetrieverImpl(final @NotNull String subscriptionWsUrl) {
     this.subscriptionWsUrl = subscriptionWsUrl;
-    this.webSocketClient = new StandardWebSocketClient();
+    // The container closes the source socket with 1009 for any frame bigger than its inbound text
+    // buffer (8 KiB by default on Tomcat) unless the handler supports partial messages; the
+    // sample's SourceWebSocketHandler does not, so raise the limit for large subscription events
+    final WebSocketContainer container = ContainerProvider.getWebSocketContainer();
+    container.setDefaultMaxTextMessageBufferSize(MAX_SOURCE_MESSAGE_BYTES);
+    this.webSocketClient = new StandardWebSocketClient(container);
   }
 
   @Override

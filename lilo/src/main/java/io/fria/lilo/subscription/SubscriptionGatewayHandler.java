@@ -558,6 +558,11 @@ public final class SubscriptionGatewayHandler {
                   // The source failed this operation. Only report it if it was still active.
                   // This also runs when sending a next to the client failed.
                   if (operations.remove(operationId, operation)) {
+                    // The client only gets a generic error for a protocol failure, so the cause
+                    // (e.g. a source socket closed with 1009) must be visible here
+                    LOG.warn(
+                        "Subscription {} failed: {}", safe(operationId), safe(String.valueOf(e)));
+                    LOG.debug("Subscription failure", e);
                     try {
                       trySendError(session, operationId, errorsOf(e));
                     } finally {
