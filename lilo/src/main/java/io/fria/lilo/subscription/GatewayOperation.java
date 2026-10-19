@@ -15,7 +15,6 @@
  */
 package io.fria.lilo.subscription;
 
-import java.util.Map;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -34,23 +33,38 @@ final class GatewayOperation {
   private static final Logger LOG = LoggerFactory.getLogger(SubscriptionGatewayHandler.class);
 
   private final @NotNull String id;
+  private final @NotNull WebSocketSessionWrapper session;
 
-  /** operation id -> operation, of the session this operation belongs to */
-  private final @NotNull Map<String, GatewayOperation> operations;
+  /** The state of the session this operation belongs to */
+  private final @NotNull GatewaySessionRegistry.SessionState state;
 
   private @Nullable SubscriptionSourcePublisher upstream;
   private @Nullable Disposable subscription;
   private boolean cancelled;
 
   GatewayOperation(
-      final @NotNull String id, final @NotNull Map<String, GatewayOperation> operations) {
+      final @NotNull String id,
+      final @NotNull WebSocketSessionWrapper session,
+      final @NotNull GatewaySessionRegistry.SessionState state) {
     this.id = id;
-    this.operations = operations;
+    this.session = session;
+    this.state = state;
   }
 
   @NotNull
   String id() {
     return this.id;
+  }
+
+  /** The client session the operation belongs to. */
+  @NotNull
+  WebSocketSessionWrapper session() {
+    return this.session;
+  }
+
+  @NotNull
+  GatewaySessionRegistry.SessionState state() {
+    return this.state;
   }
 
   /**
@@ -61,12 +75,12 @@ final class GatewayOperation {
    * @return true if this call removed it; the caller then reports the end and cancels it as needed
    */
   boolean release() {
-    return this.operations.remove(this.id, this);
+    return this.state.operations.remove(this.id, this);
   }
 
   /** Whether the operation is still registered, i.e. neither completed nor cancelled meanwhile. */
   boolean isRegistered() {
-    return this.operations.get(this.id) == this;
+    return this.state.operations.get(this.id) == this;
   }
 
   /**

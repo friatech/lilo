@@ -19,7 +19,6 @@ import static io.fria.lilo.subscription.GatewayMessages.EXECUTION_FAILED;
 import static io.fria.lilo.subscription.GatewayMessages.INVALID_PAYLOAD;
 import static io.fria.lilo.subscription.GatewayMessages.MISSING_QUERY;
 import static io.fria.lilo.subscription.GatewayMessages.NOT_A_SUBSCRIPTION;
-import static io.fria.lilo.subscription.GatewayMessages.TOO_MANY_OPERATIONS;
 import static io.fria.lilo.subscription.GatewayMessages.TOO_MANY_REQUESTS;
 import static io.fria.lilo.subscription.GatewayMessages.errors;
 import static io.fria.lilo.subscription.GatewayMessages.errorsOf;
@@ -48,7 +47,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -100,14 +98,7 @@ public final class SubscriptionGatewayHandler {
 
   private final @NotNull Lilo lilo;
   private final @NotNull Executor executor;
-  private final int maxOperationsPerSession;
-
-  /** session id -> the session's operations and in-flight stitches */
-  private final @NotNull Map<String, SessionState> sessionOperations = new ConcurrentHashMap<>();
-
-  /** session id -> what the client sent at connection_init; present once the session is open */
-  private final @NotNull Map<String, SubscriptionConnectionContext> connections =
-      new ConcurrentHashMap<>();
+  private final @NotNull GatewaySessionRegistry registry;
 
   /**
    * Constructs a handler instance using lilo.
@@ -162,7 +153,7 @@ public final class SubscriptionGatewayHandler {
 
     this.lilo = Objects.requireNonNull(lilo);
     this.executor = Objects.requireNonNull(executor);
-    this.maxOperationsPerSession = maxOperationsPerSession;
+    this.registry = new GatewaySessionRegistry(maxOperationsPerSession);
   }
 
   private static @NotNull Executor newDefaultExecutor() {
@@ -211,7 +202,7 @@ public final class SubscriptionGatewayHandler {
     }
 
     // This is when graphql client ungracefully shutdowns
-    this.closeSession(session);
+    this.registry.closeSession(session);
   }
 
   /**
@@ -231,12 +222,12 @@ public final class SubscriptionGatewayHandler {
       request = JsonUtils.toObj(message, SubscriptionMessage.class).orElse(null);
     } catch (final IllegalArgumentException e) {
       // graphql-transport-ws: an invalid or unknown message closes the connection
-      this.closeSession(session);
+      this.registry.closeSession(session);
       return DONE;
     }
 
     if (request == null || request.getType() == null) {
-      this.closeSession(session);
+      this.registry.closeSession(session);
       return DONE;
     }
 
@@ -252,12 +243,12 @@ public final class SubscriptionGatewayHandler {
       // The client stops a single operation; the connection and other operations stay
       final String operationId = request.getId();
       if (operationId != null) {
-        this.cancelOperation(session.getId(), operationId);
+        this.registry.cancelOperation(session.getId(), operationId);
       }
     } else if (pong != requestType) {
       // pong is a one-way heartbeat answer; server-to-client only types (connection_ack, next,
       // error) are invalid from a client
-      this.closeSession(session);
+      this.registry.closeSession(session);
     }
 
     return DONE;
@@ -265,12 +256,12 @@ public final class SubscriptionGatewayHandler {
 
   /** Returns whether any state is held for the session. */
   boolean tracksSession(final @NotNull String sessionId) {
-    return this.sessionOperations.containsKey(sessionId);
+    return this.registry.tracksSession(sessionId);
   }
 
   /** Returns whether a connection context is held for the session. */
   boolean tracksConnection(final @NotNull String sessionId) {
-    return this.connections.containsKey(sessionId);
+    return this.registry.tracksConnection(sessionId);
   }
 
   private void handleConnectionInit(
@@ -282,20 +273,20 @@ public final class SubscriptionGatewayHandler {
     } catch (final RuntimeException e) {
       // e.g. attributes the transport cannot read; the values are not logged, they may be secret
       LOG.debug("Could not read the connection context of session {}", session.getId());
-      this.closeSession(session);
+      this.registry.closeSession(session);
       return;
     }
 
-    if (this.connections.putIfAbsent(session.getId(), context) != null) {
+    if (!this.registry.addConnection(session.getId(), context)) {
       // graphql-transport-ws: a second connection_init closes the connection (4429 Too many
       // initialisation requests)
-      this.closeSession(session);
+      this.registry.closeSession(session);
       return;
     }
 
     if (!session.isOpen()) {
       // Closed meanwhile: its close may already have run, so do not keep the context
-      this.connections.remove(session.getId(), context);
+      this.registry.removeConnection(session.getId(), context);
       return;
     }
 
@@ -305,12 +296,12 @@ public final class SubscriptionGatewayHandler {
   private @NotNull CompletableFuture<Void> handleSubscribe(
       final @NotNull WebSocketSessionWrapper session, final @NotNull SubscriptionMessage request) {
 
-    final SubscriptionConnectionContext context = this.connections.get(session.getId());
+    final SubscriptionConnectionContext context = this.registry.connection(session.getId());
 
     if (context == null) {
       // graphql-transport-ws: a subscribe before connection_init closes the connection (4401
       // Unauthorized)
-      this.closeSession(session);
+      this.registry.closeSession(session);
       return DONE;
     }
 
@@ -318,16 +309,14 @@ public final class SubscriptionGatewayHandler {
 
     if (operationId == null) {
       // graphql-transport-ws: a subscribe must carry an id
-      this.closeSession(session);
+      this.registry.closeSession(session);
       return DONE;
     }
 
-    final SessionState active = this.sessionOperations.get(session.getId());
-
-    if (active != null && active.operations.containsKey(operationId)) {
+    if (this.registry.hasOperation(session.getId(), operationId)) {
       // graphql-transport-ws: a subscribe with an id that is already active closes the
       // connection (4409 Subscriber already exists)
-      this.closeSession(session);
+      this.registry.closeSession(session);
       return DONE;
     }
 
@@ -362,34 +351,13 @@ public final class SubscriptionGatewayHandler {
       return DONE;
     }
 
-    final SessionState state =
-        this.sessionOperations.computeIfAbsent(session.getId(), id -> new SessionState());
-    final Map<String, GatewayOperation> operations = state.operations;
-    final GatewayOperation operation = new GatewayOperation(operationId, operations);
+    final GatewayOperation operation = this.registry.register(session, operationId);
 
-    // A session's messages arrive one after the other, so plain checks are enough here. A stitch
-    // still running for an operation the client already completed holds a pool thread, so it
-    // counts as well: otherwise subscribe followed by complete would bypass the cap. Every
-    // in-flight stitch belongs to a registered operation unless that was completed, so the larger
-    // of the two numbers is the session's real usage; their sum would count most operations twice.
-    if (Math.max(operations.size(), state.inFlight.get()) >= this.maxOperationsPerSession) {
-      trySendError(session, operationId, errors(TOO_MANY_OPERATIONS));
+    if (operation == null) {
       return DONE;
     }
 
-    if (operations.putIfAbsent(operationId, operation) != null) {
-      // Lost a race against a concurrent subscribe with the same id
-      this.closeSession(session);
-      return DONE;
-    }
-
-    if (this.isDetached(session, state)) {
-      // The session was closed meanwhile. Its close may already have drained this map before the
-      // operation was added, so remove it here rather than rely on closeSession finding it.
-      operation.release();
-      this.closeSession(session);
-      return DONE;
-    }
+    final GatewaySessionRegistry.SessionState state = operation.state();
 
     final CompletableFuture<ExecutionResult> stitch = new CompletableFuture<>();
     // Counted before submitting; released exactly once, when the stitch finished or never started
@@ -415,7 +383,7 @@ public final class SubscriptionGatewayHandler {
         (result, throwable) -> {
           state.inFlight.decrementAndGet();
           try {
-            this.start(session, state, operation, operationId, result, throwable);
+            this.start(session, operation, operationId, result, throwable);
           } catch (final RuntimeException e) {
             LOG.warn(
                 "Subscription {} could not be started: {}", safe(operationId), safe(e.toString()));
@@ -464,7 +432,6 @@ public final class SubscriptionGatewayHandler {
   /** Runs when stitching a subscribe finished: starts forwarding or reports why it cannot. */
   private void start(
       final @NotNull WebSocketSessionWrapper session,
-      final @NotNull SessionState state,
       final @NotNull GatewayOperation operation,
       final @NotNull String operationId,
       final @Nullable ExecutionResult result,
@@ -547,12 +514,12 @@ public final class SubscriptionGatewayHandler {
 
     operation.setSubscription(subscription);
 
-    if (this.isDetached(session, state)) {
+    if (this.registry.isDetached(operation)) {
       // Defensive: registration already checked this, but a stale map must never keep forwarding
       if (operation.release()) {
         operation.cancel();
       }
-      this.closeSession(session);
+      this.registry.closeSession(session);
     }
   }
 
@@ -565,65 +532,5 @@ public final class SubscriptionGatewayHandler {
     if (operation.release()) {
       trySendError(session, operation.id(), errors);
     }
-  }
-
-  /** Whether the session closed or its operation map is no longer the live one. */
-  private boolean isDetached(
-      final @NotNull WebSocketSessionWrapper session, final @NotNull SessionState state) {
-    return !session.isOpen() || this.sessionOperations.get(session.getId()) != state;
-  }
-
-  private void closeSession(final @NotNull WebSocketSessionWrapper session) {
-
-    try {
-      if (session.isOpen()) {
-        session.close();
-      }
-    } catch (final RuntimeException e) {
-      // The operations below must be released all the same
-      LOG.debug("Could not close session {}", session.getId(), e);
-    }
-
-    this.connections.remove(session.getId());
-    final SessionState state = this.sessionOperations.remove(session.getId());
-
-    if (state == null) {
-      return;
-    }
-
-    final Map<String, GatewayOperation> operations = state.operations;
-
-    for (final String operationId : operations.keySet()) {
-      final GatewayOperation operation = operations.remove(operationId);
-      if (operation != null) {
-        operation.cancel();
-      }
-    }
-  }
-
-  private void cancelOperation(final @NotNull String sessionId, final @NotNull String operationId) {
-
-    final SessionState state = this.sessionOperations.get(sessionId);
-
-    if (state == null) {
-      return;
-    }
-
-    // Whoever removes the operation owns its cleanup, so a late complete or close is a no-op
-    final GatewayOperation operation = state.operations.remove(operationId);
-
-    if (operation != null) {
-      operation.cancel();
-    }
-  }
-
-  /** Per-session state: the registered operations and the stitches still running for them. */
-  private static final class SessionState {
-
-    /** operation id -> operation */
-    private final @NotNull Map<String, GatewayOperation> operations = new ConcurrentHashMap<>();
-
-    /** Stitches submitted and not yet finished, including those of completed operations. */
-    private final @NotNull AtomicInteger inFlight = new AtomicInteger();
   }
 }
