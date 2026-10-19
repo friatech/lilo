@@ -19,6 +19,7 @@ import graphql.ExecutionResult;
 import graphql.ExecutionResultImpl;
 import graphql.GraphQLError;
 import io.fria.lilo.error.GraphQLResultError;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -48,7 +49,12 @@ final class GraphQLResult implements ExecutionResult {
 
   @Override
   public @Nullable Map<Object, Object> getExtensions() {
-    return this.extensions;
+
+    if (this.extensions == null) {
+      return null;
+    }
+
+    return Collections.unmodifiableMap(this.extensions);
   }
 
   @Override

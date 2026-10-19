@@ -19,6 +19,9 @@ import graphql.ErrorClassification;
 import graphql.ErrorType;
 import graphql.GraphQLError;
 import graphql.language.SourceLocation;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -53,7 +56,8 @@ public class GraphQLResultError implements GraphQLError {
   }
 
   public void setExtensions(final @Nullable Map<String, Object> extensions) {
-    this.extensions = extensions;
+    this.extensions =
+        extensions == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(extensions));
   }
 
   @Override
@@ -69,7 +73,8 @@ public class GraphQLResultError implements GraphQLError {
   }
 
   public void setLocations(final @Nullable List<ErrorSourceLocation> locations) {
-    this.locations = locations;
+    this.locations =
+        locations == null ? null : Collections.unmodifiableList(new ArrayList<>(locations));
   }
 
   @Override
@@ -87,6 +92,6 @@ public class GraphQLResultError implements GraphQLError {
   }
 
   public void setPath(final @Nullable List<Object> path) {
-    this.path = path;
+    this.path = path == null ? null : Collections.unmodifiableList(new ArrayList<>(path));
   }
 }

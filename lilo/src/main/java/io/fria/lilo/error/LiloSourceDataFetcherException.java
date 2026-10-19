@@ -17,7 +17,9 @@ package io.fria.lilo.error;
 
 import graphql.GraphQLError;
 import graphql.GraphQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -33,7 +35,7 @@ public class LiloSourceDataFetcherException extends GraphQLException implements 
 
   public LiloSourceDataFetcherException(final @NotNull List<? extends GraphQLError> errors) {
     super(extractMessage(Objects.requireNonNull(errors)));
-    this.errors = errors;
+    this.errors = Collections.unmodifiableList(new ArrayList<>(errors));
   }
 
   private static @Nullable String extractMessage(
