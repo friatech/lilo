@@ -25,12 +25,18 @@ import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import io.fria.lilo.DefinedSchemaSource;
+import io.fria.lilo.GraphQLQuery;
 import io.fria.lilo.Lilo;
+import io.fria.lilo.LiloContext;
 import io.fria.lilo.RemoteSchemaSource;
+import io.fria.lilo.SchemaSource;
+import io.fria.lilo.SyncQueryRetriever;
 import io.fria.lilo.TestUtils;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -68,6 +74,15 @@ class AbstractTypesTest {
       final @NotNull String abstractTypeName,
       final @NotNull String fieldName,
       final @NotNull Map<String, Object> fieldValue) {
+    return remoteLilo(sdl, abstractTypeName, fieldName, fieldValue, new ArrayList<>());
+  }
+
+  private static @NotNull Lilo remoteLilo(
+      final @NotNull String sdl,
+      final @NotNull String abstractTypeName,
+      final @NotNull String fieldName,
+      final @NotNull Map<String, Object> fieldValue,
+      final @NotNull List<String> sentQueries) {
 
     final RuntimeWiring wiring =
         RuntimeWiring.newRuntimeWiring()
@@ -84,7 +99,7 @@ class AbstractTypesTest {
             RemoteSchemaSource.create(
                 "remote",
                 new TestUtils.TestIntrospectionRetriever(remote),
-                new TestUtils.TestQueryRetriever(remote)))
+                new RecordingQueryRetriever(remote, sentQueries)))
         .build();
   }
 
@@ -157,6 +172,47 @@ class AbstractTypesTest {
   }
 
   @Test
+  void typenameExcludedByIncludeDirectiveDoesNotSuppressInjection() {
+
+    final Lilo lilo = remoteLilo(INTERFACE_SDL, "Node", "node");
+
+    assertData(
+        Map.of("node", Map.of("id", "1")),
+        stitch(lilo, "{ node { __typename @include(if: false) id } }"));
+  }
+
+  @Test
+  void typenameSkippedByVariableDoesNotSuppressInjection() {
+
+    final Lilo lilo = remoteLilo(INTERFACE_SDL, "Node", "node");
+
+    final ExecutionResult result =
+        lilo.stitch(
+            ExecutionInput.newExecutionInput()
+                .query("query($s: Boolean!) { node { __typename @skip(if: $s) id } }")
+                .variables(Map.of("s", true))
+                .build());
+
+    assertData(Map.of("node", Map.of("id", "1")), result);
+  }
+
+  @Test
+  void plainTypenameSelectionIsSentOnce() {
+
+    final List<String> sentQueries = new ArrayList<>();
+    final Lilo lilo = remoteLilo(INTERFACE_SDL, "Node", "node", ADA, sentQueries);
+
+    assertData(
+        Map.of("node", Map.of("__typename", "User", "id", "1")),
+        stitch(lilo, "{ node { __typename id } }"));
+
+    Assertions.assertEquals(1, sentQueries.size());
+    final String sent = sentQueries.get(0);
+    Assertions.assertEquals(
+        1, sent.split("__typename", -1).length - 1, () -> "Sent query: " + sent);
+  }
+
+  @Test
   void definedSourceInterfaceFieldResolves() {
 
     // graphql-java requires the source's own schema to carry a type resolver for Node; the
@@ -206,5 +262,32 @@ class AbstractTypesTest {
 
     Assertions.assertEquals(
         "Please provide __typename for interface types", exception.getMessage());
+  }
+
+  /** Forwards to the remote and records the query text sent to it. */
+  private static final class RecordingQueryRetriever implements SyncQueryRetriever {
+
+    private final TestUtils.TestQueryRetriever delegate;
+    private final List<String> sentQueries;
+
+    RecordingQueryRetriever(
+        final @NotNull GraphQL graphQL, final @NotNull List<String> sentQueries) {
+      this.delegate = new TestUtils.TestQueryRetriever(graphQL);
+      this.sentQueries = sentQueries;
+    }
+
+    @Override
+    public @NotNull String get(
+        final @NotNull LiloContext liloContext,
+        final @NotNull SchemaSource schemaSource,
+        final @NotNull GraphQLQuery query,
+        final @Nullable Object localContext) {
+
+      synchronized (this.sentQueries) {
+        this.sentQueries.add(query.getRequest().getQuery());
+      }
+
+      return this.delegate.get(liloContext, schemaSource, query, localContext);
+    }
   }
 }

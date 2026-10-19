@@ -169,8 +169,12 @@ final class QueryTransformer {
     for (final Selection<?> selection : selectionSet.getSelections()) {
       if (selection instanceof Field) {
         final Field field = (Field) selection;
-        // An aliased __typename lands under another result key, so it does not count
-        typenameSelected |= TYPENAME.equals(field.getName()) && field.getAlias() == null;
+        // An aliased __typename lands under another result key, and a directive such as
+        // @include or @skip may drop it from the response, so only a plain one counts
+        typenameSelected |=
+            TYPENAME.equals(field.getName())
+                && field.getAlias() == null
+                && field.getDirectives().isEmpty();
         newSelections.add(injectTypename(schema, field, parentType));
       } else if (selection instanceof InlineFragment) {
         newSelections.add(injectTypename(schema, (InlineFragment) selection, parentType));
