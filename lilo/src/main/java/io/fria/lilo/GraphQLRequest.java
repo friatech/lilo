@@ -21,7 +21,7 @@ import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class GraphQLRequest {
+public final class GraphQLRequest {
 
   public static final String INTROSPECTION_QUERY =
       "\n"

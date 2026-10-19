@@ -37,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
  * SubscriptionGatewayHandler manages websocket communication and handles the interaction between
  * Lilo itself.
  */
-public class SubscriptionGatewayHandler {
+public final class SubscriptionGatewayHandler {
 
   private final @NotNull Lilo lilo;
   private final @NotNull Map<String, SubscriptionSourcePublisher> sessionPublishers =

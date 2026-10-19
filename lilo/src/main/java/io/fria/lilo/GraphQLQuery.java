@@ -22,7 +22,7 @@ import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class GraphQLQuery {
+public final class GraphQLQuery {
 
   private @NotNull final String query;
   private @NotNull final GraphQLRequest request;

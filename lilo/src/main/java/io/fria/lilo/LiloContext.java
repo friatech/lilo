@@ -42,7 +42,7 @@ import java.util.stream.Stream;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class LiloContext {
+public final class LiloContext {
 
   private static final Set<String> PREDEFINED_SCALARS =
       Set.of("Boolean", "Float", "Int", "ID", "String");

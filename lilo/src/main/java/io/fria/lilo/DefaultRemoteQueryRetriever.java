@@ -19,7 +19,7 @@ import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class DefaultRemoteQueryRetriever extends AbstractDefaultRemoteRetriever
+public final class DefaultRemoteQueryRetriever extends AbstractDefaultRemoteRetriever
     implements SyncQueryRetriever {
 
   private final String schemaUrl;
