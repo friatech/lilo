@@ -15,7 +15,10 @@
  */
 package io.fria.lilo;
 
+import graphql.GraphQLError;
+import graphql.language.AstPrinter;
 import graphql.language.FieldDefinition;
+import graphql.language.NamedNode;
 import graphql.language.ObjectTypeDefinition;
 import graphql.language.OperationTypeDefinition;
 import graphql.language.SDLDefinition;
@@ -33,11 +36,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 final class SchemaMerger {
+
+  private static final Pattern EMPTY_DESCRIPTION = Pattern.compile("(?m)^\\s*\"\"\\R");
 
   private SchemaMerger() {
     // Utility class
@@ -77,6 +83,9 @@ final class SchemaMerger {
     final List<FieldDefinition> mutationFieldDefinitions = new ArrayList<>();
     final List<FieldDefinition> subscriptionFieldDefinitions = new ArrayList<>();
 
+    // Keyed by definition name; remembers the first source that added it and its printed form
+    final Map<String, SourceDefinition> definitions = new HashMap<>();
+
     for (final SchemaSource schemaSource : schemaSources) {
 
       if (schemaSource == null || schemaSource.isSchemaNotLoaded()) {
@@ -110,19 +119,62 @@ final class SchemaMerger {
 
       // Add types other than Query and Mutation to combined registry
       excludeTypes(sourceRegistry, queryTypeName, mutationTypeName, subscriptionTypeName)
-          .forEach(combinedRegistry::add);
+          .forEach(d -> addDefinition(d, "", schemaSource, combinedRegistry, definitions));
 
       // Add all directive definitions
-      sourceRegistry.getDirectiveDefinitions().values().forEach(combinedRegistry::add);
+      sourceRegistry
+          .getDirectiveDefinitions()
+          .values()
+          .forEach(d -> addDefinition(d, "@", schemaSource, combinedRegistry, definitions));
 
       // Add all scalar definitions
-      sourceRegistry.scalars().values().forEach(combinedRegistry::add);
+      sourceRegistry
+          .scalars()
+          .values()
+          .forEach(d -> addDefinition(d, "", schemaSource, combinedRegistry, definitions));
     }
 
     addType(queryTypeName, queryFieldDefinitions, combinedRegistry);
     addType(mutationTypeName, mutationFieldDefinitions, combinedRegistry);
     addType(subscriptionTypeName, subscriptionFieldDefinitions, combinedRegistry);
     addSchema(queryTypeName, mutationTypeName, subscriptionTypeName, combinedRegistry);
+  }
+
+  private static void addDefinition(
+      final @NotNull SDLDefinition<?> definition,
+      final @NotNull String keyPrefix,
+      final @NotNull SchemaSource schemaSource,
+      final @NotNull TypeDefinitionRegistry combinedRegistry,
+      final @NotNull Map<String, SourceDefinition> definitions) {
+
+    final String name = ((NamedNode<?>) definition).getName();
+    // Remote sources rebuilt from introspection carry empty descriptions where SDL sources have
+    // none; they are the same definition
+    final String printed =
+        EMPTY_DESCRIPTION.matcher(AstPrinter.printAst(definition)).replaceAll("");
+    final SourceDefinition existing = definitions.get(keyPrefix + name);
+
+    if (existing != null) {
+      if (!existing.printed.equals(printed)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Type %s is defined differently by sources %s and %s",
+                name, existing.sourceName, schemaSource.getName()));
+      }
+
+      return;
+    }
+
+    definitions.put(keyPrefix + name, new SourceDefinition(schemaSource.getName(), printed));
+
+    final Optional<GraphQLError> error = combinedRegistry.add(definition);
+
+    if (error.isPresent()) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Type %s from source %s could not be added: %s",
+              name, schemaSource.getName(), error.get().getMessage()));
+    }
   }
 
   private static void addOperationType(
@@ -236,6 +288,17 @@ final class SchemaMerger {
 
     runtimeWiringBuilder.type(
         TypeRuntimeWiring.newTypeWiring(typeName).dataFetchers(ownDataFetchers).build());
+  }
+
+  private static final class SourceDefinition {
+
+    private final String sourceName;
+    private final String printed;
+
+    SourceDefinition(final @NotNull String sourceName, final @NotNull String printed) {
+      this.sourceName = sourceName;
+      this.printed = printed;
+    }
   }
 
   static final class OperationTypeNames {

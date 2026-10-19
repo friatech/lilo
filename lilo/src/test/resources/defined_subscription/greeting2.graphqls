@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-scalar Text
-
 type Query {
     greeting2: Text!
 }
@@ -21,3 +19,5 @@ type Query {
 type Subscription {
     greeting2Subscription: Text!
 }
+
+scalar Text
