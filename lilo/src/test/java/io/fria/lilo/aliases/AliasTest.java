@@ -75,6 +75,42 @@ class AliasTest {
         .build();
   }
 
+  private static @NotNull Lilo holderLilo() {
+
+    final String sdl =
+        "interface Node { id: ID! }\n"
+            + "type User implements Node { id: ID! name: String }\n"
+            + "type Holder { nodes: [Node!]! }\n"
+            + "type Query { holder: Holder }\n"
+            + "type Mutation { rename(n: String): Holder }";
+    final Map<String, Object> ada = Map.of("id", "1", "name", "Ada");
+    final RuntimeWiring wiring =
+        RuntimeWiring.newRuntimeWiring()
+            .type(
+                newTypeWiring("Query").dataFetcher("holder", env -> Map.of("nodes", List.of(ada))))
+            .type(
+                newTypeWiring("Mutation")
+                    .dataFetcher(
+                        "rename",
+                        env ->
+                            Map.of(
+                                "nodes", List.of(Map.of("id", "1", "name", env.getArgument("n"))))))
+            .type(newTypeWiring("Node").typeResolver(env -> env.getSchema().getObjectType("User")))
+            .build();
+    final GraphQL remote =
+        GraphQL.newGraphQL(
+                new SchemaGenerator().makeExecutableSchema(new SchemaParser().parse(sdl), wiring))
+            .build();
+
+    return Lilo.builder()
+        .addSource(
+            RemoteSchemaSource.create(
+                "remote",
+                new TestUtils.TestIntrospectionRetriever(remote),
+                new TestUtils.TestQueryRetriever(remote)))
+        .build();
+  }
+
   private static @NotNull Lilo definedLilo() {
 
     final RuntimeWiring wiring =
@@ -141,6 +177,23 @@ class AliasTest {
     assertData(
         Map.of("node", Map.of("k", "Member", "i", "2", "n", "Grace")),
         stitch(remoteLilo(), "{ node { k: __typename i: id ... on Member { n: name } } }"));
+  }
+
+  @Test
+  void aliasedAbstractListUnderAliasedRootField() {
+    assertData(
+        Map.of("h", Map.of("ns", List.of(Map.of("i", "1", "n", "Ada")))),
+        stitch(holderLilo(), "{ h: holder { ns: nodes { i: id ... on User { n: name } } } }"));
+  }
+
+  @Test
+  void mutationWithNestedAliasesAndRepeatedField() {
+    assertData(
+        Map.of("m", Map.of("a", List.of(Map.of("x", "Bob")), "b", List.of(Map.of("id", "1")))),
+        stitch(
+            holderLilo(),
+            "mutation { m: rename(n: \"Bob\") { a: nodes { ... on User { x: name } } "
+                + "b: nodes { id } } }"));
   }
 
   @Test

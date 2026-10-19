@@ -20,6 +20,7 @@ import graphql.GraphQL;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
+import graphql.schema.idl.errors.SchemaProblem;
 import io.fria.lilo.AsyncIntrospectionRetriever;
 import io.fria.lilo.GraphQLQuery;
 import io.fria.lilo.Lilo;
@@ -29,6 +30,7 @@ import io.fria.lilo.SchemaSource;
 import io.fria.lilo.SyncIntrospectionRetriever;
 import io.fria.lilo.SyncQueryRetriever;
 import io.fria.lilo.TestUtils;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.NotNull;
@@ -84,6 +86,7 @@ class PartialResultsTest {
     Assertions.assertEquals(Map.of("me", me), result.getData());
     Assertions.assertEquals(1, result.getErrors().size());
     Assertions.assertTrue(result.getErrors().get(0).getMessage().contains("nick failed"));
+    Assertions.assertEquals(List.of("me", "nick"), result.getErrors().get(0).getPath());
   }
 
   @Test
@@ -123,6 +126,14 @@ class PartialResultsTest {
 
     Assertions.assertFalse(exception.getMessage().startsWith("java.util.concurrent"));
     Assertions.assertFalse(exception.getCause() instanceof java.util.concurrent.ExecutionException);
+
+    // With no source loaded the merged schema has no query type, which graphql-java reports
+    Throwable root = exception;
+    while (root.getCause() != null) {
+      root = root.getCause();
+    }
+    Assertions.assertInstanceOf(SchemaProblem.class, root);
+    Assertions.assertTrue(root.getMessage().contains("query"), root.getMessage());
   }
 
   @Test
