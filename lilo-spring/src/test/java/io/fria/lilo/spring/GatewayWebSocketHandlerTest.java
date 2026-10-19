@@ -27,9 +27,11 @@ import io.fria.lilo.Lilo;
 import io.fria.lilo.RemoteSchemaSource;
 import io.fria.lilo.SyncIntrospectionRetriever;
 import io.fria.lilo.SyncQueryRetriever;
+import io.fria.lilo.subscription.SubscriptionGatewayHandler;
 import io.fria.lilo.subscription.SubscriptionRetriever;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -153,6 +155,52 @@ class GatewayWebSocketHandlerTest {
     assertEquals(
         GatewayWebSocketHandler.DEFAULT_SEND_BUFFER_SIZE_LIMIT,
         this.handler.getSendBufferSizeLimit());
+  }
+
+  @Test
+  void delegatesToTheGivenGatewayHandler() throws Exception {
+    // Records the stitches instead of running them, so the subscribe only reaches the executor
+    final List<Runnable> stitches = new CopyOnWriteArrayList<>();
+    final SubscriptionGatewayHandler gatewayHandler =
+        new SubscriptionGatewayHandler(Lilo.builder().build(), stitches::add, 1);
+    final GatewayWebSocketHandler injected =
+        new GatewayWebSocketHandler(gatewayHandler, "/graphql", Duration.ofMillis(250), 99);
+    final RecordingWebSocketSession session = new RecordingWebSocketSession();
+    injected.afterConnectionEstablished(session);
+
+    injected.handleMessage(session, new TextMessage(INIT));
+    injected.handleMessage(
+        session,
+        new TextMessage(
+            "{\"id\":\"a\",\"type\":\"subscribe\",\"payload\":{\"query\":\"subscription { ticks }\"}}"));
+    // Over the given handler's cap of one operation
+    injected.handleMessage(
+        session,
+        new TextMessage(
+            "{\"id\":\"b\",\"type\":\"subscribe\",\"payload\":{\"query\":\"subscription { ticks }\"}}"));
+
+    assertEquals(1, stitches.size());
+    assertEquals(List.of("connection_ack", "error"), types(session));
+    assertEquals("/graphql", injected.getSubscriptionPath());
+    assertEquals(Duration.ofMillis(250), injected.getSendTimeLimit());
+    assertEquals(99, injected.getSendBufferSizeLimit());
+  }
+
+  @Test
+  void rejectsInvalidArgumentsWithAGivenGatewayHandler() {
+    final SubscriptionGatewayHandler gatewayHandler =
+        new SubscriptionGatewayHandler(Lilo.builder().build());
+    assertThrows(
+        NullPointerException.class,
+        () ->
+            new GatewayWebSocketHandler(
+                (SubscriptionGatewayHandler) null, "/graphql", Duration.ofSeconds(1), 1));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new GatewayWebSocketHandler(gatewayHandler, "/graphql", Duration.ZERO, 1));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new GatewayWebSocketHandler(gatewayHandler, "/graphql", Duration.ofSeconds(1), 0));
   }
 
   @Test

@@ -94,14 +94,52 @@ public class GatewayWebSocketHandler extends AbstractWebSocketHandler {
         GatewayLimits.validSendBufferSizeLimit(sendBufferSizeLimit));
   }
 
+  /**
+   * Constructor creates a GatewayWebSocketHandler that delegates to the given gateway handler, e.g.
+   * one built with its own stitch executor or per-session operation cap. The send limits work as in
+   * {@link #GatewayWebSocketHandler(Lilo, String, Duration, int)}.
+   *
+   * @param gatewayHandler handler of the graphql-transport-ws protocol of every client session; it
+   *     should not be shared with another websocket handler
+   * @param subscriptionPath subscription path for handling subscription requests. Mostly it's
+   *     /graphql
+   * @param sendTimeLimit how long a send to a client may take; positive, at most {@link
+   *     Integer#MAX_VALUE} milliseconds
+   * @param sendBufferSizeLimit how many bytes may wait to be sent to a client; positive
+   */
+  public GatewayWebSocketHandler(
+      final @NotNull SubscriptionGatewayHandler gatewayHandler,
+      final @NotNull String subscriptionPath,
+      final @NotNull Duration sendTimeLimit,
+      final int sendBufferSizeLimit) {
+    this(
+        Objects.requireNonNull(gatewayHandler, "gatewayHandler"),
+        subscriptionPath,
+        GatewayLimits.validSendTimeLimitMillis(sendTimeLimit),
+        GatewayLimits.validSendBufferSizeLimit(sendBufferSizeLimit));
+  }
+
   private GatewayWebSocketHandler(
       final @NotNull Lilo lilo,
       final @NotNull String subscriptionPath,
       final int sendTimeLimitMillis,
       final int sendBufferSizeLimit) {
+    // Created only once the limits are valid
+    this(
+        new SubscriptionGatewayHandler(lilo),
+        subscriptionPath,
+        sendTimeLimitMillis,
+        sendBufferSizeLimit);
+  }
+
+  private GatewayWebSocketHandler(
+      final @NotNull SubscriptionGatewayHandler gatewayHandler,
+      final @NotNull String subscriptionPath,
+      final int sendTimeLimitMillis,
+      final int sendBufferSizeLimit) {
     this.sendTimeLimitMillis = sendTimeLimitMillis;
     this.sendBufferSizeLimit = sendBufferSizeLimit;
-    this.gatewayHandler = new SubscriptionGatewayHandler(lilo);
+    this.gatewayHandler = gatewayHandler;
     this.subscriptionPath = subscriptionPath;
   }
 
