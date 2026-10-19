@@ -28,13 +28,29 @@ import io.fria.lilo.JsonUtils;
 import java.util.HashMap;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * SubscriptionSourceHandler drives one subscription operation against a remote source over its own
+ * websocket session, and feeds what the source sends into a {@link SubscriptionSourcePublisher}.
+ *
+ * <p>The handler watches the publisher's {@link SubscriptionSourcePublisher#getTermination()
+ * termination} once, when the source acknowledges the connection. When the publisher ends because
+ * the gateway no longer needs the operation, the source is sent {@code complete}; when the source
+ * itself ended it (with {@code complete} or {@code error}), it is not told again. Either way the
+ * source session is closed afterwards, as it serves only this operation.
+ */
 public class SubscriptionSourceHandler {
 
   private final @NotNull GraphQLQuery query;
   private final @NotNull SubscriptionSourcePublisher publisher;
+  private final @NotNull String operationId = UUID.randomUUID().toString();
+  private final @NotNull AtomicBoolean subscribed = new AtomicBoolean();
+
+  /** Set once the source ended the operation itself, so it is not sent a complete for it. */
+  private volatile boolean endedBySource;
 
   public SubscriptionSourceHandler(
       final @NotNull GraphQLQuery query, final @NotNull SubscriptionSourcePublisher publisher) {
@@ -52,38 +68,28 @@ public class SubscriptionSourceHandler {
       request = JsonUtils.toObj(message, SubscriptionMessage.class).orElse(null);
     } catch (final IllegalArgumentException e) {
       // Invalid or unknown message from the source: give up on this connection
-      this.closeSource(session);
+      this.closeSource(session, "Subscription source sent an invalid message");
       return;
     }
 
-    if (request == null) {
-      this.closeSource(session);
+    if (request == null || request.getType() == null) {
+      this.closeSource(session, "Subscription source sent an invalid message");
       return;
     }
 
     final SubscriptionMessageType requestType = request.getType();
 
     if (SubscriptionMessageType.connection_ack == requestType) {
-      final SubscriptionMessage response = new SubscriptionMessage();
-      response.setId(UUID.randomUUID().toString());
-      response.setType(subscribe);
-
-      response.setPayload(Objects.requireNonNull(this.query.getRequest()));
-      Objects.requireNonNull(session).send(JsonUtils.toStr(response));
+      this.subscribe(session);
     } else if (next == requestType) {
-      this.publisher.send(Objects.requireNonNull(request.getPayload()));
+      final Object payload = request.getPayload();
 
-      this.publisher
-          .getFlux()
-          .doOnComplete(
-              () -> {
-                final SubscriptionMessage completeMessage = new SubscriptionMessage();
-                completeMessage.setId(request.getId());
-                completeMessage.setType(complete);
+      if (payload == null) {
+        this.closeSource(session, "Subscription source sent a next message without payload");
+        return;
+      }
 
-                Objects.requireNonNull(session).send(JsonUtils.toStr(completeMessage));
-              })
-          .subscribe();
+      this.publisher.send(payload);
     } else if (ping == requestType) {
       // Echo the ping payload back, if any
       final SubscriptionMessage response = new SubscriptionMessage();
@@ -92,21 +98,57 @@ public class SubscriptionSourceHandler {
       session.send(JsonUtils.toStr(response));
     } else if (complete == requestType) {
       // Source finished the operation
+      this.endedBySource = true;
       this.publisher.close();
     } else if (error == requestType) {
-      this.publisher.error(
-          new IllegalStateException("Source error: " + JsonUtils.toStr(request.getPayload())));
+      this.endedBySource = true;
+      this.publisher.error(SubscriptionSourceException.fromPayload(request.getPayload()));
     }
   }
 
-  private void closeSource(final @NotNull WebSocketSessionWrapper session) {
+  private void subscribe(final @NotNull WebSocketSessionWrapper session) {
+
+    if (!this.subscribed.compareAndSet(false, true)) {
+      // A repeated connection_ack starts nothing new
+      return;
+    }
+
+    final SubscriptionMessage response = new SubscriptionMessage();
+    response.setId(this.operationId);
+    response.setType(subscribe);
+    response.setPayload(Objects.requireNonNull(this.query.getRequest()));
+    session.send(JsonUtils.toStr(response));
+
+    // Fires once, immediately if the gateway already gave up on the operation
+    this.publisher.getTermination().doOnTerminate(() -> this.finish(session)).subscribe();
+  }
+
+  private void finish(final @NotNull WebSocketSessionWrapper session) {
+
+    if (!this.endedBySource && session.isOpen()) {
+      final SubscriptionMessage completeMessage = new SubscriptionMessage();
+      completeMessage.setId(this.operationId);
+      completeMessage.setType(complete);
+      session.send(JsonUtils.toStr(completeMessage));
+    }
+
     if (session.isOpen()) {
       session.close();
     }
-    this.publisher.close();
+  }
+
+  private void closeSource(
+      final @NotNull WebSocketSessionWrapper session, final @NotNull String reason) {
+    this.endedBySource = true;
+    if (session.isOpen()) {
+      session.close();
+    }
+    // A protocol violation is a failure, not a normal end of the operation
+    this.publisher.error(SubscriptionSourceException.protocolViolation(reason));
   }
 
   public void handleSessionClose(final @Nullable WebSocketSessionWrapper session) {
+    this.endedBySource = true;
     this.publisher.close();
   }
 

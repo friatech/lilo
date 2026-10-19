@@ -30,6 +30,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
@@ -71,11 +72,16 @@ class MultiplexingTest {
       final @NotNull SubscriptionGatewayHandler gateway,
       final @NotNull RecordingSession session,
       final @NotNull String id) {
-    gateway.handleMessage(
-        session,
-        "{\"id\":\""
-            + id
-            + "\",\"type\":\"subscribe\",\"payload\":{\"query\":\"subscription { ticks }\"}}");
+    // Stitching is asynchronous; wait until the operation is registered (or rejected)
+    assertDoesNotThrow(
+        () ->
+            gateway
+                .handle(
+                    session,
+                    "{\"id\":\""
+                        + id
+                        + "\",\"type\":\"subscribe\",\"payload\":{\"query\":\"subscription { ticks }\"}}")
+                .get(5, TimeUnit.SECONDS));
   }
 
   @BeforeEach
