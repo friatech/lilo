@@ -25,8 +25,8 @@ import org.jetbrains.annotations.Nullable;
 public abstract class SchemaSource {
 
   @NotNull final String schemaName;
-  @Nullable RuntimeWiring runtimeWiring;
-  @Nullable TypeDefinitionRegistry typeDefinitionRegistry;
+  @Nullable volatile RuntimeWiring runtimeWiring;
+  @Nullable volatile TypeDefinitionRegistry typeDefinitionRegistry;
 
   protected SchemaSource(final @NotNull String schemaName) {
     this.schemaName = schemaName;

@@ -35,12 +35,14 @@ import graphql.schema.idl.TypeDefinitionRegistry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -60,9 +62,26 @@ public final class LiloContext {
   private final IntrospectionFetchingMode introspectionFetchingMode;
   private final boolean retrySchemaLoad;
   private final Instrumentation instrumentation;
-  private Map<String, SchemaSource> sourceMap;
-  private GraphQL mergedGraphQL;
-  private boolean schemasAreNotLoaded = true;
+
+  /*
+   * Concurrency model: the warm path only reads the volatile fields below and never locks. Every
+   * state transition (invalidate, starting a load, publishing a finished load) happens while
+   * holding stateLock, so transitions are atomic with respect to each other. No I/O or schema
+   * building runs while the lock is held.
+   */
+  private final Object stateLock = new Object();
+
+  /** Names of the sources invalidated while a load was in flight; guarded by stateLock. */
+  private final Set<String> invalidatedDuringLoad = new HashSet<>();
+
+  /** The load every caller shares while it runs; guarded by stateLock. */
+  private @Nullable CompletableFuture<GraphQL> inFlightLoad;
+
+  /** Immutable; the set of sources never changes, only their loaded state does. */
+  private final Map<String, SchemaSource> sourceMap;
+
+  private volatile @Nullable GraphQL mergedGraphQL;
+  private volatile boolean schemasAreNotLoaded = true;
 
   LiloContext(
       final @NotNull DataFetcherExceptionHandler dataFetcherExceptionHandler,
@@ -168,7 +187,8 @@ public final class LiloContext {
 
   private static @NotNull Map<String, SchemaSource> toSourceMap(
       final @NotNull Stream<SchemaSource> schemaSourcesStream) {
-    return schemaSourcesStream.collect(Collectors.toMap(SchemaSource::getName, ss -> ss));
+    return Collections.unmodifiableMap(
+        schemaSourcesStream.collect(Collectors.toMap(SchemaSource::getName, ss -> ss)));
   }
 
   public @NotNull DataFetcherExceptionHandler getDataFetcherExceptionHandler() {
@@ -193,31 +213,59 @@ public final class LiloContext {
 
   public void invalidate(final @NotNull String schemaName) {
 
-    if (!this.sourceMap.containsKey(Objects.requireNonNull(schemaName))) {
-      return;
+    synchronized (this.stateLock) {
+      final SchemaSource schemaSource = this.sourceMap.get(Objects.requireNonNull(schemaName));
+
+      if (schemaSource == null) {
+        return;
+      }
+
+      this.invalidateLocked(schemaSource);
+      this.schemasAreNotLoaded = this.computeSchemasAreNotLoaded();
     }
-
-    final SchemaSource schemaSource = this.sourceMap.get(schemaName);
-    schemaSource.invalidate();
-
-    this.schemasAreNotLoaded = true;
   }
 
   public void invalidateAll() {
-    this.sourceMap.values().forEach(SchemaSource::invalidate);
-    this.schemasAreNotLoaded = true;
+
+    synchronized (this.stateLock) {
+      this.sourceMap.values().forEach(this::invalidateLocked);
+      this.schemasAreNotLoaded = this.computeSchemasAreNotLoaded();
+    }
   }
 
+  /**
+   * Reloads the sources that are not loaded and rebuilds the merged schema. While a load is in
+   * flight every caller gets that same future, so N concurrent callers trigger one introspection
+   * per source (each caller receives its own {@link CompletableFuture#copy() copy}, so cancelling
+   * one does not affect the others). The shared future is cleared when the load completes or fails,
+   * so a failed load is retried by the next caller.
+   */
   public @NotNull CompletableFuture<GraphQL> reloadGraphQL(final @Nullable Object localContext) {
 
-    return this.loadSources(localContext)
-        .thenApply(
-            sourceMapClone -> {
-              LiloContext.this.mergedGraphQL = LiloContext.this.createGraphQL(sourceMapClone);
-              LiloContext.this.sourceMap = toSourceMap(sourceMapClone.stream());
+    final CompletableFuture<GraphQL> load;
 
-              return LiloContext.this.mergedGraphQL;
-            });
+    synchronized (this.stateLock) {
+      if (this.inFlightLoad != null) {
+        // A copy, so that a caller completing or cancelling its future cannot affect the others
+        return this.inFlightLoad.copy();
+      }
+
+      load = new CompletableFuture<>();
+      this.inFlightLoad = load;
+    }
+
+    final CompletableFuture<GraphQL> build;
+
+    try {
+      build = this.loadSources(localContext).thenApply(this::createGraphQL);
+    } catch (final RuntimeException e) {
+      this.finishLoad(load, null, e);
+      return load.copy();
+    }
+
+    build.whenComplete((graphQL, throwable) -> this.finishLoad(load, graphQL, throwable));
+
+    return load.copy();
   }
 
   @NotNull
@@ -240,11 +288,63 @@ public final class LiloContext {
   @NotNull
   CompletableFuture<GraphQL> getGraphQLAsync(final @Nullable ExecutionInput executionInput) {
 
-    if (this.schemasAreNotLoaded()) {
+    // Read the flag first: a load publishes mergedGraphQL before it clears the flag, so seeing the
+    // cleared flag guarantees seeing the schema it was cleared for
+    final boolean notLoaded = this.schemasAreNotLoaded;
+    final GraphQL graphQL = this.mergedGraphQL;
+
+    if (notLoaded || graphQL == null) {
       return this.reloadGraphQL(executionInput == null ? null : executionInput.getLocalContext());
     }
 
-    return CompletableFuture.supplyAsync(() -> this.mergedGraphQL);
+    return CompletableFuture.completedFuture(graphQL);
+  }
+
+  private void finishLoad(
+      final @NotNull CompletableFuture<GraphQL> load,
+      final @Nullable GraphQL graphQL,
+      final @Nullable Throwable throwable) {
+
+    synchronized (this.stateLock) {
+      if (this.inFlightLoad == load) {
+        this.inFlightLoad = null;
+      }
+
+      // Sources invalidated while their introspection was in flight may have been marked loaded
+      // again by that (possibly stale) response; invalidate them once more so that the next
+      // request fetches them again instead of losing the invalidation
+      this.invalidatedDuringLoad.stream()
+          .map(this.sourceMap::get)
+          .filter(Objects::nonNull)
+          .forEach(SchemaSource::invalidate);
+      this.invalidatedDuringLoad.clear();
+
+      if (graphQL != null) {
+        this.mergedGraphQL = graphQL;
+        this.schemasAreNotLoaded = this.computeSchemasAreNotLoaded();
+      }
+      // A failed load publishes nothing and leaves the flag as it was, so a request-triggered
+      // load is retried by the next request, as before
+    }
+
+    // Complete outside the lock: dependent stages run on this thread
+    if (throwable != null) {
+      load.completeExceptionally(
+          throwable instanceof CompletionException && throwable.getCause() != null
+              ? throwable.getCause()
+              : throwable);
+    } else {
+      load.complete(graphQL);
+    }
+  }
+
+  private void invalidateLocked(final @NotNull SchemaSource schemaSource) {
+
+    schemaSource.invalidate();
+
+    if (this.inFlightLoad != null) {
+      this.invalidatedDuringLoad.add(schemaSource.getName());
+    }
   }
 
   private @NotNull GraphQL createGraphQL(final @NotNull List<SchemaSource> schemaSourceList) {
@@ -300,24 +400,18 @@ public final class LiloContext {
     return combined;
   }
 
-  private boolean schemasAreNotLoaded() {
+  /** Decides from the sources' state whether the next request has to load; holds stateLock. */
+  private boolean computeSchemasAreNotLoaded() {
 
-    if (this.schemasAreNotLoaded) {
+    final Collection<SchemaSource> sources = this.sourceMap.values();
+    final long notLoadedCount = sources.stream().filter(SchemaSource::isSchemaNotLoaded).count();
 
-      final Collection<SchemaSource> sources = this.sourceMap.values();
-      final long notLoadedCount =
-          this.sourceMap.values().stream().filter(SchemaSource::isSchemaNotLoaded).count();
-      final int sourceCount = sources.size();
-
-      if (notLoadedCount == sourceCount) { // none of them are loaded
-        this.schemasAreNotLoaded = true;
-      } else if (notLoadedCount == 0) { // all of them are loaded
-        this.schemasAreNotLoaded = false;
-      } else { // if partially loaded then check the retry option
-        this.schemasAreNotLoaded = this.retrySchemaLoad;
-      }
+    if (notLoadedCount == sources.size()) { // none of them are loaded
+      return true;
+    } else if (notLoadedCount == 0) { // all of them are loaded
+      return false;
+    } else { // if partially loaded then check the retry option
+      return this.retrySchemaLoad;
     }
-
-    return this.schemasAreNotLoaded;
   }
 }
