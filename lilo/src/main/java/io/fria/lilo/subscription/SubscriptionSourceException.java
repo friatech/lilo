@@ -17,6 +17,7 @@ package io.fria.lilo.subscription;
 
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,6 +32,9 @@ final class SubscriptionSourceException extends RuntimeException {
 
   private static final long serialVersionUID = 1L;
   private static final int MAX_MESSAGE_LENGTH = 200;
+
+  /** Control characters (C0, DEL, C1 such as NEL) and the Unicode line and paragraph separators. */
+  private static final Pattern UNSAFE_CHARACTERS = Pattern.compile("[\\p{Cc}\\p{Zl}\\p{Zp}]");
 
   /** Raw payload of the source's error message; not serialized, as it may be any JSON value. */
   private final transient @Nullable Object payload;
@@ -78,8 +82,7 @@ final class SubscriptionSourceException extends RuntimeException {
   static @NotNull String bound(final @NotNull String text) {
     final String limited =
         text.length() > MAX_MESSAGE_LENGTH ? text.substring(0, MAX_MESSAGE_LENGTH) : text;
-    // Control characters have no business in a log line or exception message
-    return limited.replaceAll("\\p{Cntrl}", " ");
+    return UNSAFE_CHARACTERS.matcher(limited).replaceAll(" ");
   }
 
   /**

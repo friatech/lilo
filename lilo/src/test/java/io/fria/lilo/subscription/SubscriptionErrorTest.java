@@ -660,6 +660,124 @@ class SubscriptionErrorTest {
     assertNull(publisher.getTermination().block(Duration.ofSeconds(2)));
   }
 
+  @Test
+  void subscribeCompleteLoopCannotBypassTheSessionCap() {
+    final CountDownLatch release = new CountDownLatch(1);
+    this.onStitch = () -> await(release);
+    final SubscriptionGatewayHandler capped =
+        new SubscriptionGatewayHandler(this.lilo, command -> new Thread(command).start(), 2);
+    final RecordingSession session = RecordingSession.init(capped);
+    final List<CompletableFuture<Void>> pending = new java.util.ArrayList<>();
+
+    try {
+      // Each complete frees the operation's slot, but its stitch still holds a pool thread
+      for (int i = 0; i < 4; i++) {
+        pending.add(capped.handle(session, subscribeMessage("a" + i, "subscription { ticks }")));
+        capped.handleMessage(session, "{\"id\":\"a" + i + "\",\"type\":\"complete\"}");
+      }
+
+      for (int i = 0; i < 4; i++) {
+        final List<SubscriptionMessage> frames = messagesFor(session, "a" + i);
+        if (i < 2) {
+          assertTrue(frames.isEmpty(), "a" + i);
+        } else {
+          assertEquals(1, frames.size(), "a" + i);
+          assertEquals(
+              List.of(Map.of("message", "Too many subscriptions on this connection")),
+              errorsOf(frames.get(0)));
+        }
+      }
+      assertTrue(session.isOpen());
+    } finally {
+      release.countDown();
+    }
+    for (final CompletableFuture<Void> future : pending) {
+      await(future);
+    }
+
+    // The finished stitches no longer count
+    this.onStitch = () -> {};
+    await(capped.handle(session, subscribeMessage("b", "subscription { ticks }")));
+    await(capped.handle(session, subscribeMessage("c", "subscription { ticks }")));
+    assertTrue(messagesFor(session, "b").isEmpty());
+    assertTrue(messagesFor(session, "c").isEmpty());
+    assertTrue(session.isOpen());
+  }
+
+  @Test
+  void executorFailureProducesErrorFrameAndFreesTheSlot() {
+    final AtomicBoolean broken = new AtomicBoolean(true);
+    final Executor executor =
+        command -> {
+          if (broken.get()) {
+            throw new IllegalStateException("executor is shut down");
+          }
+          new Thread(command).start();
+        };
+    final SubscriptionGatewayHandler capped =
+        new SubscriptionGatewayHandler(this.lilo, executor, 1);
+    final RecordingSession session = RecordingSession.init(capped);
+
+    assertDoesNotThrow(
+        () -> capped.handleMessage(session, subscribeMessage("a", "subscription { ticks }")));
+
+    final List<SubscriptionMessage> frames = messagesFor(session, "a");
+    assertEquals(1, frames.size());
+    assertEquals(1, errorsOf(frames.get(0)).size());
+    assertTrue(session.isOpen());
+
+    // Neither the operation nor its stitch holds the only slot any more
+    broken.set(false);
+    await(capped.handle(session, subscribeMessage("a", "subscription { ticks }")));
+    assertEquals(1, messagesFor(session, "a").size());
+    assertEquals(1, this.publishers.size());
+  }
+
+  @Test
+  void errorFramesOnABrokenSocketDoNotThrow() {
+    final SubscriptionGatewayHandler capped =
+        new SubscriptionGatewayHandler(this.lilo, Runnable::run, 1);
+    final RecordingSession session = RecordingSession.init(capped);
+    await(capped.handle(session, subscribeMessage("a", "subscription { ticks }")));
+    session.onSend(
+        message -> {
+          throw new IllegalStateException("client socket is broken");
+        });
+
+    // Over the cap
+    assertDoesNotThrow(
+        () -> capped.handleMessage(session, subscribeMessage("b", "subscription { ticks }")));
+    // Invalid payload
+    assertDoesNotThrow(
+        () -> capped.handleMessage(session, "{\"id\":\"c\",\"type\":\"subscribe\"}"));
+
+    // Rejected by the executor
+    final SubscriptionGatewayHandler rejecting =
+        new SubscriptionGatewayHandler(
+            this.lilo,
+            command -> {
+              throw new RejectedExecutionException("full");
+            });
+    final RecordingSession other = RecordingSession.init(rejecting, "other-session");
+    other.onSend(
+        message -> {
+          throw new IllegalStateException("client socket is broken");
+        });
+    assertDoesNotThrow(
+        () -> rejecting.handleMessage(other, subscribeMessage("x", "subscription { ticks }")));
+  }
+
+  @Test
+  void sanitiserBoundsTextAndStripsLineAndControlCharacters() {
+    final String text = "a\r\nb\u0085c\u2028d\u2029e\u0007" + "x".repeat(300);
+
+    final String bounded = SubscriptionSourceException.bound(text);
+
+    assertEquals(200, bounded.length());
+    assertEquals("a  b c d e " + "x".repeat(189), bounded);
+    assertEquals("plain", SubscriptionSourceException.bound("plain"));
+  }
+
   // Resource bounds -------------------------------------------------------------------------
 
   @Test

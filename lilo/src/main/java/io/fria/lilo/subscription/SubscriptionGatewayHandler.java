@@ -90,9 +90,8 @@ public final class SubscriptionGatewayHandler {
   private final @NotNull Executor executor;
   private final int maxOperationsPerSession;
 
-  /** session id -> (operation id -> operation) */
-  private final @NotNull Map<String, Map<String, Operation>> sessionOperations =
-      new ConcurrentHashMap<>();
+  /** session id -> the session's operations and in-flight stitches */
+  private final @NotNull Map<String, SessionState> sessionOperations = new ConcurrentHashMap<>();
 
   /**
    * Constructs a handler instance using lilo.
@@ -296,9 +295,9 @@ public final class SubscriptionGatewayHandler {
       return DONE;
     }
 
-    final Map<String, Operation> active = this.sessionOperations.get(session.getId());
+    final SessionState active = this.sessionOperations.get(session.getId());
 
-    if (active != null && active.containsKey(operationId)) {
+    if (active != null && active.operations.containsKey(operationId)) {
       // graphql-transport-ws: a subscribe with an id that is already active closes the
       // connection (4409 Subscriber already exists)
       this.closeSession(session);
@@ -309,12 +308,12 @@ public final class SubscriptionGatewayHandler {
     final Object payload = request.getPayload();
 
     if (!(payload instanceof Map)) {
-      sendError(session, operationId, errors(INVALID_PAYLOAD));
+      trySendError(session, operationId, errors(INVALID_PAYLOAD));
       return DONE;
     }
 
     if (!(((Map<?, ?>) payload).get("query") instanceof String)) {
-      sendError(session, operationId, errors(MISSING_QUERY));
+      trySendError(session, operationId, errors(MISSING_QUERY));
       return DONE;
     }
 
@@ -324,24 +323,29 @@ public final class SubscriptionGatewayHandler {
           JsonUtils.toObj(JsonUtils.toStr(payload), GraphQLRequest.class).orElse(null);
 
       if (graphQLRequest == null) {
-        sendError(session, operationId, errors(INVALID_PAYLOAD));
+        trySendError(session, operationId, errors(INVALID_PAYLOAD));
         return DONE;
       }
 
       executionInput = graphQLRequest.toExecutionInput();
     } catch (final RuntimeException e) {
       // e.g. a blank query or variables of the wrong shape
-      sendError(session, operationId, errors(INVALID_PAYLOAD));
+      trySendError(session, operationId, errors(INVALID_PAYLOAD));
       return DONE;
     }
 
-    final Map<String, Operation> operations =
-        this.sessionOperations.computeIfAbsent(session.getId(), id -> new ConcurrentHashMap<>());
+    final SessionState state =
+        this.sessionOperations.computeIfAbsent(session.getId(), id -> new SessionState());
+    final Map<String, Operation> operations = state.operations;
     final Operation operation = new Operation();
 
-    // A session's messages arrive one after the other, so a size check is enough here
-    if (operations.size() >= this.maxOperationsPerSession) {
-      sendError(session, operationId, errors(TOO_MANY_OPERATIONS));
+    // A session's messages arrive one after the other, so plain checks are enough here. A stitch
+    // still running for an operation the client already completed holds a pool thread, so it
+    // counts as well: otherwise subscribe followed by complete would bypass the cap. Every
+    // in-flight stitch belongs to a registered operation unless that was completed, so the larger
+    // of the two numbers is the session's real usage; their sum would count most operations twice.
+    if (Math.max(operations.size(), state.inFlight.get()) >= this.maxOperationsPerSession) {
+      trySendError(session, operationId, errors(TOO_MANY_OPERATIONS));
       return DONE;
     }
 
@@ -351,7 +355,7 @@ public final class SubscriptionGatewayHandler {
       return DONE;
     }
 
-    if (this.isDetached(session, operations)) {
+    if (this.isDetached(session, state)) {
       // The session was closed meanwhile. Its close may already have drained this map before the
       // operation was added, so remove it here rather than rely on closeSession finding it.
       operations.remove(operationId, operation);
@@ -360,21 +364,30 @@ public final class SubscriptionGatewayHandler {
     }
 
     final CompletableFuture<ExecutionResult> stitch = new CompletableFuture<>();
+    // Counted before submitting; released exactly once, when the stitch finished or never started
+    state.inFlight.incrementAndGet();
     try {
       // Offloaded: with a cached schema the stitch runs the source's retriever inline
       this.executor.execute(() -> this.stitch(executionInput, stitch));
-    } catch (final RejectedExecutionException e) {
-      LOG.warn("Subscription {} rejected: the stitching executor is saturated", safe(operationId));
+    } catch (final RuntimeException e) {
+      state.inFlight.decrementAndGet();
+      final boolean rejected = e instanceof RejectedExecutionException;
+      LOG.warn(
+          "Subscription {} not started: the stitching executor {}",
+          safe(operationId),
+          rejected ? "is saturated" : "failed: " + safe(e.toString()));
+      LOG.debug("Stitching executor failure", e);
       if (operations.remove(operationId, operation)) {
-        sendError(session, operationId, errors(TOO_MANY_REQUESTS));
+        trySendError(session, operationId, errors(rejected ? TOO_MANY_REQUESTS : EXECUTION_FAILED));
       }
       return DONE;
     }
 
     return stitch.handle(
         (result, throwable) -> {
+          state.inFlight.decrementAndGet();
           try {
-            this.start(session, operations, operation, operationId, result, throwable);
+            this.start(session, state, operation, operationId, result, throwable);
           } catch (final RuntimeException e) {
             LOG.warn(
                 "Subscription {} could not be started: {}", safe(operationId), safe(e.toString()));
@@ -416,11 +429,13 @@ public final class SubscriptionGatewayHandler {
   /** Runs when stitching a subscribe finished: starts forwarding or reports why it cannot. */
   private void start(
       final @NotNull WebSocketSessionWrapper session,
-      final @NotNull Map<String, Operation> operations,
+      final @NotNull SessionState state,
       final @NotNull Operation operation,
       final @NotNull String operationId,
       final @Nullable ExecutionResult result,
       final @Nullable Throwable throwable) {
+
+    final Map<String, Operation> operations = state.operations;
 
     if (throwable != null || result == null) {
       // The failure may be triggered by the client's query: no stack trace at warn
@@ -510,7 +525,7 @@ public final class SubscriptionGatewayHandler {
 
     operation.setSubscription(subscription);
 
-    if (this.isDetached(session, operations)) {
+    if (this.isDetached(session, state)) {
       // Defensive: registration already checked this, but a stale map must never keep forwarding
       if (operations.remove(operationId, operation)) {
         operation.cancel();
@@ -528,7 +543,7 @@ public final class SubscriptionGatewayHandler {
       final @NotNull List<Map<String, Object>> errors) {
 
     if (operations.remove(operationId, operation)) {
-      sendError(session, operationId, errors);
+      trySendError(session, operationId, errors);
     }
   }
 
@@ -545,9 +560,8 @@ public final class SubscriptionGatewayHandler {
 
   /** Whether the session closed or its operation map is no longer the live one. */
   private boolean isDetached(
-      final @NotNull WebSocketSessionWrapper session,
-      final @NotNull Map<String, Operation> operations) {
-    return !session.isOpen() || this.sessionOperations.get(session.getId()) != operations;
+      final @NotNull WebSocketSessionWrapper session, final @NotNull SessionState state) {
+    return !session.isOpen() || this.sessionOperations.get(session.getId()) != state;
   }
 
   private void closeSession(final @NotNull WebSocketSessionWrapper session) {
@@ -561,11 +575,13 @@ public final class SubscriptionGatewayHandler {
       LOG.debug("Could not close session {}", session.getId(), e);
     }
 
-    final Map<String, Operation> operations = this.sessionOperations.remove(session.getId());
+    final SessionState state = this.sessionOperations.remove(session.getId());
 
-    if (operations == null) {
+    if (state == null) {
       return;
     }
+
+    final Map<String, Operation> operations = state.operations;
 
     for (final String operationId : operations.keySet()) {
       final Operation operation = operations.remove(operationId);
@@ -577,18 +593,28 @@ public final class SubscriptionGatewayHandler {
 
   private void cancelOperation(final @NotNull String sessionId, final @NotNull String operationId) {
 
-    final Map<String, Operation> operations = this.sessionOperations.get(sessionId);
+    final SessionState state = this.sessionOperations.get(sessionId);
 
-    if (operations == null) {
+    if (state == null) {
       return;
     }
 
     // Whoever removes the operation owns its cleanup, so a late complete or close is a no-op
-    final Operation operation = operations.remove(operationId);
+    final Operation operation = state.operations.remove(operationId);
 
     if (operation != null) {
       operation.cancel();
     }
+  }
+
+  /** Per-session state: the registered operations and the stitches still running for them. */
+  private static final class SessionState {
+
+    /** operation id -> operation */
+    private final @NotNull Map<String, Operation> operations = new ConcurrentHashMap<>();
+
+    /** Stitches submitted and not yet finished, including those of completed operations. */
+    private final @NotNull AtomicInteger inFlight = new AtomicInteger();
   }
 
   /**
