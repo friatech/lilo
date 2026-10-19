@@ -115,14 +115,7 @@ public class SubscriptionSourceHandler {
         this.subscribe(session);
         break;
       case next:
-        final Object payload = request.getPayload();
-
-        if (payload == null) {
-          this.closeSource(session, "Subscription source sent a next message without payload");
-          return;
-        }
-
-        this.publisher.send(payload);
+        this.handleNext(session, request.getPayload());
         break;
       case ping:
         // Echo the ping payload back, if any
@@ -144,6 +137,17 @@ public class SubscriptionSourceHandler {
         // Client-to-server only types (connection_init, subscribe) and pong are ignored
         break;
     }
+  }
+
+  private void handleNext(
+      final @NotNull WebSocketSessionWrapper session, final @Nullable Object payload) {
+
+    if (payload == null) {
+      this.closeSource(session, "Subscription source sent a next message without payload");
+      return;
+    }
+
+    this.publisher.send(payload);
   }
 
   private void subscribe(final @NotNull WebSocketSessionWrapper session) {
