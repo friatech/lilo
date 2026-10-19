@@ -24,6 +24,7 @@ Stitching engine (behavior changes for existing users):
 - `stitch` throws the root cause (for example `IllegalArgumentException` or `SchemaProblem`) instead of `RuntimeException(ExecutionException)`. A missing `__typename` on an abstract value throws from `stitch` rather than returning a GraphQL error.
 - `DefaultRemoteQueryRetriever` and `DefaultRemoteIntrospectionRetriever` use `java.net.http.HttpClient` with a 5 s connect timeout, a 30 s request timeout, a 10 MiB response cap, no redirects, `http`/`https` only and `Accept: application/json`. Failures are `IllegalStateException` or `IllegalArgumentException`. A subclass that overrides only the two-argument `retrieve` is no longer called by `get`.
 - `stitchAsync` on a warm context runs on the caller's thread.
+- `GraphQLRequest.toExecutionInput` now throws `IllegalArgumentException("GraphQL request must contain a query")` for a null or blank query instead of graphql-java's `AssertException`.
 
 Subscriptions (behavior changes):
 
@@ -37,6 +38,7 @@ Subscriptions (behavior changes):
 
 ### Added
 
+- `GraphQLRequest` supports an optional `extensions` map (JSON, builder, getter/setter, defensively copied) that is passed on to the `ExecutionInput`; it is omitted from the JSON when absent.
 - Subscriptions: `ping`/`pong` and `error` messages, several operations per socket with per-operation `complete`, source handler lifecycle fixes (one `subscribe` per source, sources released on cancel and send failures), and `SubscriptionConnectionContext`.
 - `lilo-spring` properties: `lilo.allowed-origins` (default `*`; an empty list allows only same-origin requests), `lilo.send-time-limit` (default `10s`) and `lilo.send-buffer-size-limit` (default `524288` bytes). A slow client is disconnected with close status 4500 and its subscriptions are released. Client sends are no longer racy across threads.
 - `RemoteRetrieverOptions` for the default remote retrievers (timeouts, response cap, header hook).

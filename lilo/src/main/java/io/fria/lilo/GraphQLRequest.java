@@ -15,6 +15,7 @@
  */
 package io.fria.lilo;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import graphql.ExecutionInput;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -131,15 +132,26 @@ public final class GraphQLRequest {
   private String query;
   private String operationName;
   private Map<String, Object> variables;
+  private Map<String, Object> extensions;
 
   public GraphQLRequest(
       final @NotNull String query,
       final @Nullable String operationName,
       final @Nullable Map<String, Object> variables) {
+    this(query, operationName, variables, null);
+  }
+
+  public GraphQLRequest(
+      final @NotNull String query,
+      final @Nullable String operationName,
+      final @Nullable Map<String, Object> variables,
+      final @Nullable Map<String, Object> extensions) {
     this.query = Objects.requireNonNull(query);
     this.operationName = operationName;
     this.variables =
         variables == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(variables));
+    this.extensions =
+        extensions == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(extensions));
   }
 
   public GraphQLRequest() {
@@ -156,6 +168,7 @@ public final class GraphQLRequest {
     copy.query = source.query;
     copy.setOperationName(source.operationName);
     copy.setVariables(source.variables);
+    copy.setExtensions(source.extensions);
 
     return copy;
   }
@@ -179,7 +192,8 @@ public final class GraphQLRequest {
 
     return this.query.equals(that.query)
         && Objects.equals(this.operationName, that.operationName)
-        && Objects.equals(this.variables, that.variables);
+        && Objects.equals(this.variables, that.variables)
+        && Objects.equals(this.extensions, that.extensions);
   }
 
   public @Nullable String getOperationName() {
@@ -211,12 +225,28 @@ public final class GraphQLRequest {
         variables == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(variables));
   }
 
+  // Absent extensions are left out of the JSON so requests forwarded to remote sources keep their
+  // exact previous shape
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public @Nullable Map<String, Object> getExtensions() {
+    return this.extensions == null ? null : Collections.unmodifiableMap(this.extensions);
+  }
+
+  public void setExtensions(final @Nullable Map<String, Object> extensions) {
+    this.extensions =
+        extensions == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(extensions));
+  }
+
   @Override
   public int hashCode() {
-    return Objects.hash(this.query, this.operationName, this.variables);
+    return Objects.hash(this.query, this.operationName, this.variables, this.extensions);
   }
 
   public @NotNull ExecutionInput toExecutionInput(final @Nullable Object localContext) {
+
+    if (this.query == null || this.query.trim().isEmpty()) {
+      throw new IllegalArgumentException("GraphQL request must contain a query");
+    }
 
     final ExecutionInput.Builder builder = ExecutionInput.newExecutionInput().query(this.query);
 
@@ -226,6 +256,10 @@ public final class GraphQLRequest {
 
     if (this.variables != null && !this.variables.isEmpty()) {
       builder.variables(this.variables);
+    }
+
+    if (this.extensions != null && !this.extensions.isEmpty()) {
+      builder.extensions(this.extensions);
     }
 
     if (localContext != null) {
@@ -247,6 +281,8 @@ public final class GraphQLRequest {
         + this.getOperationName()
         + ", variables="
         + this.getVariables()
+        + ", extensions="
+        + this.getExtensions()
         + ")";
   }
 
@@ -255,13 +291,23 @@ public final class GraphQLRequest {
     private String query;
     private String operationName;
     private Map<String, Object> variables;
+    private Map<String, Object> extensions;
 
     private GraphQLRequestBuilder() {
       // Private constructor
     }
 
     public @NotNull GraphQLRequest build() {
-      return new GraphQLRequest(this.query, this.operationName, this.variables);
+      return new GraphQLRequest(this.query, this.operationName, this.variables, this.extensions);
+    }
+
+    public @NotNull GraphQLRequestBuilder extensions(
+        final @Nullable Map<String, Object> extensionsParam) {
+      this.extensions =
+          extensionsParam == null
+              ? null
+              : Collections.unmodifiableMap(new LinkedHashMap<>(extensionsParam));
+      return this;
     }
 
     public @NotNull GraphQLRequestBuilder operationName(final @Nullable String operationNameParam) {
