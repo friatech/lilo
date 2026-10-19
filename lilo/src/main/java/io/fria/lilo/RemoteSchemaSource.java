@@ -23,6 +23,7 @@ import static io.fria.lilo.JsonUtils.toStr;
 
 import graphql.ExecutionResult;
 import graphql.GraphQLError;
+import graphql.execution.DataFetcherResult;
 import graphql.introspection.IntrospectionResultToSchema;
 import graphql.language.FieldDefinition;
 import graphql.language.ObjectTypeDefinition;
@@ -113,23 +114,33 @@ public final class RemoteSchemaSource extends SchemaSource {
 
     try {
       graphQLResult = graphQLResultFuture.get();
-    } catch (final InterruptedException | ExecutionException e) {
+    } catch (final InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException(e);
+    } catch (final ExecutionException e) {
       throw new RuntimeException(e);
     }
 
     final List<GraphQLError> errors = graphQLResult.getErrors();
-
-    if (errors != null && !errors.isEmpty()) {
-      throw new LiloSourceDataFetcherException(errors);
-    }
-
+    final boolean hasErrors = errors != null && !errors.isEmpty();
     final Map<String, Object> data = graphQLResult.getData();
 
     if (data == null) {
+      if (hasErrors) {
+        throw new LiloSourceDataFetcherException(errors);
+      }
+
       throw new IllegalArgumentException("Remote source returned a response without data");
     }
 
-    return data.values().iterator().next();
+    final Object value = data.values().iterator().next();
+
+    if (hasErrors) {
+      // Partial result: keep the remote data and report the remote errors alongside it
+      return DataFetcherResult.newResult().data(value).errors(errors).build();
+    }
+
+    return value;
   }
 
   private static @NotNull ExecutionResult toExecutionResult(final @NotNull String queryResult) {

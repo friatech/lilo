@@ -15,24 +15,39 @@
  */
 package io.fria.lilo;
 
+import graphql.GraphQLError;
+import graphql.language.AstPrinter;
+import graphql.language.DirectiveDefinition;
+import graphql.language.DirectiveLocation;
+import graphql.language.EnumTypeDefinition;
+import graphql.language.EnumValueDefinition;
 import graphql.language.FieldDefinition;
+import graphql.language.InputObjectTypeDefinition;
+import graphql.language.InputValueDefinition;
+import graphql.language.InterfaceTypeDefinition;
+import graphql.language.NamedNode;
+import graphql.language.Node;
 import graphql.language.ObjectTypeDefinition;
 import graphql.language.OperationTypeDefinition;
 import graphql.language.SDLDefinition;
 import graphql.language.SchemaDefinition;
+import graphql.language.Type;
 import graphql.language.TypeDefinition;
 import graphql.language.TypeName;
+import graphql.language.UnionTypeDefinition;
 import graphql.schema.DataFetcher;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import graphql.schema.idl.TypeRuntimeWiring;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -64,8 +79,49 @@ final class SchemaMerger {
         names.get("query"), names.get("mutation"), names.get("subscription"));
   }
 
+  /**
+   * Reads the loaded state of each source once. A source can be invalidated at any time, so
+   * everything built from one load (the merged schema and the set of remote root fields) must use
+   * the same snapshot instead of asking the sources again.
+   */
+  static @NotNull List<SourceSnapshot> snapshot(
+      final @NotNull Collection<SchemaSource> schemaSources) {
+
+    final List<SourceSnapshot> snapshots = new ArrayList<>();
+
+    for (final SchemaSource schemaSource : schemaSources) {
+
+      if (schemaSource == null) {
+        continue;
+      }
+
+      // The registry is written last when a source loads and is the only field invalidate
+      // clears, so reading it first and the wiring next yields a wiring of the same load or newer
+      final TypeDefinitionRegistry registry = schemaSource.typeDefinitionRegistry;
+      final RuntimeWiring wiring = schemaSource.runtimeWiring;
+
+      if (registry != null && wiring != null) {
+        snapshots.add(
+            new SourceSnapshot(
+                schemaSource.getName(),
+                schemaSource instanceof RemoteSchemaSource,
+                registry,
+                wiring));
+      }
+    }
+
+    return snapshots;
+  }
+
   static void mergeSchemas(
       final @NotNull Collection<SchemaSource> schemaSources,
+      final @NotNull TypeDefinitionRegistry combinedRegistry,
+      final RuntimeWiring.@NotNull Builder runtimeWiringBuilder) {
+    mergeSnapshots(snapshot(schemaSources), combinedRegistry, runtimeWiringBuilder);
+  }
+
+  static void mergeSnapshots(
+      final @NotNull List<SourceSnapshot> snapshots,
       final @NotNull TypeDefinitionRegistry combinedRegistry,
       final RuntimeWiring.@NotNull Builder runtimeWiringBuilder) {
 
@@ -77,20 +133,19 @@ final class SchemaMerger {
     final List<FieldDefinition> mutationFieldDefinitions = new ArrayList<>();
     final List<FieldDefinition> subscriptionFieldDefinitions = new ArrayList<>();
 
-    for (final SchemaSource schemaSource : schemaSources) {
+    // Keyed by definition name; remembers the first source that added it and its printed form
+    final Map<String, SourceDefinition> definitions = new HashMap<>();
 
-      if (schemaSource == null || schemaSource.isSchemaNotLoaded()) {
-        continue;
-      }
+    for (final SourceSnapshot schemaSource : snapshots) {
 
-      final TypeDefinitionRegistry sourceRegistry = schemaSource.getTypeDefinitionRegistry();
+      final TypeDefinitionRegistry sourceRegistry = schemaSource.getRegistry();
       final OperationTypeNames operationTypeNames = getOperationTypeNames(sourceRegistry);
 
       queryTypeName = checkName(queryTypeName, operationTypeNames.query);
       mutationTypeName = checkName(mutationTypeName, operationTypeNames.mutation);
       subscriptionTypeName = checkName(subscriptionTypeName, operationTypeNames.subscription);
 
-      final RuntimeWiring sourceWiring = schemaSource.getRuntimeWiring();
+      final RuntimeWiring sourceWiring = schemaSource.getWiring();
       final Map<String, Map<String, DataFetcher>> dataFetchers = sourceWiring.getDataFetchers();
 
       mergeFieldDefinitions(
@@ -110,19 +165,138 @@ final class SchemaMerger {
 
       // Add types other than Query and Mutation to combined registry
       excludeTypes(sourceRegistry, queryTypeName, mutationTypeName, subscriptionTypeName)
-          .forEach(combinedRegistry::add);
+          .forEach(d -> addDefinition(d, "", schemaSource, combinedRegistry, definitions));
 
       // Add all directive definitions
-      sourceRegistry.getDirectiveDefinitions().values().forEach(combinedRegistry::add);
+      sourceRegistry
+          .getDirectiveDefinitions()
+          .values()
+          .forEach(d -> addDefinition(d, "@", schemaSource, combinedRegistry, definitions));
 
       // Add all scalar definitions
-      sourceRegistry.scalars().values().forEach(combinedRegistry::add);
+      sourceRegistry
+          .scalars()
+          .values()
+          .forEach(d -> addDefinition(d, "", schemaSource, combinedRegistry, definitions));
     }
 
     addType(queryTypeName, queryFieldDefinitions, combinedRegistry);
     addType(mutationTypeName, mutationFieldDefinitions, combinedRegistry);
     addType(subscriptionTypeName, subscriptionFieldDefinitions, combinedRegistry);
     addSchema(queryTypeName, mutationTypeName, subscriptionTypeName, combinedRegistry);
+  }
+
+  private static void addDefinition(
+      final @NotNull SDLDefinition<?> definition,
+      final @NotNull String keyPrefix,
+      final @NotNull SourceSnapshot schemaSource,
+      final @NotNull TypeDefinitionRegistry combinedRegistry,
+      final @NotNull Map<String, SourceDefinition> definitions) {
+
+    final String name = ((NamedNode<?>) definition).getName();
+    // The compact printer omits descriptions: documentation is not part of a type's structure.
+    // Member order is not part of it either, so members are sorted before printing.
+    final String printed = AstPrinter.printAstCompact(normalize(definition));
+    final SourceDefinition existing = definitions.get(keyPrefix + name);
+
+    if (existing != null) {
+      if (!existing.printed.equals(printed)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Type %s is defined differently by sources %s and %s",
+                name, existing.sourceName, schemaSource.getName()));
+      }
+
+      return;
+    }
+
+    definitions.put(keyPrefix + name, new SourceDefinition(schemaSource.getName(), printed));
+
+    final Optional<GraphQLError> error = combinedRegistry.add(definition);
+
+    if (error.isPresent()) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Type %s from source %s could not be added: %s",
+              name, schemaSource.getName(), error.get().getMessage()));
+    }
+  }
+
+  /**
+   * Returns a copy of the definition whose members (fields, arguments, input values, enum values,
+   * union members, implemented interfaces and directive locations) are sorted by name, so that two
+   * definitions differing only in member order print the same. The source node is not modified.
+   */
+  private static @NotNull Node<?> normalize(final @NotNull SDLDefinition<?> definition) {
+
+    if (definition instanceof ObjectTypeDefinition) {
+      final ObjectTypeDefinition d = (ObjectTypeDefinition) definition;
+      return d.transform(
+          b ->
+              b.fieldDefinitions(sortFields(d.getFieldDefinitions()))
+                  .implementz(sortTypes(d.getImplements())));
+    } else if (definition instanceof InterfaceTypeDefinition) {
+      final InterfaceTypeDefinition d = (InterfaceTypeDefinition) definition;
+      return d.transform(
+          b ->
+              b.definitions(sortFields(d.getFieldDefinitions()))
+                  .implementz(sortTypes(d.getImplements())));
+    } else if (definition instanceof InputObjectTypeDefinition) {
+      final InputObjectTypeDefinition d = (InputObjectTypeDefinition) definition;
+      return d.transform(
+          b -> b.inputValueDefinitions(sortInputValues(d.getInputValueDefinitions())));
+    } else if (definition instanceof EnumTypeDefinition) {
+      final EnumTypeDefinition d = (EnumTypeDefinition) definition;
+      return d.transform(
+          b ->
+              b.enumValueDefinitions(
+                  sortedBy(d.getEnumValueDefinitions(), EnumValueDefinition::getName)));
+    } else if (definition instanceof UnionTypeDefinition) {
+      final UnionTypeDefinition d = (UnionTypeDefinition) definition;
+      return d.transform(b -> b.memberTypes(sortTypes(d.getMemberTypes())));
+    } else if (definition instanceof DirectiveDefinition) {
+      final DirectiveDefinition d = (DirectiveDefinition) definition;
+      return d.transform(
+          b ->
+              b.inputValueDefinitions(sortInputValues(d.getInputValueDefinitions()))
+                  .directiveLocations(
+                      sortedBy(d.getDirectiveLocations(), DirectiveLocation::getName)));
+    }
+
+    return definition;
+  }
+
+  private static @NotNull List<FieldDefinition> sortFields(
+      final @NotNull List<FieldDefinition> fields) {
+
+    final List<FieldDefinition> normalized =
+        fields.stream()
+            .map(
+                f ->
+                    f.transform(
+                        b ->
+                            b.inputValueDefinitions(sortInputValues(f.getInputValueDefinitions()))))
+            .collect(Collectors.toList());
+
+    return sortedBy(normalized, FieldDefinition::getName);
+  }
+
+  private static @NotNull List<InputValueDefinition> sortInputValues(
+      final @NotNull List<InputValueDefinition> inputValues) {
+    return sortedBy(inputValues, InputValueDefinition::getName);
+  }
+
+  @SuppressWarnings("rawtypes")
+  private static @NotNull List<Type> sortTypes(final @NotNull List<Type> types) {
+    return sortedBy(types, AstPrinter::printAstCompact);
+  }
+
+  private static <T> @NotNull List<T> sortedBy(
+      final @NotNull List<T> items, final @NotNull Function<T, String> key) {
+
+    final List<T> sorted = new ArrayList<>(items);
+    sorted.sort(Comparator.comparing(key));
+    return sorted;
   }
 
   private static void addOperationType(
@@ -236,6 +410,56 @@ final class SchemaMerger {
 
     runtimeWiringBuilder.type(
         TypeRuntimeWiring.newTypeWiring(typeName).dataFetchers(ownDataFetchers).build());
+  }
+
+  /** The loaded state of one source, read once. */
+  static final class SourceSnapshot {
+
+    private final String name;
+    private final boolean remote;
+    private final TypeDefinitionRegistry registry;
+    private final RuntimeWiring wiring;
+
+    SourceSnapshot(
+        final @NotNull String name,
+        final boolean remote,
+        final @NotNull TypeDefinitionRegistry registry,
+        final @NotNull RuntimeWiring wiring) {
+      this.name = name;
+      this.remote = remote;
+      this.registry = registry;
+      this.wiring = wiring;
+    }
+
+    @NotNull
+    String getName() {
+      return this.name;
+    }
+
+    @NotNull
+    TypeDefinitionRegistry getRegistry() {
+      return this.registry;
+    }
+
+    @NotNull
+    RuntimeWiring getWiring() {
+      return this.wiring;
+    }
+
+    boolean isRemote() {
+      return this.remote;
+    }
+  }
+
+  private static final class SourceDefinition {
+
+    private final String sourceName;
+    private final String printed;
+
+    SourceDefinition(final @NotNull String sourceName, final @NotNull String printed) {
+      this.sourceName = sourceName;
+      this.printed = printed;
+    }
   }
 
   static final class OperationTypeNames {

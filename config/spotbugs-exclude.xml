@@ -24,9 +24,10 @@
 
   <!--
     The Default* remote retrievers are public, non-final extension points, and making them final
-    would break subclasses in published code. Their constructors only null-check a plain String
-    URL argument before any resource is acquired, so a finalizer attack on a half-built instance
-    has nothing to exploit.
+    would break subclasses in published code. Their constructors only null-check the plain String
+    URL and the immutable RemoteRetrieverOptions arguments; URL validation and HttpClient creation
+    are deferred to the first retrieval, so no resource is acquired and a finalizer attack on a
+    half-built instance has nothing to exploit.
   -->
   <Match>
     <Or>

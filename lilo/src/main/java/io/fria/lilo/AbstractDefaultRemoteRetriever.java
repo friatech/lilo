@@ -16,53 +16,356 @@
 package io.fria.lilo;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Flow;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+/**
+ * Base class of the default HTTP retrievers. Requests are POSTed as JSON with {@code
+ * java.net.http.HttpClient}; one client is created lazily per retriever instance (and options
+ * instance) and reused, since it is thread-safe.
+ */
 public abstract class AbstractDefaultRemoteRetriever {
 
-  private static final int RESPONSE_STREAM_BUFFER_SIZE = 4096;
+  private static final int MAX_ERROR_BODY_CHARS = 512;
+  private static final int HTTP_OK_MIN = 200;
+  private static final int HTTP_OK_MAX = 299;
+  private static final String APPLICATION_JSON = "application/json";
 
-  protected String retrieve(final @NotNull String schemaUrl, final @NotNull String query) {
+  private final AtomicReference<ClientHolder> clientHolder = new AtomicReference<>();
 
-    final byte[] response;
+  /**
+   * Posts {@code query} to {@code schemaUrl} with {@link RemoteRetrieverOptions#defaults()} and no
+   * extra headers.
+   *
+   * @param schemaUrl an {@code http} or {@code https} URL
+   * @param query the JSON request body
+   * @return the response body
+   */
+  protected @NotNull String retrieve(final @NotNull String schemaUrl, final @NotNull String query) {
+    return this.retrieve(schemaUrl, query, RemoteRetrieverOptions.defaults(), Map.of());
+  }
+
+  /**
+   * Posts {@code query} to {@code schemaUrl} as JSON.
+   *
+   * <p>A 2xx response body is returned as is. A non-2xx response body is returned when it is a
+   * GraphQL response carrying {@code errors}, so the engine can surface them; otherwise an {@link
+   * IllegalStateException} with the status code and the start of the body is thrown. Header values
+   * are never included in exception messages.
+   *
+   * @param schemaUrl an {@code http} or {@code https} URL
+   * @param query the JSON request body
+   * @param options timeouts, size limit and redirect policy
+   * @param headers extra request headers, which may override {@code Content-Type} and {@code
+   *     Accept}
+   * @return the response body
+   * @throws IllegalArgumentException if the URL is not an absolute {@code http}/{@code https} URL
+   *     or a header is invalid
+   * @throws IllegalStateException if the request fails, times out, is interrupted, the response is
+   *     larger than {@link RemoteRetrieverOptions#getMaxResponseBytes()} or is a non-GraphQL error
+   */
+  protected @NotNull String retrieve(
+      final @NotNull String schemaUrl,
+      final @NotNull String query,
+      final @NotNull RemoteRetrieverOptions options,
+      final @Nullable Map<String, String> headers) {
+
+    Objects.requireNonNull(query);
+    Objects.requireNonNull(options);
+
+    final URI uri = toHttpUri(schemaUrl);
+    final HttpRequest request = buildRequest(uri, query, options, headers);
+    final long maxBytes = options.getMaxResponseBytes();
+
+    final CompletableFuture<HttpResponse<byte[]>> future =
+        this.client(options)
+            .sendAsync(request, responseInfo -> new BoundedBodySubscriber(maxBytes));
+
+    final HttpResponse<byte[]> response;
 
     try {
-      final URL url = new URL(schemaUrl);
-
-      final HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-      conn.setRequestMethod("POST");
-      conn.setRequestProperty("Content-Type", "application/json");
-      conn.setDoOutput(true);
-
-      final OutputStream remoteOutputStream = conn.getOutputStream();
-      final byte[] input = query.getBytes(StandardCharsets.UTF_8);
-      remoteOutputStream.write(input, 0, input.length);
-      remoteOutputStream.flush();
-      remoteOutputStream.close();
-
-      final InputStream responseInputStream = conn.getInputStream();
-      final ByteArrayOutputStream responseOutputStream = new ByteArrayOutputStream();
-      final byte[] buffer = new byte[RESPONSE_STREAM_BUFFER_SIZE];
-
-      int bytesRead;
-
-      while ((bytesRead = responseInputStream.read(buffer)) != -1) {
-        responseOutputStream.write(buffer, 0, bytesRead);
-      }
-
-      response = responseOutputStream.toByteArray();
-      responseOutputStream.close();
-      responseInputStream.close();
-    } catch (final IOException e) {
-      throw new RuntimeException(e);
+      response = future.get(options.getRequestTimeout().toMillis(), TimeUnit.MILLISECONDS);
+    } catch (final InterruptedException e) {
+      future.cancel(true);
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("Interrupted while calling " + describe(uri), e);
+    } catch (final TimeoutException e) {
+      future.cancel(true);
+      throw timedOut(uri, options, e);
+    } catch (final ExecutionException e) {
+      throw failed(uri, options, e.getCause() == null ? e : e.getCause());
     }
 
-    return new String(response, StandardCharsets.UTF_8);
+    return handleResponse(uri, response);
+  }
+
+  private static @NotNull HttpRequest buildRequest(
+      final @NotNull URI uri,
+      final @NotNull String query,
+      final @NotNull RemoteRetrieverOptions options,
+      final @Nullable Map<String, String> headers) {
+
+    final HttpRequest.Builder builder =
+        HttpRequest.newBuilder(uri)
+            .timeout(options.getRequestTimeout())
+            .header("Content-Type", APPLICATION_JSON)
+            .header("Accept", APPLICATION_JSON)
+            .POST(HttpRequest.BodyPublishers.ofString(query, StandardCharsets.UTF_8));
+
+    if (headers != null) {
+      for (final Map.Entry<String, String> header : headers.entrySet()) {
+        final String name = header.getKey();
+        final String value = header.getValue();
+
+        if (name == null || value == null) {
+          throw new IllegalArgumentException("Request header names and values must not be null");
+        }
+
+        try {
+          builder.setHeader(name, value);
+        } catch (final IllegalArgumentException e) {
+          // The cause is dropped on purpose: its message may contain the header value
+          throw new IllegalArgumentException("Invalid or restricted request header: " + name);
+        }
+      }
+    }
+
+    return builder.build();
+  }
+
+  private static @NotNull String describe(final @NotNull URI uri) {
+    // Leaves out user info and query string, which may carry credentials
+    final String port = uri.getPort() == -1 ? "" : ":" + uri.getPort();
+    final String path = uri.getRawPath() == null ? "" : uri.getRawPath();
+    return uri.getScheme() + "://" + uri.getHost() + port + path;
+  }
+
+  private static @NotNull IllegalStateException failed(
+      final @NotNull URI uri,
+      final @NotNull RemoteRetrieverOptions options,
+      final @NotNull Throwable cause) {
+
+    if (hasCause(cause, HttpTimeoutException.class)) {
+      return timedOut(uri, options, cause);
+    }
+
+    if (hasCause(cause, ResponseTooLargeException.class)) {
+      return new IllegalStateException(
+          "Response from "
+              + describe(uri)
+              + " exceeded maxResponseBytes ("
+              + options.getMaxResponseBytes()
+              + " bytes)",
+          cause);
+    }
+
+    return new IllegalStateException("Request to " + describe(uri) + " failed: " + cause, cause);
+  }
+
+  private static boolean hasCause(
+      final @NotNull Throwable throwable, final @NotNull Class<? extends Throwable> type) {
+
+    for (Throwable current = throwable; current != null; current = current.getCause()) {
+      if (type.isInstance(current)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private static @NotNull String handleResponse(
+      final @NotNull URI uri, final @NotNull HttpResponse<byte[]> response) {
+
+    final String body = new String(response.body(), StandardCharsets.UTF_8);
+    final int status = response.statusCode();
+
+    if (status >= HTTP_OK_MIN && status <= HTTP_OK_MAX) {
+      return body;
+    }
+
+    if (isGraphQLErrorResponse(body)) {
+      return body;
+    }
+
+    final String truncated =
+        body.length() > MAX_ERROR_BODY_CHARS
+            ? body.substring(0, MAX_ERROR_BODY_CHARS) + "...(truncated)"
+            : body;
+
+    throw new IllegalStateException(
+        "Remote source " + describe(uri) + " responded with HTTP " + status + ": " + truncated);
+  }
+
+  private static boolean isGraphQLErrorResponse(final @NotNull String body) {
+
+    try {
+      final Optional<Map<String, Object>> map = JsonUtils.toMap(body);
+      return map.isPresent() && map.get().get("errors") instanceof List;
+    } catch (final IllegalArgumentException e) {
+      return false;
+    }
+  }
+
+  private static @NotNull IllegalStateException timedOut(
+      final @NotNull URI uri,
+      final @NotNull RemoteRetrieverOptions options,
+      final @NotNull Throwable cause) {
+
+    return new IllegalStateException(
+        "Request to "
+            + describe(uri)
+            + " timed out after "
+            + options.getRequestTimeout().toMillis()
+            + " ms",
+        cause);
+  }
+
+  private static @NotNull URI toHttpUri(final @NotNull String schemaUrl) {
+
+    final URI uri = URI.create(Objects.requireNonNull(schemaUrl));
+    final String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
+
+    if (!"http".equals(scheme) && !"https".equals(scheme)) {
+      throw new IllegalArgumentException(
+          "Only http and https schema URLs are supported, got scheme: '" + scheme + "'");
+    }
+
+    if (uri.getHost() == null) {
+      throw new IllegalArgumentException("Schema URL has no host");
+    }
+
+    return uri;
+  }
+
+  private @NotNull HttpClient client(final @NotNull RemoteRetrieverOptions options) {
+
+    final ClientHolder current = this.clientHolder.get();
+
+    if (current != null && current.options == options) {
+      return current.client;
+    }
+
+    final HttpClient client =
+        HttpClient.newBuilder()
+            // HTTP/2 would make every plain http POST offer an h2c upgrade, which some servers
+            // and proxies mishandle; GraphQL requests gain nothing from it
+            .version(HttpClient.Version.HTTP_1_1)
+            .connectTimeout(options.getConnectTimeout())
+            .followRedirects(
+                options.isFollowRedirects()
+                    ? HttpClient.Redirect.NORMAL
+                    : HttpClient.Redirect.NEVER)
+            .build();
+
+    final ClientHolder created = new ClientHolder(options, client);
+
+    if (this.clientHolder.compareAndSet(current, created)) {
+      return client;
+    }
+
+    // Another thread created a client concurrently; prefer it when the options match
+    final ClientHolder winner = this.clientHolder.get();
+    return winner != null && winner.options == options ? winner.client : client;
+  }
+
+  private static final class ClientHolder {
+
+    private final RemoteRetrieverOptions options;
+    private final HttpClient client;
+
+    private ClientHolder(
+        final @NotNull RemoteRetrieverOptions options, final @NotNull HttpClient client) {
+      this.options = options;
+      this.client = client;
+    }
+  }
+
+  private static final class ResponseTooLargeException extends RuntimeException {
+
+    private static final long serialVersionUID = 1L;
+
+    private ResponseTooLargeException() {
+      super("Response body exceeded the configured maxResponseBytes");
+    }
+  }
+
+  /** Collects the body chunk by chunk and cancels the transfer once the size limit is exceeded. */
+  private static final class BoundedBodySubscriber implements HttpResponse.BodySubscriber<byte[]> {
+
+    private final long maxBytes;
+    private final CompletableFuture<byte[]> result = new CompletableFuture<>();
+    private final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+    private @Nullable Flow.Subscription subscription;
+
+    private BoundedBodySubscriber(final long maxBytes) {
+      this.maxBytes = maxBytes;
+    }
+
+    @Override
+    public CompletionStage<byte[]> getBody() {
+      // A read-only view, so callers cannot complete the subscriber's future
+      return this.result.minimalCompletionStage();
+    }
+
+    @Override
+    public void onComplete() {
+      this.result.complete(this.buffer.toByteArray());
+    }
+
+    @Override
+    public void onError(final Throwable throwable) {
+      this.result.completeExceptionally(throwable);
+    }
+
+    @Override
+    public void onNext(final List<ByteBuffer> items) {
+
+      if (this.result.isDone()) {
+        return;
+      }
+
+      for (final ByteBuffer item : items) {
+        final int remaining = item.remaining();
+
+        if (this.buffer.size() + (long) remaining > this.maxBytes) {
+          if (this.subscription != null) {
+            this.subscription.cancel();
+          }
+
+          this.result.completeExceptionally(new ResponseTooLargeException());
+          return;
+        }
+
+        final byte[] bytes = new byte[remaining];
+        item.get(bytes);
+        this.buffer.write(bytes, 0, remaining);
+      }
+    }
+
+    @Override
+    public void onSubscribe(final Flow.Subscription newSubscription) {
+      this.subscription = newSubscription;
+      newSubscription.request(Long.MAX_VALUE);
+    }
   }
 }
