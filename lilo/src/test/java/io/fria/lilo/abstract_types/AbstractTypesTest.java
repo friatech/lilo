@@ -183,4 +183,28 @@ class AbstractTypesTest {
 
     assertData(Map.of("node", ADA), stitch(lilo, "{ node { id ... on User { name } } }"));
   }
+
+  @Test
+  void definedSourceWithoutTypenameFailsWithClearMessage() {
+
+    final RuntimeWiring wiring =
+        RuntimeWiring.newRuntimeWiring()
+            .type(
+                newTypeWiring("Query").dataFetcher("node", env -> Map.of("id", "1", "name", "Ada")))
+            .type(newTypeWiring("Node").typeResolver(env -> env.getSchema().getObjectType("User")))
+            .build();
+
+    final Lilo lilo =
+        Lilo.builder()
+            .addSource(DefinedSchemaSource.create("defined", INTERFACE_SDL, wiring))
+            .build();
+
+    final IllegalArgumentException exception =
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> stitch(lilo, "{ node { id ... on User { name } } }"));
+
+    Assertions.assertEquals(
+        "Please provide __typename for interface types", exception.getMessage());
+  }
 }
