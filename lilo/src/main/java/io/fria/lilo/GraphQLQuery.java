@@ -75,10 +75,10 @@ public class GraphQLQuery {
 
   public static final class GraphQLQueryBuilder {
 
-    private @NotNull String query;
-    private @NotNull OperationDefinition.Operation operationType;
-    private @NotNull Field queryNode;
-    private @NotNull Map<String, Object> arguments;
+    private @Nullable String query;
+    private @Nullable OperationDefinition.Operation operationType;
+    private @Nullable Field queryNode;
+    private @Nullable Map<String, Object> arguments;
     private @Nullable Map<String, Object> variables;
 
     private GraphQLQueryBuilder() {
@@ -93,7 +93,11 @@ public class GraphQLQuery {
 
     public @NotNull GraphQLQuery build() {
       return new GraphQLQuery(
-          this.query, this.operationType, this.queryNode, this.arguments, this.variables);
+          Objects.requireNonNull(this.query, "query must be set"),
+          Objects.requireNonNull(this.operationType, "operationType must be set"),
+          Objects.requireNonNull(this.queryNode, "queryNode must be set"),
+          Objects.requireNonNull(this.arguments, "arguments must be set"),
+          this.variables);
     }
 
     public @NotNull GraphQLQuery.GraphQLQueryBuilder operationType(

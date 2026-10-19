@@ -51,12 +51,13 @@ public class LiloContext {
   private static final TypeResolver UNION_TYPE_RESOLVER =
       env -> {
         final Map<String, Object> result = env.getObject();
+        final Object typeName = result == null ? null : result.get("__typename");
 
-        if (!result.containsKey("__typename")) {
+        if (typeName == null) {
           throw new IllegalArgumentException("Please provide __typename for union types");
         }
 
-        return env.getSchema().getObjectType(result.get("__typename").toString());
+        return env.getSchema().getObjectType(typeName.toString());
       };
 
   private final DataFetcherExceptionHandler dataFetcherExceptionHandler;

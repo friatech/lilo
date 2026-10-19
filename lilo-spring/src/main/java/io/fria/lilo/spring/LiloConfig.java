@@ -63,18 +63,18 @@ public class LiloConfig {
       final @NotNull WebSocketHandlerMapping webSocketHandlerMapping,
       final @NotNull RequestMappingHandlerMapping requestMappingHandlerMapping) {
 
-    if (configProperties.getGraphQlPath() == null
-        || configProperties.getSubscriptionPath() == null) {
+    final String graphQlPath = configProperties.getGraphQlPath();
+    final String subscriptionPath = configProperties.getSubscriptionPath();
+
+    if (graphQlPath == null || subscriptionPath == null) {
       throw new RuntimeException("Lilo configuration error");
     }
 
-    if (!configProperties.getGraphQlPath().equals(configProperties.getSubscriptionPath())) {
+    if (!graphQlPath.equals(subscriptionPath)) {
       return null;
     }
 
     return new LiloHandlerMapping(
-        Objects.requireNonNull(configProperties.getGraphQlPath()),
-        webSocketHandlerMapping,
-        requestMappingHandlerMapping);
+        graphQlPath, webSocketHandlerMapping, requestMappingHandlerMapping);
   }
 }

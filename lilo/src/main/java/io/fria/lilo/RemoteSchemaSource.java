@@ -123,7 +123,13 @@ public final class RemoteSchemaSource extends SchemaSource {
       throw new LiloSourceDataFetcherException(errors);
     }
 
-    return ((Map<String, Object>) graphQLResult.getData()).values().iterator().next();
+    final Map<String, Object> data = graphQLResult.getData();
+
+    if (data == null) {
+      throw new IllegalArgumentException("Remote source returned a response without data");
+    }
+
+    return data.values().iterator().next();
   }
 
   private static @NotNull ExecutionResult toExecutionResult(final @NotNull String queryResult) {

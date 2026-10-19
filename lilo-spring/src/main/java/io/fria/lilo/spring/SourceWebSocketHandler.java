@@ -18,6 +18,7 @@ package io.fria.lilo.spring;
 import io.fria.lilo.GraphQLQuery;
 import io.fria.lilo.subscription.SubscriptionSourceHandler;
 import io.fria.lilo.subscription.SubscriptionSourcePublisher;
+import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.web.socket.CloseStatus;
@@ -57,7 +58,8 @@ public class SourceWebSocketHandler extends AbstractWebSocketHandler {
   @Override
   public void afterConnectionEstablished(final @NotNull WebSocketSession nativeSession) {
     this.sourceHandler = new SubscriptionSourceHandler(this.query, this.publisher);
-    this.sourceHandler.handleSessionStart(ClientSessionWrapper.wrap(nativeSession));
+    this.sourceHandler.handleSessionStart(
+        Objects.requireNonNull(ClientSessionWrapper.wrap(nativeSession)));
   }
 
   /**
@@ -86,6 +88,6 @@ public class SourceWebSocketHandler extends AbstractWebSocketHandler {
     }
 
     this.sourceHandler.handleMessage(
-        ClientSessionWrapper.wrap(nativeSession), message.getPayload());
+        Objects.requireNonNull(ClientSessionWrapper.wrap(nativeSession)), message.getPayload());
   }
 }

@@ -41,7 +41,7 @@ public class SubscriptionSourceHandler {
   }
 
   public void handleMessage(
-      final @Nullable WebSocketSessionWrapper session, final @NotNull String message) {
+      final @NotNull WebSocketSessionWrapper session, final @NotNull String message) {
 
     Objects.requireNonNull(session);
 
@@ -83,7 +83,7 @@ public class SubscriptionSourceHandler {
     this.publisher.close();
   }
 
-  public void handleSessionStart(final @Nullable WebSocketSessionWrapper session) {
+  public void handleSessionStart(final @NotNull WebSocketSessionWrapper session) {
 
     final SubscriptionMessage initMessage = new SubscriptionMessage();
     initMessage.setType(connection_init);

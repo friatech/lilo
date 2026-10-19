@@ -53,7 +53,7 @@ public class SubscriptionGatewayHandler {
   }
 
   public void handleMessage(
-      final @Nullable WebSocketSessionWrapper session, final @NotNull String message) {
+      final @NotNull WebSocketSessionWrapper session, final @NotNull String message) {
 
     Objects.requireNonNull(session);
 
