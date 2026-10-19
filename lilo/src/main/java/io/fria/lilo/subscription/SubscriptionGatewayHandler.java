@@ -364,8 +364,8 @@ public final class SubscriptionGatewayHandler {
 
     final SessionState state =
         this.sessionOperations.computeIfAbsent(session.getId(), id -> new SessionState());
-    final Map<String, Operation> operations = state.operations;
-    final Operation operation = new Operation();
+    final Map<String, GatewayOperation> operations = state.operations;
+    final GatewayOperation operation = new GatewayOperation(operationId, operations);
 
     // A session's messages arrive one after the other, so plain checks are enough here. A stitch
     // still running for an operation the client already completed holds a pool thread, so it
@@ -386,7 +386,7 @@ public final class SubscriptionGatewayHandler {
     if (this.isDetached(session, state)) {
       // The session was closed meanwhile. Its close may already have drained this map before the
       // operation was added, so remove it here rather than rely on closeSession finding it.
-      operations.remove(operationId, operation);
+      operation.release();
       this.closeSession(session);
       return DONE;
     }
@@ -405,7 +405,7 @@ public final class SubscriptionGatewayHandler {
           safe(operationId),
           rejected ? "is saturated" : "failed: " + safe(e.toString()));
       LOG.debug("Stitching executor failure", e);
-      if (operations.remove(operationId, operation)) {
+      if (operation.release()) {
         trySendError(session, operationId, errors(rejected ? TOO_MANY_REQUESTS : EXECUTION_FAILED));
       }
       return DONE;
@@ -421,7 +421,7 @@ public final class SubscriptionGatewayHandler {
                 "Subscription {} could not be started: {}", safe(operationId), safe(e.toString()));
             LOG.debug("Subscription start failure", e);
             // Never leave a half started operation registered
-            if (operations.remove(operationId, operation)) {
+            if (operation.release()) {
               operation.cancel();
               trySendError(session, operationId, errors(EXECUTION_FAILED));
             }
@@ -465,12 +465,10 @@ public final class SubscriptionGatewayHandler {
   private void start(
       final @NotNull WebSocketSessionWrapper session,
       final @NotNull SessionState state,
-      final @NotNull Operation operation,
+      final @NotNull GatewayOperation operation,
       final @NotNull String operationId,
       final @Nullable ExecutionResult result,
       final @Nullable Throwable throwable) {
-
-    final Map<String, Operation> operations = state.operations;
 
     if (throwable != null || result == null) {
       // The failure may be triggered by the client's query: no stack trace at warn
@@ -479,7 +477,7 @@ public final class SubscriptionGatewayHandler {
           safe(operationId),
           safe(String.valueOf(throwable)));
       LOG.debug("Subscription execution failure", throwable);
-      this.fail(session, operations, operation, operationId, errors(EXECUTION_FAILED));
+      fail(session, operation, errors(EXECUTION_FAILED));
       return;
     }
 
@@ -495,12 +493,12 @@ public final class SubscriptionGatewayHandler {
           result.getErrors().stream()
               .map(GraphQLError::toSpecification)
               .collect(Collectors.toList());
-      this.fail(session, operations, operation, operationId, errors);
+      fail(session, operation, errors);
       return;
     }
 
     if (upstream == null) {
-      this.fail(session, operations, operation, operationId, errors(NOT_A_SUBSCRIPTION));
+      fail(session, operation, errors(NOT_A_SUBSCRIPTION));
       return;
     }
 
@@ -516,7 +514,7 @@ public final class SubscriptionGatewayHandler {
             .subscribe(
                 payload -> {
                   // Nothing follows a client complete, even an event already in flight
-                  if (operations.get(operationId) != operation) {
+                  if (!operation.isRegistered()) {
                     return;
                   }
 
@@ -525,7 +523,7 @@ public final class SubscriptionGatewayHandler {
                 e -> {
                   // The source failed this operation. Only report it if it was still active.
                   // This also runs when sending a next to the client failed.
-                  if (operations.remove(operationId, operation)) {
+                  if (operation.release()) {
                     logFailure(operationId, e);
                     try {
                       trySendError(session, operationId, errorsOf(e));
@@ -538,7 +536,7 @@ public final class SubscriptionGatewayHandler {
                 () -> {
                   // The source finished this operation. Only report it if the operation was still
                   // active, i.e. neither the client nor a session close cancelled it meanwhile.
-                  if (operations.remove(operationId, operation)) {
+                  if (operation.release()) {
                     try {
                       trySendComplete(session, operationId);
                     } finally {
@@ -551,7 +549,7 @@ public final class SubscriptionGatewayHandler {
 
     if (this.isDetached(session, state)) {
       // Defensive: registration already checked this, but a stale map must never keep forwarding
-      if (operations.remove(operationId, operation)) {
+      if (operation.release()) {
         operation.cancel();
       }
       this.closeSession(session);
@@ -559,15 +557,13 @@ public final class SubscriptionGatewayHandler {
   }
 
   /** Reports an operation that could not start, unless it was cancelled meanwhile. */
-  private void fail(
+  private static void fail(
       final @NotNull WebSocketSessionWrapper session,
-      final @NotNull Map<String, Operation> operations,
-      final @NotNull Operation operation,
-      final @NotNull String operationId,
+      final @NotNull GatewayOperation operation,
       final @NotNull List<Map<String, Object>> errors) {
 
-    if (operations.remove(operationId, operation)) {
-      trySendError(session, operationId, errors);
+    if (operation.release()) {
+      trySendError(session, operation.id(), errors);
     }
   }
 
@@ -595,10 +591,10 @@ public final class SubscriptionGatewayHandler {
       return;
     }
 
-    final Map<String, Operation> operations = state.operations;
+    final Map<String, GatewayOperation> operations = state.operations;
 
     for (final String operationId : operations.keySet()) {
-      final Operation operation = operations.remove(operationId);
+      final GatewayOperation operation = operations.remove(operationId);
       if (operation != null) {
         operation.cancel();
       }
@@ -614,7 +610,7 @@ public final class SubscriptionGatewayHandler {
     }
 
     // Whoever removes the operation owns its cleanup, so a late complete or close is a no-op
-    final Operation operation = state.operations.remove(operationId);
+    final GatewayOperation operation = state.operations.remove(operationId);
 
     if (operation != null) {
       operation.cancel();
@@ -625,77 +621,9 @@ public final class SubscriptionGatewayHandler {
   private static final class SessionState {
 
     /** operation id -> operation */
-    private final @NotNull Map<String, Operation> operations = new ConcurrentHashMap<>();
+    private final @NotNull Map<String, GatewayOperation> operations = new ConcurrentHashMap<>();
 
     /** Stitches submitted and not yet finished, including those of completed operations. */
     private final @NotNull AtomicInteger inFlight = new AtomicInteger();
-  }
-
-  /**
-   * One subscription operation. It is registered before stitching, without an upstream; the
-   * upstream and the gateway's subscription to it are attached once stitching finishes. A cancel
-   * may land at any point: before the upstream is attached (the attach then fails and the caller
-   * closes the upstream), or after (the upstream is closed here).
-   */
-  private static final class Operation {
-
-    private @Nullable SubscriptionSourcePublisher upstream;
-    private @Nullable Disposable subscription;
-    private boolean cancelled;
-
-    /**
-     * Attaches the upstream the stitch produced.
-     *
-     * @return false if the operation was cancelled meanwhile; the caller then owns the upstream
-     */
-    private synchronized boolean attach(final @NotNull SubscriptionSourcePublisher source) {
-      if (this.cancelled) {
-        return false;
-      }
-      this.upstream = source;
-      return true;
-    }
-
-    private void setSubscription(final @NotNull Disposable disposable) {
-      final boolean dispose;
-      synchronized (this) {
-        dispose = this.cancelled;
-        if (!dispose) {
-          this.subscription = disposable;
-        }
-      }
-      if (dispose) {
-        disposable.dispose();
-      }
-    }
-
-    /** Stops forwarding to the client, then tells the source the operation is over. */
-    private void cancel() {
-      final Disposable currentSubscription;
-      final SubscriptionSourcePublisher currentUpstream;
-      synchronized (this) {
-        if (this.cancelled) {
-          return;
-        }
-        this.cancelled = true;
-        currentSubscription = this.subscription;
-        currentUpstream = this.upstream;
-      }
-      // Neither step may throw: closeSession cancels the session's other operations afterwards
-      try {
-        if (currentSubscription != null) {
-          currentSubscription.dispose();
-        }
-      } catch (final RuntimeException e) {
-        LOG.warn("Could not stop forwarding a subscription", e);
-      }
-      try {
-        if (currentUpstream != null) {
-          currentUpstream.close();
-        }
-      } catch (final RuntimeException e) {
-        LOG.warn("Could not close a subscription source", e);
-      }
-    }
   }
 }
