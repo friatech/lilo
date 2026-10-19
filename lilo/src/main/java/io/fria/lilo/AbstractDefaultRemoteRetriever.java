@@ -267,6 +267,9 @@ public abstract class AbstractDefaultRemoteRetriever {
 
     final HttpClient client =
         HttpClient.newBuilder()
+            // HTTP/2 would make every plain http POST offer an h2c upgrade, which some servers
+            // and proxies mishandle; GraphQL requests gain nothing from it
+            .version(HttpClient.Version.HTTP_1_1)
             .connectTimeout(options.getConnectTimeout())
             .followRedirects(
                 options.isFollowRedirects()

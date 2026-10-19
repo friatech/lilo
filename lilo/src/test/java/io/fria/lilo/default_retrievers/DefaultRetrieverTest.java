@@ -36,6 +36,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -102,6 +103,33 @@ class DefaultRetrieverTest {
     Assertions.assertEquals("application/json", accept.get());
     Assertions.assertEquals("application/json", contentType.get());
     Assertions.assertEquals(QUERY, requestBody.get());
+  }
+
+  @Test
+  void plainHttpRequestDoesNotOfferH2cUpgrade() {
+
+    final AtomicReference<Map<String, List<String>>> headers = new AtomicReference<>();
+
+    this.handle(
+        "/graphql",
+        exchange -> {
+          headers.set(Map.copyOf(exchange.getRequestHeaders()));
+          respond(exchange, 200, DATA);
+        });
+
+    Assertions.assertEquals(
+        DATA, this.introspect(new DefaultRemoteIntrospectionRetriever(this.url())));
+    Assertions.assertEquals(
+        DATA,
+        new DefaultRemoteQueryRetriever(this.url())
+            .get(this.liloContext, this.schemaSource, graphQLQuery(), null));
+
+    final Map<String, List<String>> received = headers.get();
+    Assertions.assertNotNull(received);
+    Assertions.assertTrue(
+        received.keySet().stream()
+            .noneMatch(h -> "Upgrade".equalsIgnoreCase(h) || "HTTP2-Settings".equalsIgnoreCase(h)),
+        () -> "Request headers: " + received);
   }
 
   @Test
