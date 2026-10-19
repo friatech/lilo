@@ -17,6 +17,7 @@ package io.fria.lilo.spring;
 
 import io.fria.lilo.Lilo;
 import io.fria.lilo.subscription.SubscriptionGatewayHandler;
+import java.time.Duration;
 import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -31,31 +32,102 @@ import org.springframework.web.socket.handler.AbstractWebSocketHandler;
  */
 public class GatewayWebSocketHandler extends AbstractWebSocketHandler {
 
+  /** Default of the send time limit of a client session. */
+  public static final Duration DEFAULT_SEND_TIME_LIMIT = Duration.ofSeconds(10);
+
+  /** Default of the send buffer size limit of a client session, in bytes. */
+  public static final int DEFAULT_SEND_BUFFER_SIZE_LIMIT = 512 * 1024;
+
   private final @NotNull SubscriptionGatewayHandler gatewayHandler;
   private final @NotNull String subscriptionPath;
+  private final int sendTimeLimitMillis;
+  private final int sendBufferSizeLimit;
 
   /**
    * Constructor creates a GatewayWebSocketHandler which manages websocket communication between
-   * GraphQL clients and Lilo GraphQL Gateway.
+   * GraphQL clients and Lilo GraphQL Gateway, with the default send limits.
    *
    * @param lilo Lilo object instance or bean
    * @param subscriptionPath subscription path for handling subscription requests. Mostly it's
    *     /graphql
    */
   public GatewayWebSocketHandler(final @NotNull Lilo lilo, final @NotNull String subscriptionPath) {
+    this(
+        lilo,
+        subscriptionPath,
+        (int) DEFAULT_SEND_TIME_LIMIT.toMillis(),
+        DEFAULT_SEND_BUFFER_SIZE_LIMIT);
+  }
+
+  /**
+   * Constructor creates a GatewayWebSocketHandler which manages websocket communication between
+   * GraphQL clients and Lilo GraphQL Gateway.
+   *
+   * <p>Every client session is decorated with a {@link
+   * org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator} using the given
+   * limits: frames sent while another thread writes to the session are queued instead of blocking
+   * the sender, and a session whose write takes longer than {@code sendTimeLimit} or whose queue
+   * grows beyond {@code sendBufferSizeLimit} bytes is closed as not reliable. The limits are
+   * checked only when another send arrives; the container's own blocking send timeout remains the
+   * backstop for the single thread that is writing.
+   *
+   * @param lilo Lilo object instance or bean
+   * @param subscriptionPath subscription path for handling subscription requests. Mostly it's
+   *     /graphql
+   * @param sendTimeLimit how long a send to a client may take; positive, at most {@link
+   *     Integer#MAX_VALUE} milliseconds
+   * @param sendBufferSizeLimit how many bytes may wait to be sent to a client; positive
+   */
+  public GatewayWebSocketHandler(
+      final @NotNull Lilo lilo,
+      final @NotNull String subscriptionPath,
+      final @NotNull Duration sendTimeLimit,
+      final int sendBufferSizeLimit) {
+    // Validated before the object exists, so an invalid limit leaves no partial instance
+    this(
+        lilo,
+        subscriptionPath,
+        validSendTimeLimitMillis(sendTimeLimit),
+        validSendBufferSizeLimit(sendBufferSizeLimit));
+  }
+
+  private GatewayWebSocketHandler(
+      final @NotNull Lilo lilo,
+      final @NotNull String subscriptionPath,
+      final int sendTimeLimitMillis,
+      final int sendBufferSizeLimit) {
+    this.sendTimeLimitMillis = sendTimeLimitMillis;
+    this.sendBufferSizeLimit = sendBufferSizeLimit;
     this.gatewayHandler = new SubscriptionGatewayHandler(lilo);
     this.subscriptionPath = subscriptionPath;
   }
 
+  static int validSendTimeLimitMillis(final @NotNull Duration sendTimeLimit) {
+    final long millis = Objects.requireNonNull(sendTimeLimit, "sendTimeLimit").toMillis();
+    if (millis <= 0 || millis > Integer.MAX_VALUE) {
+      throw new IllegalArgumentException(
+          "Send time limit must be positive and at most " + Integer.MAX_VALUE + " ms");
+    }
+    return (int) millis;
+  }
+
+  static int validSendBufferSizeLimit(final int sendBufferSizeLimit) {
+    if (sendBufferSizeLimit <= 0) {
+      throw new IllegalArgumentException("Send buffer size limit must be positive");
+    }
+    return sendBufferSizeLimit;
+  }
+
   /**
-   * Prepares the session before anything is sent to it: its send lock is created here, on the
+   * Prepares the session before anything is sent to it: it is decorated here, once, on the
    * websocket thread, before the gateway sends to it from other threads.
    *
    * @param nativeSession Session object provided by Spring
    */
   @Override
   public void afterConnectionEstablished(final @NotNull WebSocketSession nativeSession) {
-    ClientSessionWrapper.wrap(nativeSession);
+    ClientSessionWrapper.decorate(
+        nativeSession, this.sendTimeLimitMillis, this.sendBufferSizeLimit);
   }
 
   @Override
@@ -79,5 +151,23 @@ public class GatewayWebSocketHandler extends AbstractWebSocketHandler {
    */
   public @NotNull String getSubscriptionPath() {
     return this.subscriptionPath;
+  }
+
+  /**
+   * Getter for the send time limit of client sessions
+   *
+   * @return how long a send to a client may take
+   */
+  public @NotNull Duration getSendTimeLimit() {
+    return Duration.ofMillis(this.sendTimeLimitMillis);
+  }
+
+  /**
+   * Getter for the send buffer size limit of client sessions
+   *
+   * @return how many bytes may wait to be sent to a client
+   */
+  public int getSendBufferSizeLimit() {
+    return this.sendBufferSizeLimit;
   }
 }

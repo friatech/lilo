@@ -68,4 +68,12 @@ class SubscriptionWebSocketConfigurerTest {
     assertArrayEquals(
         new String[] {"https://a.example", "https://*.b.example"}, register(properties));
   }
+
+  @Test
+  void emptyOriginListIsPassedOnForSameOriginOnly() {
+    final LiloConfigProperties properties = new LiloConfigProperties();
+    properties.setAllowedOrigins(List.of());
+
+    assertArrayEquals(new String[0], register(properties));
+  }
 }

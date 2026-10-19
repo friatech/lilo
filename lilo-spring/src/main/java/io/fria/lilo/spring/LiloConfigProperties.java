@@ -15,6 +15,7 @@
  */
 package io.fria.lilo.spring;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
@@ -32,11 +33,14 @@ public class LiloConfigProperties {
   private @Nullable String graphQlPath = "/graphql";
   private @Nullable String subscriptionPath = "/graphql";
   private @NotNull List<String> allowedOrigins = List.of("*");
+  private @NotNull Duration sendTimeLimit = GatewayWebSocketHandler.DEFAULT_SEND_TIME_LIMIT;
+  private int sendBufferSizeLimit = GatewayWebSocketHandler.DEFAULT_SEND_BUFFER_SIZE_LIMIT;
 
   /**
    * Origin patterns the subscription websocket endpoint accepts, as passed to Spring's {@code
    * setAllowedOriginPatterns}: e.g. {@code https://app.example.com} or {@code
-   * https://*.example.com}. By default, it's {@code *}, which accepts every origin.
+   * https://*.example.com}. By default, it's {@code *}, which accepts every origin. An empty list
+   * accepts same-origin requests only.
    *
    * @return allowed origin patterns of the subscription endpoint
    */
@@ -64,8 +68,52 @@ public class LiloConfigProperties {
   }
 
   /**
+   * How long a send to a subscription client may take before the client's session is closed as not
+   * reliable. By default, it's 10 seconds. It is checked only when another frame is sent to the
+   * client while a send is in progress; the container's own blocking send timeout remains the
+   * backstop for the thread that is writing.
+   *
+   * @return send time limit of subscription client sessions
+   */
+  public @NotNull Duration getSendTimeLimit() {
+    return this.sendTimeLimit;
+  }
+
+  /**
+   * How many bytes may wait to be sent to a subscription client before the client's session is
+   * closed as not reliable. By default, it's 524288 (512 KiB). It is checked only when another
+   * frame is sent to the client while a send is in progress.
+   *
+   * @return send buffer size limit of subscription client sessions, in bytes
+   */
+  public int getSendBufferSizeLimit() {
+    return this.sendBufferSizeLimit;
+  }
+
+  /**
+   * setter for the send time limit of subscription client sessions. If not set, it's 10 seconds.
+   *
+   * @param sendTimeLimit new send time limit; positive, at most {@link Integer#MAX_VALUE} ms
+   */
+  public void setSendTimeLimit(final @NotNull Duration sendTimeLimit) {
+    GatewayWebSocketHandler.validSendTimeLimitMillis(sendTimeLimit);
+    this.sendTimeLimit = sendTimeLimit;
+  }
+
+  /**
+   * setter for the send buffer size limit of subscription client sessions. If not set, it's 524288
+   * bytes (512 KiB).
+   *
+   * @param sendBufferSizeLimit new send buffer size limit in bytes; positive
+   */
+  public void setSendBufferSizeLimit(final int sendBufferSizeLimit) {
+    this.sendBufferSizeLimit =
+        GatewayWebSocketHandler.validSendBufferSizeLimit(sendBufferSizeLimit);
+  }
+
+  /**
    * setter for the origin patterns the subscription websocket endpoint accepts. If not set, it's
-   * {@code *}, which accepts every origin.
+   * {@code *}, which accepts every origin. An empty list accepts same-origin requests only.
    *
    * @param allowedOrigins new allowed origin patterns, e.g. {@code https://app.example.com}
    */

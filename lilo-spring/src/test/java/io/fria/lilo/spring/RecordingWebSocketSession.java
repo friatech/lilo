@@ -54,6 +54,10 @@ final class RecordingWebSocketSession implements WebSocketSession {
   private final @NotNull AtomicBoolean overlapped = new AtomicBoolean();
   private final @NotNull CountDownLatch secondSender = new CountDownLatch(1);
   private volatile boolean linger;
+  private volatile @Nullable CountDownLatch release;
+  private final @NotNull CountDownLatch firstSendEntered = new CountDownLatch(1);
+  private volatile @Nullable CloseStatus closeStatus;
+  private final @NotNull CountDownLatch closed = new CountDownLatch(1);
 
   RecordingWebSocketSession() {
     this("spring-session");
@@ -66,6 +70,31 @@ final class RecordingWebSocketSession implements WebSocketSession {
   /** Makes every send wait briefly for a concurrent sender, to expose missing serialisation. */
   void linger() {
     this.linger = true;
+  }
+
+  /**
+   * Makes every send block until the given latch is released, like a client that stopped reading.
+   */
+  void blockSendsUntil(final @NotNull CountDownLatch releaseLatch) {
+    this.release = releaseLatch;
+  }
+
+  /** Waits until a send entered this session, e.g. one that is now blocked. */
+  boolean awaitFirstSend(final long timeout, final @NotNull TimeUnit unit)
+      throws InterruptedException {
+    return this.firstSendEntered.await(timeout, unit);
+  }
+
+  /** Waits until the session is closed. */
+  boolean awaitClosed(final long timeout, final @NotNull TimeUnit unit)
+      throws InterruptedException {
+    return this.closed.await(timeout, unit);
+  }
+
+  /** The status the session was closed with, or null while it is open. */
+  @Nullable
+  CloseStatus closeStatus() {
+    return this.closeStatus;
   }
 
   boolean overlapped() {
@@ -83,7 +112,12 @@ final class RecordingWebSocketSession implements WebSocketSession {
       this.overlapped.set(true);
       this.secondSender.countDown();
     }
+    this.firstSendEntered.countDown();
     try {
+      final CountDownLatch releaseLatch = this.release;
+      if (releaseLatch != null && !releaseLatch.await(30, TimeUnit.SECONDS)) {
+        throw new IOException("send was never released");
+      }
       if (this.linger) {
         this.secondSender.await(LINGER_MILLIS, TimeUnit.MILLISECONDS);
       }
@@ -168,11 +202,14 @@ final class RecordingWebSocketSession implements WebSocketSession {
 
   @Override
   public void close() {
-    this.open.set(false);
+    this.close(CloseStatus.NORMAL);
   }
 
   @Override
   public void close(final @NotNull CloseStatus status) {
-    this.open.set(false);
+    if (this.open.compareAndSet(true, false)) {
+      this.closeStatus = status;
+      this.closed.countDown();
+    }
   }
 }

@@ -44,13 +44,22 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketMessage;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 
 class ClientSessionWrapperTest {
 
   private static final int SENDERS = 8;
+  private static final int FRAMES_PER_SENDER = 5;
+  private static final int TIME_LIMIT = 10_000;
+  private static final int BUFFER_LIMIT = 512 * 1024;
+
+  private static String frame(final int id) {
+    return "{\"id\":\"" + id + "\",\"type\":\"next\",\"payload\":{}}";
+  }
 
   private static ClientSessionWrapper wrap(final WebSocketSession nativeSession) {
     return Objects.requireNonNull(ClientSessionWrapper.wrap(nativeSession));
@@ -158,6 +167,150 @@ class ClientSessionWrapperTest {
     wrap(nativeSession).send("{\"type\":\"pong\"}");
 
     verify(nativeSession).sendMessage(any());
+  }
+
+  @Test
+  void decoratingUnmodifiableAttributesFallsBackToTheLock() throws IOException {
+    final WebSocketSession nativeSession = mock(WebSocketSession.class);
+    when(nativeSession.isOpen()).thenReturn(true);
+    when(nativeSession.getAttributes()).thenReturn(Map.of());
+
+    ClientSessionWrapper.decorate(nativeSession, TIME_LIMIT, BUFFER_LIMIT)
+        .send("{\"type\":\"pong\"}");
+
+    // Sent straight to the native session, as no decorator could be stored
+    verify(nativeSession).sendMessage(any());
+  }
+
+  @Test
+  void sessionIsDecoratedOnce() {
+    final RecordingWebSocketSession nativeSession = new RecordingWebSocketSession();
+
+    ClientSessionWrapper.decorate(nativeSession, TIME_LIMIT, BUFFER_LIMIT);
+    final Object decorator =
+        nativeSession.getAttributes().get(ClientSessionWrapper.DECORATOR_ATTRIBUTE);
+    ClientSessionWrapper.decorate(nativeSession, TIME_LIMIT, BUFFER_LIMIT);
+    wrap(nativeSession);
+
+    assertInstanceOf(ConcurrentWebSocketSessionDecorator.class, decorator);
+    assertSame(
+        decorator, nativeSession.getAttributes().get(ClientSessionWrapper.DECORATOR_ATTRIBUTE));
+    // The decorated path takes no send lock
+    assertNull(nativeSession.getAttributes().get(ClientSessionWrapper.SEND_LOCK_ATTRIBUTE));
+  }
+
+  @Test
+  void sendsToABlockedSessionDoNotBlockOtherSenders() throws Exception {
+    final RecordingWebSocketSession nativeSession = new RecordingWebSocketSession();
+    final CountDownLatch release = new CountDownLatch(1);
+    ClientSessionWrapper.decorate(nativeSession, TIME_LIMIT, BUFFER_LIMIT);
+    nativeSession.blockSendsUntil(release);
+    final ExecutorService senders = Executors.newFixedThreadPool(3);
+
+    try {
+      // The first sender writes and stays blocked, like a client that stopped reading
+      final Future<?> blocked = senders.submit(() -> wrap(nativeSession).send(frame(0)));
+      assertTrue(nativeSession.awaitFirstSend(5, TimeUnit.SECONDS));
+
+      // Other senders queue their frame and return at once
+      senders.submit(() -> wrap(nativeSession).send(frame(1))).get(2, TimeUnit.SECONDS);
+      senders.submit(() -> wrap(nativeSession).send(frame(2))).get(2, TimeUnit.SECONDS);
+      assertFalse(blocked.isDone());
+
+      // The writing thread flushes the queued frames once the client reads again
+      release.countDown();
+      blocked.get(5, TimeUnit.SECONDS);
+    } finally {
+      release.countDown();
+      senders.shutdownNow();
+    }
+
+    assertEquals(List.of(frame(0), frame(1), frame(2)), nativeSession.sent());
+    assertTrue(nativeSession.isOpen());
+  }
+
+  @Test
+  void exceedingTheBufferSizeLimitClosesTheSession() throws Exception {
+    final RecordingWebSocketSession nativeSession = new RecordingWebSocketSession();
+    final CountDownLatch release = new CountDownLatch(1);
+    // The frame in flight does not count; room for one queued frame, not for two
+    ClientSessionWrapper.decorate(nativeSession, TIME_LIMIT, frame(0).length() + 1);
+    nativeSession.blockSendsUntil(release);
+    final ExecutorService senders = Executors.newFixedThreadPool(2);
+
+    try {
+      final Future<?> blocked = senders.submit(() -> wrap(nativeSession).send(frame(0)));
+      assertTrue(nativeSession.awaitFirstSend(5, TimeUnit.SECONDS));
+
+      System.err.println(
+          "DBG buffer="
+              + ((ConcurrentWebSocketSessionDecorator)
+                      nativeSession.getAttributes().get(ClientSessionWrapper.DECORATOR_ATTRIBUTE))
+                  .getBufferSize()
+              + " limit="
+              + ((ConcurrentWebSocketSessionDecorator)
+                      nativeSession.getAttributes().get(ClientSessionWrapper.DECORATOR_ATTRIBUTE))
+                  .getBufferSizeLimit());
+      senders.submit(() -> wrap(nativeSession).send(frame(1))).get(2, TimeUnit.SECONDS);
+      assertTrue(nativeSession.isOpen());
+
+      // Does not throw: the wrapper closes the session instead
+      senders.submit(() -> wrap(nativeSession).send(frame(2))).get(2, TimeUnit.SECONDS);
+
+      assertEquals(CloseStatus.SESSION_NOT_RELIABLE, nativeSession.closeStatus());
+      assertFalse(nativeSession.isOpen());
+      release.countDown();
+      blocked.get(5, TimeUnit.SECONDS);
+    } finally {
+      release.countDown();
+      senders.shutdownNow();
+    }
+
+    // Later sends to the closed session are dropped
+    wrap(nativeSession).send(frame(3));
+    assertFalse(nativeSession.sent().contains(frame(3)));
+  }
+
+  @Test
+  void decoratedConcurrentSendsAreIntactAndInOrderPerThread() throws Exception {
+    final RecordingWebSocketSession nativeSession = new RecordingWebSocketSession();
+    nativeSession.linger();
+    ClientSessionWrapper.decorate(nativeSession, TIME_LIMIT, BUFFER_LIMIT);
+    final CountDownLatch start = new CountDownLatch(1);
+    final ExecutorService senders = Executors.newFixedThreadPool(SENDERS);
+
+    try {
+      final List<Future<?>> sends =
+          IntStream.range(0, SENDERS)
+              .<Future<?>>mapToObj(
+                  sender ->
+                      senders.submit(
+                          () -> {
+                            start.await();
+                            for (int i = 0; i < FRAMES_PER_SENDER; i++) {
+                              wrap(nativeSession).send(sender + ":" + i);
+                            }
+                            return null;
+                          }))
+              .toList();
+      start.countDown();
+      for (final Future<?> send : sends) {
+        send.get(30, TimeUnit.SECONDS);
+      }
+    } finally {
+      senders.shutdownNow();
+    }
+
+    assertFalse(nativeSession.overlapped(), "writes to the session overlapped");
+    assertTrue(nativeSession.isOpen());
+    assertEquals(SENDERS * FRAMES_PER_SENDER, nativeSession.sent().size());
+    for (int sender = 0; sender < SENDERS; sender++) {
+      final String prefix = sender + ":";
+      final List<String> ofSender =
+          nativeSession.sent().stream().filter(frame -> frame.startsWith(prefix)).toList();
+      assertEquals(
+          IntStream.range(0, FRAMES_PER_SENDER).mapToObj(i -> prefix + i).toList(), ofSender);
+    }
   }
 
   @Test

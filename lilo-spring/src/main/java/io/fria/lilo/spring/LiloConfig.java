@@ -43,14 +43,17 @@ public class LiloConfig {
    * GatewayWebSocketHandler bean definition
    *
    * @param lilo Lilo instance
-   * @param configProperties LiloConfig properties for getting subscription path
+   * @param configProperties LiloConfig properties for getting subscription path and send limits
    * @return GatewayWebSocketHandler bean singleton instance
    */
   @Bean
   public @NotNull GatewayWebSocketHandler gatewayWebSocketHandler(
       final @NotNull Lilo lilo, final @NotNull LiloConfigProperties configProperties) {
     return new GatewayWebSocketHandler(
-        lilo, Objects.requireNonNull(configProperties.getSubscriptionPath()));
+        lilo,
+        Objects.requireNonNull(configProperties.getSubscriptionPath()),
+        configProperties.getSendTimeLimit(),
+        configProperties.getSendBufferSizeLimit());
   }
 
   /**

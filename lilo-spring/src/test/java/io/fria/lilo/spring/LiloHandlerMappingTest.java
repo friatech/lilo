@@ -47,6 +47,7 @@ class LiloHandlerMappingTest {
 
     assertNull(this.mapping.getHandler(request));
 
+    verify(this.requestMappingHandlerMapping).getHandler(request);
     verify(this.webSocketHandlerMapping, never()).getHandler(any(HttpServletRequest.class));
   }
 
@@ -59,6 +60,19 @@ class LiloHandlerMappingTest {
     assertSame(chain, this.mapping.getHandler(request));
 
     verify(this.webSocketHandlerMapping, never()).getHandler(any(HttpServletRequest.class));
+  }
+
+  @Test
+  void plainGetOnSharedPathGoesToWebSocketMapping() throws Exception {
+    // Pre-existing behaviour: the mapping looks at the path and method only, not at the Upgrade
+    // header, so a plain GET on the shared path is routed to the websocket mapping too
+    final MockHttpServletRequest request = new MockHttpServletRequest("GET", PATH);
+    final HandlerExecutionChain chain = new HandlerExecutionChain(new Object());
+    when(this.webSocketHandlerMapping.getHandler(request)).thenReturn(chain);
+
+    assertSame(chain, this.mapping.getHandler(request));
+
+    verify(this.requestMappingHandlerMapping, never()).getHandler(any(HttpServletRequest.class));
   }
 
   @Test

@@ -192,6 +192,11 @@
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${maven-surefire-plugin.version}</version>
+        <configuration>
+          <!-- Mockito's inline mock maker as an agent, instead of attaching itself at runtime;
+               without class data sharing, which an agent on the boot class path disables anyway -->
+          <argLine>-javaagent:${org.mockito:mockito-core:jar} -Xshare:off</argLine>
+        </configuration>
       </plugin>
 
       <plugin>
@@ -364,6 +369,14 @@
       <plugin>
         <artifactId>maven-dependency-plugin</artifactId>
         <version>${maven-dependency-plugin.version}</version>
+        <executions>
+          <execution>
+            <!-- Sets ${org.mockito:mockito-core:jar} for the surefire argLine -->
+            <goals>
+              <goal>properties</goal>
+            </goals>
+          </execution>
+        </executions>
         <configuration>
           <!-- dependency:analyze cannot see what is only loaded at test runtime: the junit-jupiter
                aggregator brings the API the tests compile against plus the engine surefire runs,

@@ -41,7 +41,10 @@ class EnableLiloContextTest {
   }
 
   private static void assertLiloIsWired(final AnnotationConfigWebApplicationContext context) {
-    assertNotNull(context.getBean(GatewayWebSocketHandler.class));
+    final GatewayWebSocketHandler handler = context.getBean(GatewayWebSocketHandler.class);
+    assertEquals(GatewayWebSocketHandler.DEFAULT_SEND_TIME_LIMIT, handler.getSendTimeLimit());
+    assertEquals(
+        GatewayWebSocketHandler.DEFAULT_SEND_BUFFER_SIZE_LIMIT, handler.getSendBufferSizeLimit());
     assertNotNull(context.getBean(LiloHandlerMapping.class));
     final WebSocketHandlerMapping mapping = context.getBean(WebSocketHandlerMapping.class);
     assertEquals(1, mapping.getUrlMap().size());

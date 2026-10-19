@@ -82,6 +82,8 @@ public class SourceWebSocketHandler extends AbstractWebSocketHandler {
   public void afterConnectionEstablished(final @NotNull WebSocketSession nativeSession) {
     this.sourceHandler =
         new SubscriptionSourceHandler(this.query, this.publisher, this.connectionInitPayload);
+    // Unlike client sessions, a source session is not decorated: it carries one operation's
+    // low-volume traffic (subscribe, pong, complete), so the wrapper's simple send lock suffices
     this.sourceHandler.handleSessionStart(
         Objects.requireNonNull(ClientSessionWrapper.wrap(nativeSession)));
   }
