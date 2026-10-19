@@ -44,23 +44,23 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <!-- Dependency Versions -->
     <graphql-java.version>22.1</graphql-java.version>
-    <jackson-databind.version>2.17.1</jackson-databind.version>
+    <jackson-databind.version>2.22.4</jackson-databind.version>
     <reactor-core.version>3.6.6</reactor-core.version>
-    <jetbrains-annotations.version>24.1.0</jetbrains-annotations.version>
+    <jetbrains-annotations.version>26.1.0</jetbrains-annotations.version>
     <junit-jupiter.version>5.10.2</junit-jupiter.version>
-    <mockito.version>5.12.0</mockito.version>
-    <slf4j.version>2.0.13</slf4j.version>
+    <mockito.version>5.24.0</mockito.version>
+    <slf4j.version>2.0.20</slf4j.version>
     <!-- Plugin Versions -->
-    <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
-    <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
-    <maven-enforcer-plugin.version>3.4.1</maven-enforcer-plugin.version>
+    <maven-compiler-plugin.version>3.16.0</maven-compiler-plugin.version>
+    <maven-surefire-plugin.version>3.6.0</maven-surefire-plugin.version>
+    <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
     <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
-    <maven-javadoc-plugin.version>3.6.3</maven-javadoc-plugin.version>
+    <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
     <maven-checkstyle-plugin.version>3.3.1</maven-checkstyle-plugin.version>
     <maven-gpg-plugin.version>3.2.4</maven-gpg-plugin.version>
     <spotbugs-maven-plugin.version>4.8.5.0</spotbugs-maven-plugin.version>
     <fmt-maven-plugin.version>2.23</fmt-maven-plugin.version>
-    <apache-rat-plugin.version>0.16.1</apache-rat-plugin.version>
+    <apache-rat-plugin.version>0.18</apache-rat-plugin.version>
     <!-- Plugin Dependency Versions -->
     <error-prone.version>2.27.1</error-prone.version>
     <checkstyle.version>10.16.0</checkstyle.version>
@@ -289,6 +289,9 @@
           <includes>
             <include>/src/**</include>
           </includes>
+          <excludes>
+            <exclude>**/.sdkmanrc</exclude>
+          </excludes>
         </configuration>
       </plugin>
     </plugins>
