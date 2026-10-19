@@ -42,7 +42,7 @@ import java.util.stream.Stream;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class LiloContext {
+public final class LiloContext {
 
   private static final Set<String> PREDEFINED_SCALARS =
       Set.of("Boolean", "Float", "Int", "ID", "String");
@@ -51,12 +51,13 @@ public class LiloContext {
   private static final TypeResolver UNION_TYPE_RESOLVER =
       env -> {
         final Map<String, Object> result = env.getObject();
+        final Object typeName = result == null ? null : result.get("__typename");
 
-        if (!result.containsKey("__typename")) {
+        if (typeName == null) {
           throw new IllegalArgumentException("Please provide __typename for union types");
         }
 
-        return env.getSchema().getObjectType(result.get("__typename").toString());
+        return env.getSchema().getObjectType(typeName.toString());
       };
 
   private final DataFetcherExceptionHandler dataFetcherExceptionHandler;

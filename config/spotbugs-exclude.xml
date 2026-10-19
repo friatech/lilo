@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SpotBugs exclusion filter shared by the lilo and lilo-spring modules.
+
+  Keep every entry as narrow as possible (class + bug pattern, and field or method where it
+  applies) and document why the finding is accepted instead of fixed. Never add blanket
+  exclusions by package or by bug pattern alone.
+-->
+<FindBugsFilter
+    xmlns="https://github.com/spotbugs/filter/3.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="https://github.com/spotbugs/filter/3.0.0 https://raw.githubusercontent.com/spotbugs/spotbugs/3.1.0/spotbugs/etc/findbugsfilter.xsd">
+
+  <!--
+    LiloHandlerMapping stores the Spring-managed RequestMappingHandlerMapping singleton bean it
+    delegates to. It is a collaborator, not a value: it cannot be copied, and sharing the live
+    bean instance is the whole point of the class.
+  -->
+  <Match>
+    <Class name="io.fria.lilo.spring.LiloHandlerMapping"/>
+    <Field name="requestMappingHandlerMapping"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+</FindBugsFilter>

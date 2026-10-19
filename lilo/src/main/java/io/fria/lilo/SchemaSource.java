@@ -42,20 +42,24 @@ public abstract class SchemaSource {
 
   public @NotNull RuntimeWiring getRuntimeWiring() {
 
-    if (this.isSchemaNotLoaded()) {
+    final RuntimeWiring wiring = this.runtimeWiring;
+
+    if (this.isSchemaNotLoaded() || wiring == null) {
       throw new IllegalArgumentException(this.schemaName + " has not been loaded yet!");
     }
 
-    return this.runtimeWiring;
+    return wiring;
   }
 
   public @NotNull TypeDefinitionRegistry getTypeDefinitionRegistry() {
 
-    if (this.isSchemaNotLoaded()) {
+    final TypeDefinitionRegistry registry = this.typeDefinitionRegistry;
+
+    if (this.isSchemaNotLoaded() || registry == null) {
       throw new IllegalArgumentException(this.schemaName + " has not been loaded yet!");
     }
 
-    return this.typeDefinitionRegistry;
+    return registry;
   }
 
   public void invalidate() {

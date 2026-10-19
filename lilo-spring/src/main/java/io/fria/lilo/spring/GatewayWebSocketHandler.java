@@ -17,6 +17,7 @@ package io.fria.lilo.spring;
 
 import io.fria.lilo.Lilo;
 import io.fria.lilo.subscription.SubscriptionGatewayHandler;
+import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.web.socket.CloseStatus;
@@ -56,7 +57,7 @@ public class GatewayWebSocketHandler extends AbstractWebSocketHandler {
   protected void handleTextMessage(
       final @NotNull WebSocketSession nativeSession, final @NotNull TextMessage message) {
     this.gatewayHandler.handleMessage(
-        ClientSessionWrapper.wrap(nativeSession), message.getPayload());
+        Objects.requireNonNull(ClientSessionWrapper.wrap(nativeSession)), message.getPayload());
   }
 
   /**

@@ -17,12 +17,14 @@ package io.fria.lilo;
 
 import graphql.language.Field;
 import graphql.language.OperationDefinition;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class GraphQLQuery {
+public final class GraphQLQuery {
 
   private @NotNull final String query;
   private @NotNull final GraphQLRequest request;
@@ -41,8 +43,12 @@ public class GraphQLQuery {
     this.request = JsonUtils.toObj(query, GraphQLRequest.class).orElseThrow();
     this.operationType = Objects.requireNonNull(operationType);
     this.queryNode = Objects.requireNonNull(queryNode);
-    this.arguments = arguments;
-    this.variables = variables;
+    // Defensive unmodifiable copies; LinkedHashMap keeps the iteration order and, unlike
+    // Map.copyOf, tolerates null values (explicit null arguments / variables are valid GraphQL)
+    this.arguments =
+        Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(arguments)));
+    this.variables =
+        variables == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(variables));
   }
 
   public static @NotNull GraphQLQuery.GraphQLQueryBuilder builder() {
@@ -66,7 +72,7 @@ public class GraphQLQuery {
   }
 
   public @NotNull GraphQLRequest getRequest() {
-    return this.request;
+    return GraphQLRequest.copyOf(this.request);
   }
 
   public @Nullable Map<String, Object> getVariables() {
@@ -75,10 +81,10 @@ public class GraphQLQuery {
 
   public static final class GraphQLQueryBuilder {
 
-    private @NotNull String query;
-    private @NotNull OperationDefinition.Operation operationType;
-    private @NotNull Field queryNode;
-    private @NotNull Map<String, Object> arguments;
+    private @Nullable String query;
+    private @Nullable OperationDefinition.Operation operationType;
+    private @Nullable Field queryNode;
+    private @Nullable Map<String, Object> arguments;
     private @Nullable Map<String, Object> variables;
 
     private GraphQLQueryBuilder() {
@@ -87,13 +93,20 @@ public class GraphQLQuery {
 
     public @NotNull GraphQLQueryBuilder arguments(
         final @NotNull Map<String, Object> argumentsParam) {
-      this.arguments = argumentsParam;
+      this.arguments =
+          argumentsParam == null
+              ? null
+              : Collections.unmodifiableMap(new LinkedHashMap<>(argumentsParam));
       return this;
     }
 
     public @NotNull GraphQLQuery build() {
       return new GraphQLQuery(
-          this.query, this.operationType, this.queryNode, this.arguments, this.variables);
+          Objects.requireNonNull(this.query, "query must be set"),
+          Objects.requireNonNull(this.operationType, "operationType must be set"),
+          Objects.requireNonNull(this.queryNode, "queryNode must be set"),
+          Objects.requireNonNull(this.arguments, "arguments must be set"),
+          this.variables);
     }
 
     public @NotNull GraphQLQuery.GraphQLQueryBuilder operationType(
@@ -115,7 +128,10 @@ public class GraphQLQuery {
 
     public @NotNull GraphQLQuery.GraphQLQueryBuilder variables(
         final @Nullable Map<String, Object> variablesMap) {
-      this.variables = variablesMap;
+      this.variables =
+          variablesMap == null
+              ? null
+              : Collections.unmodifiableMap(new LinkedHashMap<>(variablesMap));
       return this;
     }
   }

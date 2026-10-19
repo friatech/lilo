@@ -16,12 +16,14 @@
 package io.fria.lilo;
 
 import graphql.ExecutionInput;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class GraphQLRequest {
+public final class GraphQLRequest {
 
   public static final String INTROSPECTION_QUERY =
       "\n"
@@ -136,11 +138,26 @@ public class GraphQLRequest {
       final @Nullable Map<String, Object> variables) {
     this.query = Objects.requireNonNull(query);
     this.operationName = operationName;
-    this.variables = variables;
+    this.variables =
+        variables == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(variables));
   }
 
   public GraphQLRequest() {
     // Default constructor
+  }
+
+  /**
+   * Creates a copy of the given request. Unlike the public constructor it does not validate the
+   * query, so a deserialized request without a query can still be copied.
+   */
+  static @NotNull GraphQLRequest copyOf(final @NotNull GraphQLRequest source) {
+
+    final GraphQLRequest copy = new GraphQLRequest();
+    copy.query = source.query;
+    copy.setOperationName(source.operationName);
+    copy.setVariables(source.variables);
+
+    return copy;
   }
 
   public static @NotNull GraphQLRequestBuilder builder() {
@@ -182,11 +199,16 @@ public class GraphQLRequest {
   }
 
   public @Nullable Map<String, Object> getVariables() {
-    return this.variables;
+    // The stored map is already an unmodifiable copy; the extra read-only view only makes that
+    // explicit for static analysis and costs no copying
+    return this.variables == null ? null : Collections.unmodifiableMap(this.variables);
   }
 
   public void setVariables(final @Nullable Map<String, Object> variables) {
-    this.variables = variables;
+    // Defensive unmodifiable copy; LinkedHashMap keeps the iteration order and, unlike
+    // Map.copyOf, tolerates null values
+    this.variables =
+        variables == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(variables));
   }
 
   @Override
@@ -254,7 +276,10 @@ public class GraphQLRequest {
 
     public @NotNull GraphQLRequestBuilder variables(
         final @Nullable Map<String, Object> variablesParam) {
-      this.variables = variablesParam;
+      this.variables =
+          variablesParam == null
+              ? null
+              : Collections.unmodifiableMap(new LinkedHashMap<>(variablesParam));
       return this;
     }
   }

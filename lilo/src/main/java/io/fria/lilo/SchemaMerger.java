@@ -31,6 +31,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
@@ -193,9 +194,9 @@ final class SchemaMerger {
     return sourceRegistry.types().values().stream()
         .filter(
             t ->
-                !t.getName().equals(queryTypeName)
-                    && !t.getName().equals(mutationTypeName)
-                    && !t.getName().equals(subscriptionTypeName))
+                !Objects.equals(t.getName(), queryTypeName)
+                    && !Objects.equals(t.getName(), mutationTypeName)
+                    && !Objects.equals(t.getName(), subscriptionTypeName))
         .collect(Collectors.toList());
   }
 
