@@ -26,13 +26,40 @@ import org.springframework.web.socket.WebSocketSession;
 /**
  * ClientSessionWrapper encapsulates the session which is bound between gateway and connected
  * GraphQL client.
+ *
+ * <p>Frames for one session are sent from several threads (the websocket thread, the gateway's
+ * stitch executor, source socket threads) while {@link WebSocketSession#sendMessage} is not
+ * thread-safe. {@link #send} therefore serialises the sends of one native session on a lock kept in
+ * the session's attributes under {@link #SEND_LOCK_ATTRIBUTE}, so every wrapper of the same session
+ * shares it.
  */
 public final class ClientSessionWrapper implements WebSocketSessionWrapper {
 
+  /** Session attribute holding the lock that serialises the sends of the session. */
+  public static final String SEND_LOCK_ATTRIBUTE = "lilo.send.lock";
+
   private final @NotNull WebSocketSession nativeSession;
+  private final @NotNull Object sendLock;
 
   private ClientSessionWrapper(final @NotNull WebSocketSession nativeSession) {
     this.nativeSession = nativeSession;
+    this.sendLock = sendLock(nativeSession);
+  }
+
+  /**
+   * Returns the send lock of the session, creating it on first use. Spring's sessions keep their
+   * attributes in a concurrent map, so concurrent first uses still agree on one lock; the handlers
+   * create it when the connection is established, before any other thread sends. A session whose
+   * attributes cannot be modified is its own lock.
+   */
+  private static @NotNull Object sendLock(final @NotNull WebSocketSession nativeSession) {
+    try {
+      return nativeSession
+          .getAttributes()
+          .computeIfAbsent(SEND_LOCK_ATTRIBUTE, key -> new Object());
+    } catch (final UnsupportedOperationException e) {
+      return nativeSession;
+    }
   }
 
   /**
@@ -81,16 +108,24 @@ public final class ClientSessionWrapper implements WebSocketSessionWrapper {
     return this.nativeSession.isOpen();
   }
 
+  /**
+   * Sends a text frame if the session is open. Sends of one session never overlap: concurrent
+   * callers wait for each other. A send to a session that closed meanwhile is dropped.
+   *
+   * @param message websocket string message
+   */
   @Override
   public void send(final @NotNull String message) {
-    try {
-      if (this.nativeSession.isOpen()) {
-        this.nativeSession.sendMessage(new TextMessage(message));
+    synchronized (this.sendLock) {
+      try {
+        if (this.nativeSession.isOpen()) {
+          this.nativeSession.sendMessage(new TextMessage(message));
+        }
+      } catch (final IllegalStateException e) {
+        // Session is closed but still tries to send
+      } catch (final IOException e) {
+        throw new RuntimeException(e);
       }
-    } catch (final IllegalStateException e) {
-      // Session is closed but still tries to send
-    } catch (final IOException e) {
-      throw new RuntimeException(e);
     }
   }
 }

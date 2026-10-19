@@ -15,6 +15,8 @@
  */
 package io.fria.lilo.spring;
 
+import java.util.List;
+import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -29,6 +31,18 @@ public class LiloConfigProperties {
 
   private @Nullable String graphQlPath = "/graphql";
   private @Nullable String subscriptionPath = "/graphql";
+  private @NotNull List<String> allowedOrigins = List.of("*");
+
+  /**
+   * Origin patterns the subscription websocket endpoint accepts, as passed to Spring's {@code
+   * setAllowedOriginPatterns}: e.g. {@code https://app.example.com} or {@code
+   * https://*.example.com}. By default, it's {@code *}, which accepts every origin.
+   *
+   * @return allowed origin patterns of the subscription endpoint
+   */
+  public @NotNull List<String> getAllowedOrigins() {
+    return this.allowedOrigins;
+  }
 
   /**
    * GraphQL path which serves query and mutation operations. By default, it's /graphql
@@ -47,6 +61,16 @@ public class LiloConfigProperties {
    */
   public @Nullable String getSubscriptionPath() {
     return this.subscriptionPath;
+  }
+
+  /**
+   * setter for the origin patterns the subscription websocket endpoint accepts. If not set, it's
+   * {@code *}, which accepts every origin.
+   *
+   * @param allowedOrigins new allowed origin patterns, e.g. {@code https://app.example.com}
+   */
+  public void setAllowedOrigins(final @NotNull List<String> allowedOrigins) {
+    this.allowedOrigins = List.copyOf(Objects.requireNonNull(allowedOrigins));
   }
 
   /**

@@ -47,6 +47,17 @@ public class GatewayWebSocketHandler extends AbstractWebSocketHandler {
     this.subscriptionPath = subscriptionPath;
   }
 
+  /**
+   * Prepares the session before anything is sent to it: its send lock is created here, on the
+   * websocket thread, before the gateway sends to it from other threads.
+   *
+   * @param nativeSession Session object provided by Spring
+   */
+  @Override
+  public void afterConnectionEstablished(final @NotNull WebSocketSession nativeSession) {
+    ClientSessionWrapper.wrap(nativeSession);
+  }
+
   @Override
   public void afterConnectionClosed(
       final @Nullable WebSocketSession nativeSession, final @NotNull CloseStatus status) {

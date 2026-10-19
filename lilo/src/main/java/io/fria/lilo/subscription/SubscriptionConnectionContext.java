@@ -53,7 +53,9 @@ import org.jetbrains.annotations.Nullable;
  *       sets no such attribute.
  * </ul>
  *
- * <p>Both maps are unmodifiable. They may carry credentials: do not log them.
+ * <p>Both maps are unmodifiable at the top level only: nested JSON values of the payload (objects
+ * and arrays) are shared mutable objects, so do not modify them. They may carry credentials: do not
+ * log them.
  */
 public final class SubscriptionConnectionContext {
 
@@ -119,7 +121,8 @@ public final class SubscriptionConnectionContext {
   /**
    * Returns the payload of the client's {@code connection_init} message.
    *
-   * @return unmodifiable map, empty when the client sent no JSON object
+   * @return map that is unmodifiable at the top level (nested values are shared), empty when the
+   *     client sent no JSON object
    */
   public @NotNull Map<String, Object> getConnectionInitPayload() {
     return this.connectionInitPayload;

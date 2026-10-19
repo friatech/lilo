@@ -45,6 +45,9 @@ public interface WebSocketSessionWrapper {
    * Returns what the transport attached to the session, such as the handshake request headers under
    * {@link SubscriptionConnectionContext#HEADERS_ATTRIBUTE}.
    *
+   * <p>The returned map may be the transport's live attribute map: callers must neither retain nor
+   * mutate it, and should copy what they need.
+   *
    * @return session attributes, empty by default
    */
   default @NotNull Map<String, Object> getAttributes() {

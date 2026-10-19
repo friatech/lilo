@@ -15,6 +15,7 @@
  */
 package io.fria.lilo.spring;
 
+import java.util.List;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
@@ -27,20 +28,26 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 public class SubscriptionWebSocketConfigurer implements WebSocketConfigurer {
 
   private final @NotNull GatewayWebSocketHandler gatewayWebSocketHandler;
+  private final @NotNull List<String> allowedOrigins;
 
   /**
    * Constructor for creating SubscriptionWebSocketConfigurer
    *
    * @param gatewayWebSocketHandler Lilo's WebSocketHandler for managing all communication between
    *     clients and gateway.
+   * @param configProperties LiloConfig properties for getting the allowed origins
    */
   public SubscriptionWebSocketConfigurer(
-      final @NotNull GatewayWebSocketHandler gatewayWebSocketHandler) {
+      final @NotNull GatewayWebSocketHandler gatewayWebSocketHandler,
+      final @NotNull LiloConfigProperties configProperties) {
     this.gatewayWebSocketHandler = gatewayWebSocketHandler;
+    // Bound before it is injected; a copy keeps the registration independent of later changes
+    this.allowedOrigins = List.copyOf(configProperties.getAllowedOrigins());
   }
 
   /**
-   * helps to register Lilo's GatewayWebSocketHandler
+   * helps to register Lilo's GatewayWebSocketHandler, accepting the origin patterns of {@link
+   * LiloConfigProperties#getAllowedOrigins()}
    *
    * @param registry Spring's global registry for WebSocketHandlers
    */
@@ -51,6 +58,6 @@ public class SubscriptionWebSocketConfigurer implements WebSocketConfigurer {
         .addHandler(
             this.gatewayWebSocketHandler, this.gatewayWebSocketHandler.getSubscriptionPath())
         .addInterceptors(new GatewayHandshakeInterceptor())
-        .setAllowedOrigins("*");
+        .setAllowedOriginPatterns(this.allowedOrigins.toArray(new String[0]));
   }
 }

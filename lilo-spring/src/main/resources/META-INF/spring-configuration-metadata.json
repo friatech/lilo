@@ -3,19 +3,33 @@
     {
       "name": "lilo",
       "type": "io.fria.lilo.spring.LiloConfigProperties",
-      "sourceType": "io.fria.lilo.spring.LiloConfigProperties"
+      "sourceType": "io.fria.lilo.spring.LiloConfigProperties",
+      "description": "Lilo GraphQL gateway configuration."
     }
   ],
   "properties": [
     {
       "name": "lilo.graphQlPath",
       "type": "java.lang.String",
-      "sourceType": "io.fria.lilo.spring.LiloConfigProperties"
+      "sourceType": "io.fria.lilo.spring.LiloConfigProperties",
+      "description": "GraphQL path which serves query and mutation operations.",
+      "defaultValue": "/graphql"
     },
     {
       "name": "lilo.subscriptionPath",
       "type": "java.lang.String",
-      "sourceType": "io.fria.lilo.spring.LiloConfigProperties"
+      "sourceType": "io.fria.lilo.spring.LiloConfigProperties",
+      "description": "GraphQL subscription path the WebSocket handler is bound to. When it equals the GraphQL path, websocket upgrade requests on that path are routed to the subscription handler.",
+      "defaultValue": "/graphql"
+    },
+    {
+      "name": "lilo.allowed-origins",
+      "type": "java.util.List<java.lang.String>",
+      "sourceType": "io.fria.lilo.spring.LiloConfigProperties",
+      "description": "Origin patterns the subscription WebSocket endpoint accepts, such as https://app.example.com or https://*.example.com. The default, *, accepts every origin.",
+      "defaultValue": [
+        "*"
+      ]
     }
   ],
   "hints": []

@@ -36,6 +36,10 @@ import org.springframework.web.socket.server.HandshakeInterceptor;
  * #HEADERS_ATTRIBUTE}, as an unmodifiable {@code Map<String, String>} of the lower-cased header
  * name to its first value. The gateway hands them to subscription retrievers in a {@link
  * SubscriptionConnectionContext}.
+ *
+ * <p>Only the first value of each repeated header is kept. Note that HTTP/2 may split {@code
+ * Cookie} across several header fields, so only the first of them is copied. The copied values
+ * include credentials such as {@code Cookie} and {@code Authorization}: they must never be logged.
  */
 public class GatewayHandshakeInterceptor implements HandshakeInterceptor {
 
