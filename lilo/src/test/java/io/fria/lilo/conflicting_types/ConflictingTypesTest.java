@@ -80,4 +80,55 @@ class ConflictingTypesTest {
     Assertions.assertTrue(root.getMessage().contains("project1"));
     Assertions.assertTrue(root.getMessage().contains("project2"));
   }
+
+  @Test
+  void descriptionOnlyDifferenceIsAccepted() {
+
+    final Lilo lilo =
+        lilo(
+            "# header comment\n\"A tag\" type Tag { \"the name\" name: String } type Query { a: Tag }",
+            "type Tag { name: String } type Query { b: Tag }");
+
+    final ExecutionResult result =
+        lilo.stitch(ExecutionInput.newExecutionInput().query("{ a { name } b { name } }").build());
+
+    Assertions.assertEquals(0, result.getErrors().size());
+  }
+
+  @Test
+  void fieldOrderDifferenceIsReportedAsConflict() {
+
+    // Field order is significant for now: the same fields in a different order are a conflict.
+    assertConflict(
+        "type Query { a: User } type User { id: ID email: String }",
+        "type Query { b: User } type User { email: String id: ID }",
+        "User");
+  }
+
+  @Test
+  void differingEnumValuesFailAtMerge() {
+
+    assertConflict(
+        "type Query { a: Color } enum Color { RED GREEN }",
+        "type Query { b: Color } enum Color { RED BLUE }",
+        "Color");
+  }
+
+  private static void assertConflict(final String sdl1, final String sdl2, final String typeName) {
+
+    final Lilo lilo = lilo(sdl1, sdl2);
+    final ExecutionInput executionInput =
+        ExecutionInput.newExecutionInput().query("{ a { __typename } }").build();
+
+    final Throwable thrown =
+        Assertions.assertThrows(RuntimeException.class, () -> lilo.stitch(executionInput));
+    Throwable root = thrown;
+    while (root.getCause() != null) {
+      root = root.getCause();
+    }
+    Assertions.assertInstanceOf(IllegalArgumentException.class, root);
+    Assertions.assertTrue(root.getMessage().contains(typeName));
+    Assertions.assertTrue(root.getMessage().contains("project1"));
+    Assertions.assertTrue(root.getMessage().contains("project2"));
+  }
 }

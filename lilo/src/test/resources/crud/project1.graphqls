@@ -12,11 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-schema {
-    query: Queries
-    mutation: Mutations
-}
-
 enum Role {
     GUEST
     USER
@@ -62,4 +57,9 @@ type Queries {
 
 type Mutations {
     create(user: UserForm!): SystemUser!
+}
+
+schema {
+    query: Queries
+    mutation: Mutations
 }

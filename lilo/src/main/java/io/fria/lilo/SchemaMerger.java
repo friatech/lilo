@@ -36,14 +36,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 final class SchemaMerger {
-
-  private static final Pattern EMPTY_DESCRIPTION = Pattern.compile("(?m)^\\s*\"\"\\R");
 
   private SchemaMerger() {
     // Utility class
@@ -148,10 +145,8 @@ final class SchemaMerger {
       final @NotNull Map<String, SourceDefinition> definitions) {
 
     final String name = ((NamedNode<?>) definition).getName();
-    // Remote sources rebuilt from introspection carry empty descriptions where SDL sources have
-    // none; they are the same definition
-    final String printed =
-        EMPTY_DESCRIPTION.matcher(AstPrinter.printAst(definition)).replaceAll("");
+    // The compact printer omits descriptions: documentation is not part of a type's structure
+    final String printed = AstPrinter.printAstCompact(definition);
     final SourceDefinition existing = definitions.get(keyPrefix + name);
 
     if (existing != null) {
