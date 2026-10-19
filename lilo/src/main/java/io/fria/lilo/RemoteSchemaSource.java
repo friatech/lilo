@@ -264,13 +264,13 @@ public final class RemoteSchemaSource extends SchemaSource {
     }
 
     final var typeWiringBuilder = newTypeWiring(typeName);
-    final var typeDefinitionOptional = typeDefinitionRegistry.getType(typeName);
+    final var typeDefinitionOrNull = typeDefinitionRegistry.getTypeOrNull(typeName);
 
-    if (typeDefinitionOptional.isEmpty()) {
+    if (typeDefinitionOrNull == null) {
       return Optional.empty();
     }
 
-    final ObjectTypeDefinition typeDefinition = (ObjectTypeDefinition) typeDefinitionOptional.get();
+    final ObjectTypeDefinition typeDefinition = (ObjectTypeDefinition) typeDefinitionOrNull;
     final List<FieldDefinition> fields = typeDefinition.getFieldDefinitions();
 
     for (final FieldDefinition field : fields) {

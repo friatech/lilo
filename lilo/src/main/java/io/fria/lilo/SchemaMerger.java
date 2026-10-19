@@ -130,7 +130,7 @@ final class SchemaMerger {
       final SchemaDefinition.Builder builder,
       final String name) {
 
-    if (operationTypeName != null && combinedRegistry.getType(operationTypeName).isPresent()) {
+    if (operationTypeName != null && combinedRegistry.getTypeOrNull(operationTypeName) != null) {
       builder.operationTypeDefinition(
           OperationTypeDefinition.newOperationTypeDefinition()
               .name(name)
@@ -210,13 +210,13 @@ final class SchemaMerger {
       return;
     }
 
-    final Optional<TypeDefinition> typeOptional = sourceRegistry.getType(typeName);
+    final TypeDefinition typeDefinitionOrNull = sourceRegistry.getTypeOrNull(typeName);
 
-    if (typeOptional.isEmpty()) {
+    if (typeDefinitionOrNull == null) {
       return;
     }
 
-    final ObjectTypeDefinition typeDefinition = (ObjectTypeDefinition) typeOptional.get();
+    final ObjectTypeDefinition typeDefinition = (ObjectTypeDefinition) typeDefinitionOrNull;
     fieldDefinitions.addAll(typeDefinition.getFieldDefinitions());
 
     // Only wire the data fetchers of fields this source defines. A source wiring may contain
