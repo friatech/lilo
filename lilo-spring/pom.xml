@@ -61,7 +61,7 @@
     <fmt-maven-plugin.version>2.23</fmt-maven-plugin.version>
     <apache-rat-plugin.version>0.18</apache-rat-plugin.version>
     <!-- Plugin Dependency Versions -->
-    <error-prone.version>2.27.1</error-prone.version>
+    <error-prone.version>2.50.0</error-prone.version>
     <checkstyle.version>10.16.0</checkstyle.version>
     <spotbugs.version>4.8.5</spotbugs.version>
   </properties>
@@ -111,6 +111,8 @@
           <encoding>UTF-8</encoding>
           <compilerArgs>
             <arg>-XDcompilePolicy=simple</arg>
+            <arg>--should-stop=ifError=FLOW</arg>
+            <arg>-XDaddTypeAnnotationsToSymbol=true</arg>
             <arg>-Xplugin:ErrorProne -Xep:UnicodeInCode:OFF</arg>
           </compilerArgs>
           <annotationProcessorPaths>
