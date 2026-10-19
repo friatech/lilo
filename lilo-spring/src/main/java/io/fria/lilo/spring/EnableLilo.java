@@ -22,7 +22,14 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.springframework.context.annotation.Import;
 
-/** EnableLilo annotation enables Lilo Spring support of the application. */
+/**
+ * EnableLilo annotation enables Lilo Spring support of the application.
+ *
+ * <p>It also enables Spring's websocket support for the subscription endpoint, so
+ * {@code @EnableWebSocket} is not needed next to it. The application still needs Spring MVC (e.g.
+ * {@code spring-boot-starter-web}) and a websocket-capable servlet container (e.g. {@code
+ * spring-boot-starter-websocket}).
+ */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 @Documented

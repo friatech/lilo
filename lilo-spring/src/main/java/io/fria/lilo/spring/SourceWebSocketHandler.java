@@ -18,6 +18,9 @@ package io.fria.lilo.spring;
 import io.fria.lilo.GraphQLQuery;
 import io.fria.lilo.subscription.SubscriptionSourceHandler;
 import io.fria.lilo.subscription.SubscriptionSourcePublisher;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -36,6 +39,7 @@ public class SourceWebSocketHandler extends AbstractWebSocketHandler {
 
   private final @NotNull GraphQLQuery query;
   private final @NotNull SubscriptionSourcePublisher publisher;
+  private final @NotNull Map<String, Object> connectionInitPayload;
   private @Nullable SubscriptionSourceHandler sourceHandler;
 
   /**
@@ -46,8 +50,27 @@ public class SourceWebSocketHandler extends AbstractWebSocketHandler {
    */
   public SourceWebSocketHandler(
       final @NotNull GraphQLQuery query, final @NotNull SubscriptionSourcePublisher publisher) {
+    this(query, publisher, Map.of());
+  }
+
+  /**
+   * Creates a SourceWebSocketHandler instance whose {@code connection_init} carries the given
+   * payload, e.g. credentials taken from a {@link
+   * io.fria.lilo.subscription.SubscriptionConnectionContext}
+   *
+   * @param query incoming GraphQL subscription query
+   * @param publisher publisher object for subscribing the websocket stream data
+   * @param connectionInitPayload payload of the {@code connection_init} sent to the source
+   */
+  public SourceWebSocketHandler(
+      final @NotNull GraphQLQuery query,
+      final @NotNull SubscriptionSourcePublisher publisher,
+      final @NotNull Map<String, Object> connectionInitPayload) {
     this.query = query;
     this.publisher = publisher;
+    // LinkedHashMap rather than Map.copyOf: a JSON payload may hold null values
+    this.connectionInitPayload =
+        Collections.unmodifiableMap(new LinkedHashMap<>(connectionInitPayload));
   }
 
   /**
@@ -57,7 +80,10 @@ public class SourceWebSocketHandler extends AbstractWebSocketHandler {
    */
   @Override
   public void afterConnectionEstablished(final @NotNull WebSocketSession nativeSession) {
-    this.sourceHandler = new SubscriptionSourceHandler(this.query, this.publisher);
+    this.sourceHandler =
+        new SubscriptionSourceHandler(this.query, this.publisher, this.connectionInitPayload);
+    // Unlike client sessions, a source session is not decorated: it carries one operation's
+    // low-volume traffic (subscribe, pong, complete), so the wrapper's simple send lock suffices
     this.sourceHandler.handleSessionStart(
         Objects.requireNonNull(ClientSessionWrapper.wrap(nativeSession)));
   }

@@ -58,8 +58,13 @@ public class SubscriptionRetrieverImpl implements SubscriptionRetriever {
               new URI(this.subscriptionWsUrl))
           .get();
     } catch (final ExecutionException e) {
-      // pass
-    } catch (final URISyntaxException | InterruptedException e) {
+      // The source could not be reached: fail the operation, so the client gets an error and the
+      // operation does not hang
+      publisher.error(e.getCause() == null ? e : e.getCause());
+    } catch (final InterruptedException e) {
+      Thread.currentThread().interrupt();
+      publisher.error(e);
+    } catch (final URISyntaxException e) {
       throw new RuntimeException(e);
     }
   }

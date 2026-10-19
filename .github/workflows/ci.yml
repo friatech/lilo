@@ -6,31 +6,76 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   check-lilo:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
 
       - name: Build with Maven, SpotBugs and format check
-        run: mvn -B -ntp verify com.spotify.fmt:fmt-maven-plugin:check -Denforcer.skip -Dgpg.skip
+        # fmt-maven-plugin version comes from the pom pins (2.29); keep root, lilo and lilo-spring in sync
+        run: mvn -B -ntp verify com.spotify.fmt:fmt-maven-plugin:check -Dgpg.skip
+
+  # Runs the lilo core tests on a real JDK 11 (the module targets Java 11). Maven and the
+  # compiler run on JDK 21 (--release 11); only surefire's forked test JVM is JDK 11.
+  test-lilo-jdk11:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up JDK 11 (test runtime)
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Set up JDK 21 (Maven and compiler)
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Verify JDK 11 is available
+        run: |
+          test -x "$JAVA_HOME_11_X64/bin/java"
+          "$JAVA_HOME_11_X64/bin/java" -version 2>&1 | grep -q 'version "11\.'
+
+      - name: Test lilo on JDK 11
+        run: mvn -B -ntp -pl lilo test -Dgpg.skip -Dspotbugs.skip -Dcheckstyle.skip -Dfmt.skip -Djvm="$JAVA_HOME_11_X64/bin/java"
+
+      - name: Verify tests ran on JDK 11
+        run: |
+          report=$(ls lilo/target/surefire-reports/*.xml | head -1)
+          grep -o 'java.version" value="[^"]*"' "$report" | tee /dev/stderr | grep -q 'value="11\.'
 
   check-samples:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -40,4 +85,4 @@ jobs:
         run: mvn -B -ntp clean install -DskipTests -Dgpg.skip -Dcheckstyle.skip -Dspotbugs.skip -Denforcer.skip -Dmaven.javadoc.skip -Dmaven.source.skip
 
       - name: Check lilo samples
-        run: cd samples && mvn -B -ntp compile com.spotify.fmt:fmt-maven-plugin:check
+        run: cd samples && mvn -B -ntp verify -Dspotbugs.skip com.spotify.fmt:fmt-maven-plugin:check

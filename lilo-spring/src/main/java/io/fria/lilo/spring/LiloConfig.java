@@ -23,13 +23,19 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
+import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.server.support.WebSocketHandlerMapping;
 
 /**
  * LiloConfig is the configuration bean directly bound to EnableLilo annotation. When EnableLilo
  * annotation is used. A singleton instance of this class is created.
+ *
+ * <p>It enables Spring's websocket support ({@link EnableWebSocket}) itself, so the application
+ * does not need to add {@code @EnableWebSocket} next to {@code @EnableLilo}; adding it anyway is
+ * harmless.
  */
 @Configuration
+@EnableWebSocket
 @Import({LiloConfigProperties.class, SubscriptionWebSocketConfigurer.class})
 public class LiloConfig {
 
@@ -37,14 +43,17 @@ public class LiloConfig {
    * GatewayWebSocketHandler bean definition
    *
    * @param lilo Lilo instance
-   * @param configProperties LiloConfig properties for getting subscription path
+   * @param configProperties LiloConfig properties for getting subscription path and send limits
    * @return GatewayWebSocketHandler bean singleton instance
    */
   @Bean
   public @NotNull GatewayWebSocketHandler gatewayWebSocketHandler(
       final @NotNull Lilo lilo, final @NotNull LiloConfigProperties configProperties) {
     return new GatewayWebSocketHandler(
-        lilo, Objects.requireNonNull(configProperties.getSubscriptionPath()));
+        lilo,
+        Objects.requireNonNull(configProperties.getSubscriptionPath()),
+        configProperties.getSendTimeLimit(),
+        configProperties.getSendBufferSizeLimit());
   }
 
   /**

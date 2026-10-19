@@ -50,7 +50,12 @@ class QueryRetrieverImpl implements SyncQueryRetriever {
       final @Nullable Object localContext) {
 
     final HttpHeaders headers = new HttpHeaders();
-    headers.set(HttpHeaders.AUTHORIZATION, (String) localContext);
+    // The controller passes the request's Authorization header as the localContext. Lilo may pass
+    // other values (null, or a SubscriptionConnectionContext for a subscription that triggers a
+    // schema load), so check the type instead of casting
+    if (localContext instanceof String authorization) {
+      headers.set(HttpHeaders.AUTHORIZATION, authorization);
+    }
 
     return Objects.requireNonNull(
         this.restTemplate

@@ -49,6 +49,9 @@
     <spring.version>7.0.9</spring.version>
     <spring-boot.version>4.1.1</spring-boot.version>
     <jakarta-servlet.version>6.1.0</jakarta-servlet.version>
+    <junit-jupiter.version>5.14.4</junit-jupiter.version>
+    <mockito.version>5.24.0</mockito.version>
+    <jakarta-websocket.version>2.2.0</jakarta-websocket.version>
     <!-- Plugin Versions -->
     <maven-compiler-plugin.version>3.16.0</maven-compiler-plugin.version>
     <maven-surefire-plugin.version>3.6.0</maven-surefire-plugin.version>
@@ -58,8 +61,10 @@
     <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
     <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
     <spotbugs-maven-plugin.version>4.10.5.0</spotbugs-maven-plugin.version>
+    <maven-jar-plugin.version>3.5.1</maven-jar-plugin.version>
     <fmt-maven-plugin.version>2.29</fmt-maven-plugin.version>
     <apache-rat-plugin.version>0.18</apache-rat-plugin.version>
+    <maven-dependency-plugin.version>3.6.1</maven-dependency-plugin.version>
     <!-- Plugin Dependency Versions -->
     <error-prone.version>2.50.0</error-prone.version>
     <checkstyle.version>14.3.0</checkstyle.version>
@@ -123,10 +128,58 @@
       <version>${jakarta-servlet.version}</version>
       <scope>provided</scope>
     </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit-jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>${mockito.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-test</artifactId>
+      <version>${spring.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Provided by the servlet container (e.g. tomcat-embed-websocket) in an application -->
+    <dependency>
+      <groupId>jakarta.websocket</groupId>
+      <artifactId>jakarta.websocket-api</artifactId>
+      <version>${jakarta-websocket.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>jakarta.websocket</groupId>
+      <artifactId>jakarta.websocket-client-api</artifactId>
+      <version>${jakarta-websocket.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
     <plugins>
+      <plugin>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>${maven-jar-plugin.version}</version>
+        <configuration>
+          <archive>
+            <manifestEntries>
+              <Automatic-Module-Name>io.fria.lilo.spring</Automatic-Module-Name>
+            </manifestEntries>
+          </archive>
+        </configuration>
+      </plugin>
+
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>${maven-compiler-plugin.version}</version>
@@ -152,6 +205,11 @@
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${maven-surefire-plugin.version}</version>
+        <configuration>
+          <!-- Mockito's inline mock maker as an agent, instead of attaching itself at runtime;
+               without class data sharing, which an agent on the boot class path disables anyway -->
+          <argLine>-javaagent:${org.mockito:mockito-core:jar} -Xshare:off</argLine>
+        </configuration>
       </plugin>
 
       <plugin>
@@ -318,6 +376,33 @@
             <exclude>**/.sdkmanrc</exclude>
             <exclude>**/README.md</exclude>
           </excludes>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>${maven-dependency-plugin.version}</version>
+        <executions>
+          <execution>
+            <!-- Sets ${org.mockito:mockito-core:jar} for the surefire argLine -->
+            <goals>
+              <goal>properties</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <!-- dependency:analyze cannot see what is only loaded at test runtime: the junit-jupiter
+               aggregator brings the API the tests compile against plus the engine surefire runs,
+               and Spring's websocket handshake support loads the websocket API reflectively (a
+               servlet container such as tomcat-embed-websocket provides it in an application) -->
+          <ignoredUsedUndeclaredDependencies>
+            <ignoredUsedUndeclaredDependency>org.junit.jupiter:junit-jupiter-api</ignoredUsedUndeclaredDependency>
+          </ignoredUsedUndeclaredDependencies>
+          <ignoredUnusedDeclaredDependencies>
+            <ignoredUnusedDeclaredDependency>org.junit.jupiter:junit-jupiter</ignoredUnusedDeclaredDependency>
+            <ignoredUnusedDeclaredDependency>jakarta.websocket:jakarta.websocket-api</ignoredUnusedDeclaredDependency>
+            <ignoredUnusedDeclaredDependency>jakarta.websocket:jakarta.websocket-client-api</ignoredUnusedDeclaredDependency>
+          </ignoredUnusedDeclaredDependencies>
         </configuration>
       </plugin>
     </plugins>

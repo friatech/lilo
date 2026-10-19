@@ -17,25 +17,115 @@ package io.fria.lilo.spring;
 
 import io.fria.lilo.subscription.WebSocketSessionWrapper;
 import java.io.IOException;
+import java.util.Map;
+import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
+import org.springframework.web.socket.handler.SessionLimitExceededException;
 
 /**
  * ClientSessionWrapper encapsulates the session which is bound between gateway and connected
  * GraphQL client.
+ *
+ * <p>Frames for one session are sent from several threads (the websocket thread, the gateway's
+ * stitch executor, source socket threads) while {@link WebSocketSession#sendMessage} is not
+ * thread-safe. A wrapper sends in one of two ways:
+ *
+ * <ul>
+ *   <li>Through a {@link ConcurrentWebSocketSessionDecorator}, when one is stored in the session's
+ *       attributes under {@link #DECORATOR_ATTRIBUTE}. {@link GatewayWebSocketHandler} decorates
+ *       every client session once, when the connection is established. The decorator serialises the
+ *       writes without blocking: a sender that finds another thread writing queues its frame and
+ *       returns, and the writing thread flushes it. When the session exceeds the decorator's send
+ *       time or buffer size limit, the session is closed with {@link
+ *       CloseStatus#SESSION_NOT_RELIABLE}, which releases its operations through {@code
+ *       afterConnectionClosed}.
+ *   <li>Otherwise, under a lock kept in the session's attributes under {@link #SEND_LOCK_ATTRIBUTE}
+ *       (or the session itself when its attributes cannot be modified), so every wrapper of the
+ *       same session shares it. Concurrent senders wait for each other. This serves the gateway's
+ *       source connections, which carry little traffic.
+ * </ul>
  */
 public final class ClientSessionWrapper implements WebSocketSessionWrapper {
 
+  /** Session attribute holding the lock that serialises the sends of an undecorated session. */
+  public static final String SEND_LOCK_ATTRIBUTE = "lilo.send.lock";
+
+  /** Session attribute holding the decorator that serialises and bounds the sends of a session. */
+  public static final String DECORATOR_ATTRIBUTE = "lilo.send.decorator";
+
+  private static final System.Logger LOG = System.getLogger(ClientSessionWrapper.class.getName());
+
   private final @NotNull WebSocketSession nativeSession;
+  private final @Nullable ConcurrentWebSocketSessionDecorator decorator;
+  private final @Nullable Object sendLock;
 
   private ClientSessionWrapper(final @NotNull WebSocketSession nativeSession) {
     this.nativeSession = nativeSession;
+    this.decorator = decoratorOf(nativeSession);
+    this.sendLock = this.decorator == null ? sendLock(nativeSession) : null;
+  }
+
+  private static @Nullable ConcurrentWebSocketSessionDecorator decoratorOf(
+      final @NotNull WebSocketSession nativeSession) {
+    final Object decorator = nativeSession.getAttributes().get(DECORATOR_ATTRIBUTE);
+    return decorator instanceof ConcurrentWebSocketSessionDecorator
+        ? (ConcurrentWebSocketSessionDecorator) decorator
+        : null;
   }
 
   /**
-   * wrap method helps you create a instance from native spring WebSocketSession
+   * Returns the send lock of the session, creating it on first use. Spring's sessions keep their
+   * attributes in a concurrent map, so concurrent first uses still agree on one lock; the handlers
+   * create it when the connection is established, before any other thread sends. A session whose
+   * attributes cannot be modified is its own lock.
+   */
+  private static @NotNull Object sendLock(final @NotNull WebSocketSession nativeSession) {
+    try {
+      return nativeSession
+          .getAttributes()
+          .computeIfAbsent(SEND_LOCK_ATTRIBUTE, key -> new Object());
+    } catch (final UnsupportedOperationException e) {
+      return nativeSession;
+    }
+  }
+
+  /**
+   * Decorates the session with a {@link ConcurrentWebSocketSessionDecorator}, once: the decorator
+   * is stored in the session's attributes, and later calls, as well as {@link #wrap}, use the
+   * stored one. A session whose attributes cannot be modified stays undecorated and sends under a
+   * lock.
+   *
+   * @param nativeSession Session object provided by Spring
+   * @param sendTimeLimitMillis how long a send may take before the session is closed
+   * @param bufferSizeLimit how many bytes may wait to be sent before the session is closed
+   * @return Session Wrapper object which sends through the decorator
+   */
+  static @NotNull ClientSessionWrapper decorate(
+      final @NotNull WebSocketSession nativeSession,
+      final int sendTimeLimitMillis,
+      final int bufferSizeLimit) {
+    try {
+      nativeSession
+          .getAttributes()
+          .computeIfAbsent(
+              DECORATOR_ATTRIBUTE,
+              key ->
+                  new ConcurrentWebSocketSessionDecorator(
+                      nativeSession, sendTimeLimitMillis, bufferSizeLimit));
+    } catch (final UnsupportedOperationException e) {
+      // Falls back to sending under a lock
+    }
+    return new ClientSessionWrapper(nativeSession);
+  }
+
+  /**
+   * wrap method helps you create a instance from native spring WebSocketSession. The wrapper sends
+   * through the session's decorator if {@link GatewayWebSocketHandler} decorated it.
    *
    * @param nativeSession Session object provided by Spring
    * @return Session Wrapper object which contains spring session
@@ -53,10 +143,25 @@ public final class ClientSessionWrapper implements WebSocketSessionWrapper {
   @Override
   public void close() {
     try {
-      this.nativeSession.close();
+      if (this.decorator == null) {
+        this.nativeSession.close();
+      } else {
+        this.decorator.close(CloseStatus.NORMAL);
+      }
     } catch (final IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  /**
+   * Returns the attributes of the native session, which include the handshake headers stored by
+   * {@link GatewayHandshakeInterceptor}.
+   *
+   * @return the native session's attributes
+   */
+  @Override
+  public @NotNull Map<String, Object> getAttributes() {
+    return this.nativeSession.getAttributes();
   }
 
   @Override
@@ -69,12 +174,77 @@ public final class ClientSessionWrapper implements WebSocketSessionWrapper {
     return this.nativeSession.isOpen();
   }
 
+  /**
+   * Sends a text frame if the session is open. A send to a session that closed meanwhile is
+   * dropped.
+   *
+   * <p>A decorated session never blocks the caller while another thread writes: the frame is queued
+   * and flushed by the writing thread. If the session exceeds its send time or buffer size limit,
+   * it is closed with {@link CloseStatus#SESSION_NOT_RELIABLE} and the frame is dropped. The limits
+   * are checked only when a send finds another thread writing; the thread that is writing is bound
+   * only by the container's own blocking send timeout. The thread that hits a limit closes the
+   * session and may block on the container's native close, which sends a close frame and is bounded
+   * by the container's blocking send timeout (e.g. 20 seconds on Tomcat). If that close fails with
+   * an {@link IOException}, a {@link RuntimeException} is thrown that carries the limit breach as a
+   * suppressed exception.
+   *
+   * <p>An undecorated session sends under its lock: concurrent callers wait for each other.
+   *
+   * @param message websocket string message
+   */
   @Override
   public void send(final @NotNull String message) {
-    try {
-      if (this.nativeSession.isOpen()) {
-        this.nativeSession.sendMessage(new TextMessage(message));
+    if (this.decorator != null) {
+      this.sendDecorated(this.decorator, message);
+      return;
+    }
+
+    synchronized (Objects.requireNonNull(this.sendLock)) {
+      try {
+        if (this.nativeSession.isOpen()) {
+          this.nativeSession.sendMessage(new TextMessage(message));
+        }
+      } catch (final IllegalStateException e) {
+        // Session is closed but still tries to send
+      } catch (final IOException e) {
+        throw new RuntimeException(e);
       }
+    }
+  }
+
+  /**
+   * Closes a session that exceeded its send limits. The close may block on the container's native
+   * close, which sends a close frame and is bounded by the container's blocking send timeout.
+   */
+  private static void closeUnreliable(
+      final @NotNull ConcurrentWebSocketSessionDecorator session,
+      final @NotNull SessionLimitExceededException limitExceeded) {
+    try {
+      session.close(limitExceeded.getStatus());
+    } catch (final IllegalStateException closeFailure) {
+      // Already closed meanwhile, like the sends to a closed session
+      closeFailure.addSuppressed(limitExceeded);
+      LOG.log(
+          System.Logger.Level.DEBUG,
+          "Session " + session.getId() + " exceeded its send limits and was already closed",
+          closeFailure);
+    } catch (final IOException closeFailure) {
+      final RuntimeException failure = new RuntimeException(closeFailure);
+      failure.addSuppressed(limitExceeded);
+      throw failure;
+    }
+  }
+
+  private void sendDecorated(
+      final @NotNull ConcurrentWebSocketSessionDecorator session, final @NotNull String message) {
+    try {
+      if (session.isOpen()) {
+        session.sendMessage(new TextMessage(message));
+      }
+    } catch (final SessionLimitExceededException e) {
+      // The client does not keep up: close it, as Spring's own handlers do; its close releases
+      // its operations
+      closeUnreliable(session, e);
     } catch (final IllegalStateException e) {
       // Session is closed but still tries to send
     } catch (final IOException e) {

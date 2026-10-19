@@ -3,19 +3,47 @@
     {
       "name": "lilo",
       "type": "io.fria.lilo.spring.LiloConfigProperties",
-      "sourceType": "io.fria.lilo.spring.LiloConfigProperties"
+      "sourceType": "io.fria.lilo.spring.LiloConfigProperties",
+      "description": "Lilo GraphQL gateway configuration."
     }
   ],
   "properties": [
     {
       "name": "lilo.graphQlPath",
       "type": "java.lang.String",
-      "sourceType": "io.fria.lilo.spring.LiloConfigProperties"
+      "sourceType": "io.fria.lilo.spring.LiloConfigProperties",
+      "description": "GraphQL path which serves query and mutation operations.",
+      "defaultValue": "/graphql"
     },
     {
       "name": "lilo.subscriptionPath",
       "type": "java.lang.String",
-      "sourceType": "io.fria.lilo.spring.LiloConfigProperties"
+      "sourceType": "io.fria.lilo.spring.LiloConfigProperties",
+      "description": "GraphQL subscription path the WebSocket handler is bound to. When it equals the GraphQL path, websocket upgrade requests on that path are routed to the subscription handler.",
+      "defaultValue": "/graphql"
+    },
+    {
+      "name": "lilo.allowed-origins",
+      "type": "java.util.List<java.lang.String>",
+      "sourceType": "io.fria.lilo.spring.LiloConfigProperties",
+      "description": "Origin patterns the subscription WebSocket endpoint accepts, such as https://app.example.com or https://*.example.com. The default, *, accepts every origin; an empty list accepts same-origin requests only.",
+      "defaultValue": [
+        "*"
+      ]
+    },
+    {
+      "name": "lilo.send-time-limit",
+      "type": "java.time.Duration",
+      "sourceType": "io.fria.lilo.spring.LiloConfigProperties",
+      "description": "How long a send to a subscription client may take before its session is closed as not reliable. Checked only when another frame is sent to the client while a send is in progress; the container's own blocking send timeout remains the backstop for the thread that is writing.",
+      "defaultValue": "10s"
+    },
+    {
+      "name": "lilo.send-buffer-size-limit",
+      "type": "java.lang.Integer",
+      "sourceType": "io.fria.lilo.spring.LiloConfigProperties",
+      "description": "How many bytes may wait to be sent to a subscription client before its session is closed as not reliable. Checked only when another frame is sent to the client while a send is in progress.",
+      "defaultValue": 524288
     }
   ],
   "hints": []

@@ -38,13 +38,13 @@
 
   <properties>
     <build.java.version>[21,)</build.java.version>
-    <maven.compiler.source>17</maven.compiler.source>
-    <maven.compiler.target>17</maven.compiler.target>
     <maven.min.version>3.6.3</maven.min.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <!-- Plugin Versions -->
     <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
+    <!-- Keep in sync with lilo/pom.xml, lilo-spring/pom.xml and the CI fmt:check calls -->
+    <fmt-maven-plugin.version>2.29</fmt-maven-plugin.version>
   </properties>
 
   <modules>
@@ -53,6 +53,15 @@
   </modules>
 
   <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>com.spotify.fmt</groupId>
+          <artifactId>fmt-maven-plugin</artifactId>
+          <version>${fmt-maven-plugin.version}</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
     <plugins>
       <plugin>
         <artifactId>maven-enforcer-plugin</artifactId>

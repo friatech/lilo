@@ -21,17 +21,39 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 
 /**
  * ClientSessionWrapper encapsulates the session which is bound between gateway and connected
  * GraphQL client.
+ *
+ * <p>Lilo sends to one session from several threads (the websocket thread, the gateway's stitch
+ * threads and the source connections), while {@link WebSocketSession#sendMessage} is not
+ * thread-safe. Every wrapper of a session therefore sends through one {@link
+ * ConcurrentWebSocketSessionDecorator}, created on first use and kept in the session's attributes.
+ * It serialises the writes and closes a session that falls too far behind.
  */
 public final class ClientSessionWrapper implements WebSocketSessionWrapper {
 
+  private static final String DECORATOR_ATTRIBUTE = "sample.send.decorator";
+  private static final int SEND_TIME_LIMIT_MILLIS = 10_000;
+  private static final int BUFFER_SIZE_LIMIT = 512 * 1024;
+
   private final @NotNull WebSocketSession nativeSession;
+  private final @NotNull WebSocketSession sender;
 
   private ClientSessionWrapper(final @NotNull WebSocketSession nativeSession) {
     this.nativeSession = nativeSession;
+    // Spring keeps session attributes in a concurrent map, so every thread gets the same decorator
+    this.sender =
+        (WebSocketSession)
+            nativeSession
+                .getAttributes()
+                .computeIfAbsent(
+                    DECORATOR_ATTRIBUTE,
+                    key ->
+                        new ConcurrentWebSocketSessionDecorator(
+                            nativeSession, SEND_TIME_LIMIT_MILLIS, BUFFER_SIZE_LIMIT));
   }
 
   static @Nullable ClientSessionWrapper wrap(final @Nullable WebSocketSession nativeSession) {
@@ -46,7 +68,7 @@ public final class ClientSessionWrapper implements WebSocketSessionWrapper {
   @Override
   public void close() {
     try {
-      this.nativeSession.close();
+      this.sender.close();
     } catch (final IOException e) {
       throw new RuntimeException(e);
     }
@@ -64,12 +86,13 @@ public final class ClientSessionWrapper implements WebSocketSessionWrapper {
 
   @Override
   public void send(final @NotNull String message) {
+    if (!this.sender.isOpen()) {
+      // Closed meanwhile: the message is dropped
+      return;
+    }
+
     try {
-      if (this.nativeSession.isOpen()) {
-        this.nativeSession.sendMessage(new TextMessage(message));
-      }
-    } catch (final IllegalStateException e) {
-      // Session is closed but still tries to send
+      this.sender.sendMessage(new TextMessage(message));
     } catch (final IOException e) {
       throw new RuntimeException(e);
     }

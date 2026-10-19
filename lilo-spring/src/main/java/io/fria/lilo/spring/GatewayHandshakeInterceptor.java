@@ -15,6 +15,10 @@
  */
 package io.fria.lilo.spring;
 
+import io.fria.lilo.subscription.SubscriptionConnectionContext;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -27,8 +31,51 @@ import org.springframework.web.socket.server.HandshakeInterceptor;
  * This interceptor is used for communication between a GraphQL client and Lilo GraphQL Gateway.
  * Main purpose of this interface is just adding "Sec-WebSocket-Protocol" header. This one is
  * mandatory for some GraphQL clients.
+ *
+ * <p>It also copies the headers of the upgrade request into the session attributes under {@link
+ * #HEADERS_ATTRIBUTE}, as an unmodifiable {@code Map<String, String>} of the lower-cased header
+ * name to its first value. The gateway hands them to subscription retrievers in a {@link
+ * SubscriptionConnectionContext}.
+ *
+ * <p>Only the first value of each repeated header is kept. Note that HTTP/2 may split {@code
+ * Cookie} across several header fields, so only the first of them is copied. The copied values
+ * include credentials such as {@code Cookie} and {@code Authorization}: they must never be logged.
  */
 public class GatewayHandshakeInterceptor implements HandshakeInterceptor {
+
+  /** Session attribute holding the handshake request headers. */
+  public static final String HEADERS_ATTRIBUTE = SubscriptionConnectionContext.HEADERS_ATTRIBUTE;
+
+  private static @NotNull Map<String, String> firstValues(
+      final @NotNull ServerHttpRequest request) {
+
+    final Map<String, String> headers = new LinkedHashMap<>();
+
+    request
+        .getHeaders()
+        .forEach(
+            (name, values) -> {
+              final String value = firstValue(values);
+              if (name != null && value != null) {
+                // Header names are case-insensitive: the first spelling seen wins
+                headers.putIfAbsent(name.toLowerCase(Locale.ROOT), value);
+              }
+            });
+
+    return Map.copyOf(headers);
+  }
+
+  private static @Nullable String firstValue(final @Nullable List<String> values) {
+    if (values == null) {
+      return null;
+    }
+    for (final String value : values) {
+      if (value != null) {
+        return value;
+      }
+    }
+    return null;
+  }
 
   @Override
   public void afterHandshake(
@@ -47,6 +94,7 @@ public class GatewayHandshakeInterceptor implements HandshakeInterceptor {
       final @NotNull Map<String, Object> attributes) {
     // Some GraphQL clients need this explicitly
     response.getHeaders().add("Sec-WebSocket-Protocol", "graphql-transport-ws");
+    attributes.put(HEADERS_ATTRIBUTE, firstValues(request));
     return true;
   }
 }
