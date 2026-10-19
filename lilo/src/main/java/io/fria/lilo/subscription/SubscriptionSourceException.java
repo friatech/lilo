@@ -39,10 +39,16 @@ final class SubscriptionSourceException extends RuntimeException {
   /** Raw payload of the source's error message; not serialized, as it may be any JSON value. */
   private final transient @Nullable Object payload;
 
+  /** True for an {@code error} message the source sent, false for a protocol violation. */
+  private final boolean reportedBySource;
+
   private SubscriptionSourceException(
-      final @NotNull String message, final @Nullable Object payload) {
+      final @NotNull String message,
+      final @Nullable Object payload,
+      final boolean reportedBySource) {
     super(message);
     this.payload = payload;
+    this.reportedBySource = reportedBySource;
   }
 
   /**
@@ -55,11 +61,11 @@ final class SubscriptionSourceException extends RuntimeException {
     final List<Map<String, Object>> errors = toGraphQLErrors(payload);
 
     if (errors == null) {
-      return new SubscriptionSourceException(GENERIC_MESSAGE, payload);
+      return new SubscriptionSourceException(GENERIC_MESSAGE, payload, true);
     }
 
     return new SubscriptionSourceException(
-        GENERIC_MESSAGE + ": " + bound((String) errors.get(0).get("message")), payload);
+        GENERIC_MESSAGE + ": " + bound((String) errors.get(0).get("message")), payload, true);
   }
 
   /**
@@ -69,7 +75,7 @@ final class SubscriptionSourceException extends RuntimeException {
    * @return the exception
    */
   static @NotNull SubscriptionSourceException protocolViolation(final @NotNull String reason) {
-    return new SubscriptionSourceException(reason, null);
+    return new SubscriptionSourceException(reason, null, false);
   }
 
   /**
@@ -120,6 +126,16 @@ final class SubscriptionSourceException extends RuntimeException {
 
   static @NotNull List<Map<String, Object>> genericErrors() {
     return List.of(Map.of("message", GENERIC_MESSAGE));
+  }
+
+  /**
+   * Tells whether the source itself reported the failure with an {@code error} message, e.g. an
+   * authorization failure, rather than breaking the protocol or the connection.
+   *
+   * @return true for an error message from the source, false for a protocol violation
+   */
+  boolean isReportedBySource() {
+    return this.reportedBySource;
   }
 
   /**

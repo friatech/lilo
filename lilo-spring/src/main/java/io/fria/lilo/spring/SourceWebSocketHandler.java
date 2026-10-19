@@ -42,15 +42,30 @@ import org.springframework.web.socket.handler.AbstractWebSocketHandler;
  * partial messages; to any other handler it delivers nothing and closes the session with status
  * 1009 (message too big). A subscription event that carries a list of a few hundred objects easily
  * exceeds 8 KiB, so without the assembly such an operation ended as soon as its first event
- * arrived. A message that grows beyond the handler's size limit ({@link #DEFAULT_MAX_MESSAGE_SIZE}
- * characters unless another limit is given) fails the operation and closes the source session.
+ * arrived.
+ *
+ * <p>The size of one message is limited to {@link #DEFAULT_MAX_MESSAGE_SIZE} characters unless
+ * another limit is given. The limit counts characters (UTF-16 {@code char}s, as Java strings hold
+ * them), not bytes: 10 Mi characters take up to 20 MiB of heap and can be up to about 30 MB of
+ * UTF-8 on the wire. A message that grows beyond the limit fails the operation with an error and
+ * the source session is closed; every later message on that session is dropped.
  */
 public class SourceWebSocketHandler extends AbstractWebSocketHandler {
 
-  /** Default limit on the size of one message from a source, in characters: 10 MiB. */
+  /**
+   * Default limit on the size of one message from a source: 10 Mi (10 485 760) characters. It
+   * counts UTF-16 characters, not bytes: up to 20 MiB of heap, up to about 30 MB of UTF-8.
+   */
   public static final int DEFAULT_MAX_MESSAGE_SIZE = 10 * 1024 * 1024;
 
   private static final System.Logger LOG = System.getLogger(SourceWebSocketHandler.class.getName());
+
+  /**
+   * Most characters the fragment buffer keeps allocated between messages. A buffer that grew beyond
+   * this for a large fragmented message is released once the message is handled, so that one large
+   * event does not keep its buffer for the whole operation.
+   */
+  private static final int RETAINED_BUFFER_CAPACITY = 64 * 1024;
 
   private final @NotNull GraphQLQuery query;
   private final @NotNull SubscriptionSourcePublisher publisher;
@@ -60,7 +75,10 @@ public class SourceWebSocketHandler extends AbstractWebSocketHandler {
   /** Fragments of the text message being received; guarded by itself. */
   private final @NotNull StringBuilder fragments = new StringBuilder();
 
-  /** Set once a message exceeded the limit: the rest of its fragments are dropped. */
+  /**
+   * Set once a message exceeded the limit: every later message is dropped (the session is ending);
+   * guarded by {@link #fragments}.
+   */
   private boolean oversized;
 
   private @Nullable SubscriptionSourceHandler sourceHandler;
@@ -95,13 +113,14 @@ public class SourceWebSocketHandler extends AbstractWebSocketHandler {
 
   /**
    * Creates a SourceWebSocketHandler instance with its own limit on the size of a message from the
-   * source. A message that grows beyond the limit fails the operation with an error and closes the
-   * source session.
+   * source. A message that grows beyond the limit fails the operation with an error and the source
+   * session is closed.
    *
    * @param query incoming GraphQL subscription query
    * @param publisher publisher object for subscribing the websocket stream data
    * @param connectionInitPayload payload of the {@code connection_init} sent to the source
-   * @param maxMessageSize most characters one message from the source may have, greater than zero
+   * @param maxMessageSize most characters (UTF-16 {@code char}s, not bytes) one message from the
+   *     source may have, greater than zero
    */
   public SourceWebSocketHandler(
       final @NotNull GraphQLQuery query,
@@ -159,7 +178,9 @@ public class SourceWebSocketHandler extends AbstractWebSocketHandler {
   public void afterConnectionClosed(
       final @Nullable WebSocketSession nativeSession, final @NotNull CloseStatus closeStatus) {
 
-    if (this.sourceHandler == null) {
+    final SubscriptionSourceHandler handler = this.sourceHandler;
+
+    if (handler == null) {
       throw new IllegalStateException("Source Handler must be initialized");
     }
 
@@ -169,7 +190,14 @@ public class SourceWebSocketHandler extends AbstractWebSocketHandler {
             ? String.valueOf(closeStatus.getCode())
             : closeStatus.getCode() + " " + reason;
 
-    this.sourceHandler.handleSessionClose(ClientSessionWrapper.wrap(nativeSession), closeReason);
+    // Messages and the close are delivered one after another, but the lock keeps the buffer's
+    // state visible whichever container thread runs this
+    synchronized (this.fragments) {
+      this.fragments.setLength(0);
+      this.fragments.trimToSize();
+    }
+
+    handler.handleSessionClose(ClientSessionWrapper.wrap(nativeSession), closeReason);
   }
 
   /**
@@ -202,10 +230,12 @@ public class SourceWebSocketHandler extends AbstractWebSocketHandler {
   }
 
   /**
-   * Adds a fragment to the message being received.
+   * Adds a fragment to the message being received. A message beyond the size limit fails the
+   * operation, which is reported after the lock is released: the failure runs gateway callbacks and
+   * session sends.
    *
    * @return the complete message once its last fragment arrived, null while it is incomplete or
-   *     once it exceeded the size limit
+   *     once a message exceeded the size limit
    */
   private @Nullable String assemble(
       final @NotNull WebSocketSession nativeSession, final @NotNull TextMessage message) {
@@ -217,41 +247,54 @@ public class SourceWebSocketHandler extends AbstractWebSocketHandler {
         return null;
       }
 
-      if (this.fragments.length() == 0 && message.isLast()) {
+      // long: the sum of two large lengths must not overflow
+      final long length = (long) this.fragments.length() + fragment.length();
+
+      if (length > this.maxMessageSize) {
+        this.fragments.setLength(0);
+        this.fragments.trimToSize();
+        this.oversized = true;
+      } else if (this.fragments.length() == 0 && message.isLast()) {
         // The common case: a message that arrived whole
-        if (fragment.length() > this.maxMessageSize) {
-          this.oversized = true;
-          this.failOversized(nativeSession);
+        return fragment;
+      } else {
+        this.fragments.append(fragment);
+
+        if (!message.isLast()) {
           return null;
         }
-        return fragment;
-      }
 
-      if (this.fragments.length() + fragment.length() > this.maxMessageSize) {
+        final String payload = this.fragments.toString();
         this.fragments.setLength(0);
-        this.oversized = true;
-        this.failOversized(nativeSession);
-        return null;
+        if (this.fragments.capacity() > RETAINED_BUFFER_CAPACITY) {
+          this.fragments.trimToSize();
+        }
+        return payload;
       }
+    }
 
-      this.fragments.append(fragment);
+    // Only the oversized branch gets here, once: later messages return above
+    this.failOversized(nativeSession);
+    return null;
+  }
 
-      if (!message.isLast()) {
-        return null;
-      }
-
-      final String payload = this.fragments.toString();
-      this.fragments.setLength(0);
-      return payload;
+  /** Capacity of the fragment buffer, in characters; for tests. */
+  int bufferCapacity() {
+    synchronized (this.fragments) {
+      return this.fragments.capacity();
     }
   }
 
-  /** Fails the operation (reported before the close, see SubscriptionSourceHandler) and closes. */
+  /**
+   * Fails the operation and closes the source session. The failure is reported before the close
+   * (see SubscriptionSourceHandler); once the operation was subscribed, the failure itself ends the
+   * source session, so the close here only covers a session that is still open, e.g. before {@code
+   * connection_ack}. The gateway logs the failed operation; this handler does not log it again.
+   */
   private void failOversized(final @NotNull WebSocketSession nativeSession) {
-    final String message =
-        "Subscription source message exceeds " + this.maxMessageSize + " characters";
-    LOG.log(System.Logger.Level.WARNING, message + "; closing the source session");
-    this.publisher.error(new IllegalStateException(message));
+    this.publisher.error(
+        new IllegalStateException(
+            "Subscription source message exceeds " + this.maxMessageSize + " characters"));
     try {
       if (nativeSession.isOpen()) {
         nativeSession.close(CloseStatus.TOO_BIG_TO_PROCESS);
