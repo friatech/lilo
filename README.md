@@ -30,6 +30,17 @@ If you're using gradle add the dependency to your `build.gradle` file.
 implementation 'io.fria:lilo:24.5.0'
 ```
 
+## Compatibility and upgrade notes
+
+| Module | Java | Built on |
+|---|---|---|
+| `lilo` | 11+ | graphql-java 26, Reactor 3.8 |
+| `lilo-spring` | 17+ | Spring 7, Spring Boot 4 |
+
+- Building Lilo itself needs JDK 21 (the build tooling requires it). The produced bytecode targets Java 11 (`lilo`) and Java 17 (`lilo-spring`).
+- `lilo-spring` no longer supports Spring Boot 3. Use an earlier release if you are on Boot 3.
+- graphql-java 23+ enables strict wiring: a `RuntimeWiring` that registers the same field twice now throws `StrictModeWiringException`. Stitching two sources that declare the same root field also fails at merge time with this exception.
+
 ## Basic Usage
 
 Here is the story, Alice has 2 GraphQL microservices and she wants to make her gateway to dispatch
