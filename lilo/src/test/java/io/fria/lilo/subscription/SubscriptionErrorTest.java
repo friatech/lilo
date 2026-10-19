@@ -20,21 +20,28 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import graphql.GraphQL;
 import graphql.schema.idl.RuntimeWiring;
+import graphql.schema.idl.SchemaGenerator;
+import graphql.schema.idl.SchemaParser;
 import io.fria.lilo.DefinedSchemaSource;
 import io.fria.lilo.GraphQLQuery;
 import io.fria.lilo.GraphQLRequest;
 import io.fria.lilo.Lilo;
+import io.fria.lilo.RemoteSchemaSource;
+import io.fria.lilo.TestUtils;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -292,7 +299,8 @@ class SubscriptionErrorTest {
   void sourceErrorMessageIsBoundedInTheException() {
     final SubscriptionSourcePublisher publisher = new SubscriptionSourcePublisher();
     final SubscriptionSourceHandler handler = sourceHandler(publisher);
-    final String longMessage = "x".repeat(1000) + "\\u0007";
+    // Escaped in the JSON text; the parsed message starts with a newline and a bell character
+    final String longMessage = "a\\nb\\u0007" + "x".repeat(1000);
 
     handler.handleMessage(
         new RecordingSession(),
@@ -302,8 +310,10 @@ class SubscriptionErrorTest {
         assertThrows(
             RuntimeException.class, () -> publisher.getFlux().blockLast(Duration.ofSeconds(2)));
     final String message = error.getMessage();
-    assertTrue(message.contains("x".repeat(200)), message);
-    assertFalse(message.contains("x".repeat(201)), message);
+    // 200 characters of the source text are kept: "a\nb\u0007" plus 196 x
+    assertTrue(message.contains("a b " + "x".repeat(196)), message);
+    assertFalse(message.contains("x".repeat(197)), message);
+    assertTrue(message.chars().noneMatch(Character::isISOControl), message);
   }
 
   @Test
@@ -488,6 +498,153 @@ class SubscriptionErrorTest {
     assertFalse(source.isOpen());
     assertThrows(
         RuntimeException.class, () -> publisher.getFlux().blockLast(Duration.ofSeconds(2)));
+  }
+
+  // Cancellation racing deliveries, failing client sends, and where stitching runs ------------
+
+  @Test
+  void cancelWhileTheSourceIsDeliveringReleasesEverySource() throws InterruptedException {
+    final RecordingSession session = RecordingSession.init(this.gateway);
+    this.send(session, subscribeMessage("a", "subscription { ticks }"));
+    this.send(session, subscribeMessage("b", "subscription { ticks }"));
+    final CountingPublisher publisherA = this.publishers.get(0);
+    final CountingPublisher publisherB = this.publishers.get(1);
+    final SubscriptionSourceHandler handlerA = sourceHandler(publisherA);
+    final SubscriptionSourceHandler handlerB = sourceHandler(publisherB);
+    final RecordingSession sourceA = new RecordingSession();
+    final RecordingSession sourceB = new RecordingSession();
+    final String sourceIdA = ack(handlerA, sourceA);
+    ack(handlerB, sourceB);
+
+    // The source thread delivers a next for "a" and is held inside the client send
+    final CountDownLatch delivering = new CountDownLatch(1);
+    final CountDownLatch release = new CountDownLatch(1);
+    session.onSend(
+        message -> {
+          if (message.contains("\"next\"")) {
+            delivering.countDown();
+            await(release);
+          }
+        });
+    final Thread sourceThread =
+        new Thread(
+            () ->
+                handlerA.handleMessage(
+                    sourceA, "{\"id\":\"" + sourceIdA + "\",\"type\":\"next\",\"payload\":{}}"));
+    sourceThread.start();
+    await(delivering);
+
+    // Meanwhile the client stops "a" and then the socket closes, both on another thread
+    await(
+        CompletableFuture.runAsync(
+            () -> {
+              this.gateway.handleMessage(session, "{\"id\":\"a\",\"type\":\"complete\"}");
+              this.gateway.handleSessionClose(session);
+            }));
+
+    release.countDown();
+    sourceThread.join(5000);
+    assertFalse(sourceThread.isAlive());
+
+    assertNull(publisherA.getTermination().block(Duration.ofSeconds(2)));
+    assertClosed(publisherA);
+    assertEquals(1, messagesOfType(sourceA, SubscriptionMessageType.complete).size());
+    assertFalse(sourceA.isOpen());
+    assertClosed(publisherB);
+    assertEquals(1, messagesOfType(sourceB, SubscriptionMessageType.complete).size());
+    assertFalse(sourceB.isOpen());
+    assertFalse(this.gateway.tracksSession(session.getId()));
+  }
+
+  @Test
+  void failingClientSendReleasesTheSource() {
+    final RecordingSession session = RecordingSession.init(this.gateway);
+    this.send(session, subscribeMessage("a", "subscription { ticks }"));
+    final SubscriptionSourceHandler handler = sourceHandler(this.publishers.get(0));
+    final RecordingSession source = new RecordingSession();
+    final String sourceId = ack(handler, source);
+    session.onSend(
+        message -> {
+          throw new IllegalStateException("client socket is broken");
+        });
+
+    assertDoesNotThrow(
+        () ->
+            handler.handleMessage(
+                source, "{\"id\":\"" + sourceId + "\",\"type\":\"next\",\"payload\":{}}"));
+
+    assertClosed(this.publishers.get(0));
+    assertEquals(1, messagesOfType(source, SubscriptionMessageType.complete).size());
+    assertFalse(source.isOpen());
+
+    // The broken operation is gone, so its id is free again
+    session.onSend(message -> {});
+    this.send(session, subscribeMessage("a", "subscription { ticks }"));
+    assertTrue(session.isOpen());
+    assertEquals(2, this.publishers.size());
+  }
+
+  @Test
+  void stitchDoesNotRunOnTheCallingThread() {
+    final List<Thread> fetcherThreads = new CopyOnWriteArrayList<>();
+    final SubscriptionGatewayHandler remoteGateway =
+        new SubscriptionGatewayHandler(remoteLilo(fetcherThreads));
+    final RecordingSession session = RecordingSession.init(remoteGateway);
+
+    // The first subscribe also loads the schema; the second runs against the cached schema
+    await(remoteGateway.handle(session, subscribeMessage("a", "subscription { ticks }")));
+    await(remoteGateway.handle(session, subscribeMessage("b", "subscription { ticks }")));
+
+    assertEquals(2, fetcherThreads.size());
+    for (final Thread thread : fetcherThreads) {
+      assertNotSame(Thread.currentThread(), thread, thread.getName());
+    }
+    // With the schema cached nothing else is asynchronous: the handler's own pool ran the stitch
+    final Thread cached = fetcherThreads.get(1);
+    assertTrue(cached.getName().startsWith("lilo-subscription-"), cached.getName());
+    assertTrue(cached.isDaemon(), cached.getName());
+  }
+
+  @Test
+  void stitchRunsOnTheGivenExecutor() {
+    final List<Thread> fetcherThreads = new CopyOnWriteArrayList<>();
+    final AtomicInteger executions = new AtomicInteger();
+    final Executor executor =
+        command -> {
+          executions.incrementAndGet();
+          new Thread(command, "custom-executor").start();
+        };
+    final SubscriptionGatewayHandler remoteGateway =
+        new SubscriptionGatewayHandler(remoteLilo(fetcherThreads), executor);
+    final RecordingSession session = RecordingSession.init(remoteGateway);
+
+    await(remoteGateway.handle(session, subscribeMessage("a", "subscription { ticks }")));
+    await(remoteGateway.handle(session, subscribeMessage("b", "subscription { ticks }")));
+
+    assertEquals(2, executions.get());
+    assertEquals("custom-executor", fetcherThreads.get(1).getName());
+  }
+
+  /** A remote source whose subscription retriever runs inside the gateway's stitch. */
+  private static @NotNull Lilo remoteLilo(final @NotNull List<Thread> fetcherThreads) {
+    final GraphQL remote =
+        GraphQL.newGraphQL(
+                new SchemaGenerator()
+                    .makeExecutableSchema(
+                        new SchemaParser().parse(SCHEMA), RuntimeWiring.newRuntimeWiring().build()))
+            .build();
+    final SubscriptionRetriever retriever =
+        (liloContext, schemaSource, query, publisher, localContext) ->
+            fetcherThreads.add(Thread.currentThread());
+
+    return Lilo.builder()
+        .addSource(
+            RemoteSchemaSource.create(
+                "remote",
+                new TestUtils.TestIntrospectionRetriever(remote),
+                new TestUtils.TestQueryRetriever(remote),
+                retriever))
+        .build();
   }
 
   private void send(final @NotNull RecordingSession session, final @NotNull String message) {

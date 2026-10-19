@@ -37,9 +37,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.Disposable;
 
 /**
@@ -65,19 +70,45 @@ public final class SubscriptionGatewayHandler {
   private static final String EXECUTION_FAILED = "Subscription could not be executed";
   private static final String NOT_A_SUBSCRIPTION = "Operation did not produce a subscription";
 
+  private static final Logger LOG = LoggerFactory.getLogger(SubscriptionGatewayHandler.class);
+  private static final AtomicInteger THREAD_COUNT = new AtomicInteger();
+
   private final @NotNull Lilo lilo;
+  private final @NotNull Executor executor;
 
   /** session id -> (operation id -> operation) */
   private final @NotNull Map<String, Map<String, Operation>> sessionOperations =
       new ConcurrentHashMap<>();
 
   /**
-   * Constructs a handler instance using lilo
+   * Constructs a handler instance using lilo. Subscriptions are stitched on a cached pool of daemon
+   * threads named {@code lilo-subscription-N} that the handler owns, so a source that is slow to
+   * connect never blocks the websocket thread that delivered the {@code subscribe}.
    *
    * @param lilo global lilo instance
    */
   public SubscriptionGatewayHandler(final @NotNull Lilo lilo) {
+    this(lilo, Executors.newCachedThreadPool(SubscriptionGatewayHandler::newThread));
+  }
+
+  /**
+   * Constructs a handler instance using lilo that stitches subscriptions on the given executor. The
+   * stitch runs the source's {@link SubscriptionRetriever}, which may block while it connects to
+   * the source, so the executor should not be the websocket thread or a small shared pool.
+   *
+   * @param lilo global lilo instance
+   * @param executor executor that runs the stitching of each {@code subscribe}
+   */
+  public SubscriptionGatewayHandler(final @NotNull Lilo lilo, final @NotNull Executor executor) {
     this.lilo = Objects.requireNonNull(lilo);
+    this.executor = Objects.requireNonNull(executor);
+  }
+
+  private static @NotNull Thread newThread(final @NotNull Runnable runnable) {
+    final Thread thread =
+        new Thread(runnable, "lilo-subscription-" + THREAD_COUNT.incrementAndGet());
+    thread.setDaemon(true);
+    return thread;
   }
 
   private static @NotNull List<Map<String, Object>> errors(final @NotNull String message) {
@@ -261,7 +292,9 @@ public final class SubscriptionGatewayHandler {
 
     CompletableFuture<ExecutionResult> stitch;
     try {
-      stitch = this.lilo.stitchAsync(executionInput);
+      // Offloaded: with a cached schema the stitch runs the source's retriever inline
+      stitch =
+          DONE.thenComposeAsync(unused -> this.lilo.stitchAsync(executionInput), this.executor);
     } catch (final RuntimeException e) {
       stitch = CompletableFuture.failedFuture(e);
     }
@@ -271,11 +304,12 @@ public final class SubscriptionGatewayHandler {
           try {
             this.start(session, operations, operation, operationId, result, throwable);
           } catch (final RuntimeException e) {
+            LOG.warn("Subscription {} could not be started", operationId, e);
             // Never leave a half started operation registered
             if (operations.remove(operationId, operation)) {
               operation.cancel();
+              trySendError(session, operationId, errors(EXECUTION_FAILED));
             }
-            throw e;
           }
           return null;
         });
@@ -327,6 +361,11 @@ public final class SubscriptionGatewayHandler {
             .getFlux()
             .subscribe(
                 payload -> {
+                  // Nothing follows a client complete, even an event already in flight
+                  if (operations.get(operationId) != operation) {
+                    return;
+                  }
+
                   final var subscriptionMessage =
                       SubscriptionMessage.builder()
                           .id(operationId)
@@ -337,8 +376,14 @@ public final class SubscriptionGatewayHandler {
                 },
                 e -> {
                   // The source failed this operation. Only report it if it was still active.
+                  // This also runs when sending a next to the client failed.
                   if (operations.remove(operationId, operation)) {
-                    sendError(session, operationId, errorsOf(e));
+                    try {
+                      trySendError(session, operationId, errorsOf(e));
+                    } finally {
+                      // Releases the source in every case
+                      operation.cancel();
+                    }
                   }
                 },
                 () -> {
@@ -349,7 +394,13 @@ public final class SubscriptionGatewayHandler {
                     completeMessage.setId(operationId);
                     completeMessage.setType(complete);
 
-                    session.send(JsonUtils.toStr(completeMessage));
+                    try {
+                      session.send(JsonUtils.toStr(completeMessage));
+                    } catch (final RuntimeException sendFailure) {
+                      LOG.debug("Could not send complete for {}", operationId, sendFailure);
+                    } finally {
+                      operation.cancel();
+                    }
                   }
                 });
 
@@ -377,6 +428,17 @@ public final class SubscriptionGatewayHandler {
     }
   }
 
+  private static void trySendError(
+      final @NotNull WebSocketSessionWrapper session,
+      final @NotNull String operationId,
+      final @NotNull List<Map<String, Object>> errors) {
+    try {
+      sendError(session, operationId, errors);
+    } catch (final RuntimeException e) {
+      LOG.debug("Could not send error for {}", operationId, e);
+    }
+  }
+
   /** Whether the session closed or its operation map is no longer the live one. */
   private boolean isDetached(
       final @NotNull WebSocketSessionWrapper session,
@@ -386,8 +448,13 @@ public final class SubscriptionGatewayHandler {
 
   private void closeSession(final @NotNull WebSocketSessionWrapper session) {
 
-    if (session.isOpen()) {
-      session.close();
+    try {
+      if (session.isOpen()) {
+        session.close();
+      }
+    } catch (final RuntimeException e) {
+      // The operations below must be released all the same
+      LOG.debug("Could not close session {}", session.getId(), e);
     }
 
     final Map<String, Operation> operations = this.sessionOperations.remove(session.getId());
@@ -470,11 +537,20 @@ public final class SubscriptionGatewayHandler {
         currentSubscription = this.subscription;
         currentUpstream = this.upstream;
       }
-      if (currentSubscription != null) {
-        currentSubscription.dispose();
+      // Neither step may throw: closeSession cancels the session's other operations afterwards
+      try {
+        if (currentSubscription != null) {
+          currentSubscription.dispose();
+        }
+      } catch (final RuntimeException e) {
+        LOG.warn("Could not stop forwarding a subscription", e);
       }
-      if (currentUpstream != null) {
-        currentUpstream.close();
+      try {
+        if (currentUpstream != null) {
+          currentUpstream.close();
+        }
+      } catch (final RuntimeException e) {
+        LOG.warn("Could not close a subscription source", e);
       }
     }
   }

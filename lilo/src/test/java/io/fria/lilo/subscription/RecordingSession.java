@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -32,6 +33,9 @@ final class RecordingSession implements WebSocketSessionWrapper {
 
   private final @NotNull List<String> sent = new CopyOnWriteArrayList<>();
   private final @NotNull AtomicBoolean open = new AtomicBoolean(true);
+
+  /** Runs before a message is recorded; it may block or throw to simulate a slow or broken peer. */
+  private volatile @NotNull Consumer<String> onSend = message -> {};
 
   /** Sends connection_init through the gateway handler, as a client would. */
   static @NotNull RecordingSession init(final @NotNull SubscriptionGatewayHandler handler) {
@@ -57,7 +61,12 @@ final class RecordingSession implements WebSocketSessionWrapper {
 
   @Override
   public void send(final @NotNull String message) {
+    this.onSend.accept(message);
     this.sent.add(message);
+  }
+
+  void onSend(final @NotNull Consumer<String> hook) {
+    this.onSend = hook;
   }
 
   /** Returns a snapshot of the raw messages sent so far, in order. */
