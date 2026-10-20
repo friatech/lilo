@@ -36,6 +36,10 @@ import org.jetbrains.annotations.NotNull;
  * keyed by result key because aliases are forwarded to the source. Such a field is therefore read
  * by its result key. Anything else, such as a value returned by a {@link DefinedSchemaSource} data
  * fetcher, is read by field name as graphql-java does by default.
+ *
+ * <p>A data fetcher that a {@link DefinedSchemaSource} wires for a non-root field is wrapped by
+ * {@link #localDataFetcher(DataFetcher)}: it runs unless the field is below a remote root field,
+ * whose payload is read by result key as above.
  */
 final class ResultKeyDataFetcherFactory implements DataFetcherFactory<Object> {
 
@@ -43,6 +47,48 @@ final class ResultKeyDataFetcherFactory implements DataFetcherFactory<Object> {
 
   ResultKeyDataFetcherFactory(final @NotNull Set<FieldCoordinates> remoteRootFields) {
     this.remoteRootFields = Set.copyOf(remoteRootFields);
+  }
+
+  private static @NotNull ExecutionStepInfo rootFieldStep(
+      final @NotNull ExecutionStepInfo executionStepInfo) {
+
+    // The operation itself is the topmost step; the root field is the step right below it
+    ExecutionStepInfo step = executionStepInfo;
+    ExecutionStepInfo parent = step.getParent();
+
+    while (parent != null && parent.getParent() != null) {
+      step = parent;
+      parent = step.getParent();
+    }
+
+    return step;
+  }
+
+  private static boolean isBelowRemoteRootField(
+      final @NotNull DataFetchingEnvironment environment,
+      final @NotNull Set<FieldCoordinates> remoteRootFields) {
+
+    final ExecutionStepInfo rootFieldStep = rootFieldStep(environment.getExecutionStepInfo());
+
+    return remoteRootFields.contains(
+        FieldCoordinates.coordinates(
+            rootFieldStep.getObjectType(), rootFieldStep.getFieldDefinition()));
+  }
+
+  /**
+   * Wraps a data fetcher of a local source, so the same type can be shared with a remote source:
+   * the local fetcher runs except below a remote root field, where the remote payload is read by
+   * result key. Whether a remote source is loaded therefore does not change what a local root field
+   * returns.
+   */
+  @SuppressWarnings("rawtypes")
+  @NotNull
+  DataFetcher<Object> localDataFetcher(final @NotNull DataFetcher dataFetcher) {
+
+    return environment ->
+        isBelowRemoteRootField(environment, this.remoteRootFields)
+            ? this.get(environment.getFieldDefinition()).get(environment)
+            : dataFetcher.get(environment);
   }
 
   @Override
@@ -69,21 +115,6 @@ final class ResultKeyDataFetcherFactory implements DataFetcherFactory<Object> {
       this.remoteRootFields = remoteRootFields;
     }
 
-    private static @NotNull ExecutionStepInfo rootFieldStep(
-        final @NotNull ExecutionStepInfo executionStepInfo) {
-
-      // The operation itself is the topmost step; the root field is the step right below it
-      ExecutionStepInfo step = executionStepInfo;
-      ExecutionStepInfo parent = step.getParent();
-
-      while (parent != null && parent.getParent() != null) {
-        step = parent;
-        parent = step.getParent();
-      }
-
-      return step;
-    }
-
     @Override
     public Object get(
         final @NotNull GraphQLFieldDefinition fieldDefinition,
@@ -94,7 +125,7 @@ final class ResultKeyDataFetcherFactory implements DataFetcherFactory<Object> {
       if (sourceObject instanceof Map) {
         final DataFetchingEnvironment environment = environmentSupplier.get();
 
-        if (this.isBelowRemoteRootField(environment)) {
+        if (isBelowRemoteRootField(environment, this.remoteRootFields)) {
           return ((Map<?, ?>) sourceObject).get(environment.getField().getResultKey());
         }
       }
@@ -105,15 +136,6 @@ final class ResultKeyDataFetcherFactory implements DataFetcherFactory<Object> {
     @Override
     public Object get(final @NotNull DataFetchingEnvironment environment) throws Exception {
       return this.get(environment.getFieldDefinition(), environment.getSource(), () -> environment);
-    }
-
-    private boolean isBelowRemoteRootField(final @NotNull DataFetchingEnvironment environment) {
-
-      final ExecutionStepInfo rootFieldStep = rootFieldStep(environment.getExecutionStepInfo());
-
-      return this.remoteRootFields.contains(
-          FieldCoordinates.coordinates(
-              rootFieldStep.getObjectType(), rootFieldStep.getFieldDefinition()));
     }
   }
 }

@@ -44,6 +44,7 @@ import graphql.language.TypeName;
 import graphql.language.UnionTypeDefinition;
 import graphql.language.UnionTypeExtensionDefinition;
 import graphql.schema.DataFetcher;
+import graphql.schema.FieldCoordinates;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import graphql.schema.idl.TypeRuntimeWiring;
@@ -51,17 +52,25 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 final class SchemaMerger {
+
+  private static final Logger LOG = LoggerFactory.getLogger(SchemaMerger.class);
 
   private SchemaMerger() {
     // Utility class
@@ -145,6 +154,10 @@ final class SchemaMerger {
     // Keyed by definition name; remembers the first source that added it and its printed form
     final Map<String, SourceDefinition> definitions = new HashMap<>();
 
+    // Non-root data fetchers of local sources, keyed by type, field and source name
+    final Map<String, Map<String, Map<String, DataFetcher>>> typeDataFetchers =
+        new LinkedHashMap<>();
+
     for (final SourceSnapshot schemaSource : snapshots) {
 
       final TypeDefinitionRegistry sourceRegistry = schemaSource.getRegistry();
@@ -176,8 +189,13 @@ final class SchemaMerger {
           dataFetchers);
 
       // Add types other than Query and Mutation to combined registry
-      excludeTypes(sourceTypes, queryTypeName, mutationTypeName, subscriptionTypeName)
-          .forEach(d -> addDefinition(d, "", schemaSource, combinedRegistry, definitions));
+      final List<SDLDefinition> nonRootTypes =
+          excludeTypes(sourceTypes, queryTypeName, mutationTypeName, subscriptionTypeName);
+      nonRootTypes.forEach(d -> addDefinition(d, "", schemaSource, combinedRegistry, definitions));
+
+      if (!schemaSource.isRemote()) {
+        collectDataFetchers(schemaSource, nonRootTypes, dataFetchers, typeDataFetchers);
+      }
 
       // Add all directive definitions
       sourceRegistry
@@ -190,6 +208,11 @@ final class SchemaMerger {
           .map(d -> withExtensions(d, sourceRegistry))
           .forEach(d -> addDefinition(d, "", schemaSource, combinedRegistry, definitions));
     }
+
+    wireDataFetchers(
+        typeDataFetchers,
+        new ResultKeyDataFetcherFactory(remoteRootFields(snapshots)),
+        runtimeWiringBuilder);
 
     addType(queryTypeName, queryFieldDefinitions, combinedRegistry);
     addType(mutationTypeName, mutationFieldDefinitions, combinedRegistry);
@@ -563,6 +586,117 @@ final class SchemaMerger {
 
     runtimeWiringBuilder.type(
         TypeRuntimeWiring.newTypeWiring(typeName).dataFetchers(ownDataFetchers).build());
+  }
+
+  /** Root fields served by remote sources; their payloads are keyed by result key. */
+  static @NotNull Set<FieldCoordinates> remoteRootFields(
+      final @NotNull List<SourceSnapshot> snapshots) {
+
+    final Set<FieldCoordinates> remoteRootFields = new HashSet<>();
+
+    for (final SourceSnapshot snapshot : snapshots) {
+      if (!snapshot.isRemote()) {
+        continue;
+      }
+
+      final TypeDefinitionRegistry registry = snapshot.getRegistry();
+      final OperationTypeNames names = getOperationTypeNames(registry);
+
+      Stream.of(names.getQuery(), names.getMutation(), names.getSubscription())
+          .filter(Objects::nonNull)
+          .map(registry::getTypeOrNull)
+          .filter(t -> t instanceof ObjectTypeDefinition)
+          .map(t -> (ObjectTypeDefinition) t)
+          .forEach(
+              t ->
+                  t.getFieldDefinitions()
+                      .forEach(
+                          f ->
+                              remoteRootFields.add(
+                                  FieldCoordinates.coordinates(t.getName(), f.getName()))));
+    }
+
+    return remoteRootFields;
+  }
+
+  /**
+   * Collects the data fetchers a local source supplies for the fields of the non-root object and
+   * interface types it defines, so they run on the gateway as they do in the source's own schema.
+   * As for root fields, only fields this source defines are taken.
+   */
+  @SuppressWarnings("rawtypes")
+  private static void collectDataFetchers(
+      final @NotNull SourceSnapshot schemaSource,
+      final @NotNull List<SDLDefinition> nonRootTypes,
+      final @NotNull Map<String, Map<String, DataFetcher>> sourceDataFetchers,
+      final @NotNull Map<String, Map<String, Map<String, DataFetcher>>> typeDataFetchers) {
+
+    for (final SDLDefinition definition : nonRootTypes) {
+
+      final List<FieldDefinition> fields;
+
+      if (definition instanceof ObjectTypeDefinition) {
+        fields = ((ObjectTypeDefinition) definition).getFieldDefinitions();
+      } else if (definition instanceof InterfaceTypeDefinition) {
+        fields = ((InterfaceTypeDefinition) definition).getFieldDefinitions();
+      } else {
+        continue;
+      }
+
+      final String typeName = ((TypeDefinition<?>) definition).getName();
+      final Map<String, DataFetcher> fetchers = sourceDataFetchers.getOrDefault(typeName, Map.of());
+
+      for (final FieldDefinition field : fields) {
+        final DataFetcher dataFetcher = fetchers.get(field.getName());
+
+        if (dataFetcher != null) {
+          typeDataFetchers
+              .computeIfAbsent(typeName, k -> new LinkedHashMap<>())
+              .computeIfAbsent(field.getName(), k -> new TreeMap<>())
+              .put(schemaSource.getName(), dataFetcher);
+        }
+      }
+    }
+  }
+
+  /**
+   * Wires one data fetcher per collected field. The gateway has one copy of each type, so the
+   * fetcher runs below every root field returning the type, and each is wrapped so that below a
+   * remote root field the remote payload is still read by result key. When several sources supply
+   * different fetcher instances for the same field, the one of the first source by name is used and
+   * a warning names the others; the same instance supplied twice is registered once.
+   */
+  @SuppressWarnings("rawtypes")
+  private static void wireDataFetchers(
+      final @NotNull Map<String, Map<String, Map<String, DataFetcher>>> typeDataFetchers,
+      final @NotNull ResultKeyDataFetcherFactory dataFetcherFactory,
+      final RuntimeWiring.@NotNull Builder runtimeWiringBuilder) {
+
+    typeDataFetchers.forEach(
+        (typeName, fieldDataFetchers) -> {
+          final Map<String, DataFetcher> fetchers = new LinkedHashMap<>();
+
+          fieldDataFetchers.forEach(
+              (fieldName, sourceFetchers) -> {
+                // Sorted by source name, so the choice does not depend on the load order
+                final Map.Entry<String, DataFetcher> first =
+                    sourceFetchers.entrySet().iterator().next();
+
+                if (sourceFetchers.values().stream().anyMatch(f -> f != first.getValue())) {
+                  LOG.warn(
+                      "Field {}.{} has different data fetchers in sources {}; using the one of {}",
+                      typeName,
+                      fieldName,
+                      sourceFetchers.keySet(),
+                      first.getKey());
+                }
+
+                fetchers.put(fieldName, dataFetcherFactory.localDataFetcher(first.getValue()));
+              });
+
+          runtimeWiringBuilder.type(
+              TypeRuntimeWiring.newTypeWiring(typeName).dataFetchers(fetchers).build());
+        });
   }
 
   /** The loaded state of one source, read once. */
