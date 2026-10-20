@@ -27,6 +27,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
 
 class DataFetcherWiringTest {
 
@@ -71,6 +73,7 @@ class DataFetcherWiringTest {
   }
 
   @Test
+  @ResourceLock(Resources.SYSTEM_ERR)
   void differentFetchersForSameFieldAreWarnedUnderTheMergerCategory() {
 
     // Added in reverse name order: the warning names the first source by name
@@ -82,6 +85,7 @@ class DataFetcherWiringTest {
   }
 
   @Test
+  @ResourceLock(Resources.SYSTEM_ERR)
   void sameFetcherInstanceInSeveralSourcesIsNotWarned() {
 
     final DataFetcher<?> shared = env -> "computed";

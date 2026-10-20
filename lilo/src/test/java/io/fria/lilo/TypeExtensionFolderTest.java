@@ -170,6 +170,16 @@ class TypeExtensionFolderTest {
   }
 
   @Test
+  void extensionOfATypeTheSourceDoesNotDefineIsDropped() {
+
+    final TypeDefinitionRegistry registry =
+        parse("type Query { b: Int } extend type Pair { z: Int }");
+
+    Assertions.assertEquals(
+        List.of("Query"), List.copyOf(TypeExtensionFolder.completeTypes(registry).keySet()));
+  }
+
+  @Test
   void extensionOfATypeOfAnotherSourceIsNotMerged() {
 
     final TypeDefinitionRegistry registry1 =
