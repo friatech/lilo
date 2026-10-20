@@ -49,27 +49,6 @@ final class SchemaMerger {
     // Utility class
   }
 
-  static @NotNull OperationTypeNames getOperationTypeNames(
-      final TypeDefinitionRegistry typeDefinitionRegistry) {
-
-    final Optional<SchemaDefinition> schemaDefinitionOptional =
-        typeDefinitionRegistry.schemaDefinition();
-
-    if (schemaDefinitionOptional.isEmpty()) {
-      return new OperationTypeNames("Query", "Mutation", "Subscription");
-    }
-
-    final SchemaDefinition schemaDefinition = schemaDefinitionOptional.get();
-
-    final Map<String, String> names =
-        schemaDefinition.getOperationTypeDefinitions().stream()
-            .collect(
-                Collectors.toMap(OperationTypeDefinition::getName, d -> d.getTypeName().getName()));
-
-    return new OperationTypeNames(
-        names.get("query"), names.get("mutation"), names.get("subscription"));
-  }
-
   /**
    * Reads the loaded state of each source once. A source can be invalidated at any time, so
    * everything built from one load (the merged schema and the set of remote root fields) must use
@@ -93,11 +72,7 @@ final class SchemaMerger {
 
       if (registry != null && wiring != null) {
         snapshots.add(
-            new SourceSnapshot(
-                schemaSource.getName(),
-                schemaSource instanceof RemoteSchemaSource,
-                registry,
-                wiring));
+            new SourceSnapshot(schemaSource.getName(), schemaSource.isRemote(), registry, wiring));
       }
     }
 
@@ -132,15 +107,15 @@ final class SchemaMerger {
     for (final SourceSnapshot schemaSource : snapshots) {
 
       final TypeDefinitionRegistry sourceRegistry = schemaSource.getRegistry();
-      final OperationTypeNames operationTypeNames = getOperationTypeNames(sourceRegistry);
+      final OperationTypeNames operationTypeNames = OperationTypeNames.of(sourceRegistry);
       // Folded before anything is compared, so a type split into a definition and extensions
       // compares equal to the same type written in one piece
       final Map<String, TypeDefinition> sourceTypes =
           TypeExtensionFolder.completeTypes(sourceRegistry);
 
-      queryTypeName = checkName(queryTypeName, operationTypeNames.query);
-      mutationTypeName = checkName(mutationTypeName, operationTypeNames.mutation);
-      subscriptionTypeName = checkName(subscriptionTypeName, operationTypeNames.subscription);
+      queryTypeName = checkName(queryTypeName, operationTypeNames.getQuery());
+      mutationTypeName = checkName(mutationTypeName, operationTypeNames.getMutation());
+      subscriptionTypeName = checkName(subscriptionTypeName, operationTypeNames.getSubscription());
 
       final RuntimeWiring sourceWiring = schemaSource.getWiring();
       final Map<String, Map<String, DataFetcher>> dataFetchers = sourceWiring.getDataFetchers();
@@ -305,7 +280,7 @@ final class SchemaMerger {
       }
 
       final TypeDefinitionRegistry registry = snapshot.getRegistry();
-      final OperationTypeNames names = getOperationTypeNames(registry);
+      final OperationTypeNames names = OperationTypeNames.of(registry);
 
       Stream.of(names.getQuery(), names.getMutation(), names.getSubscription())
           .filter(Objects::nonNull)
@@ -371,37 +346,6 @@ final class SchemaMerger {
     SourceDefinition(final @NotNull String sourceName, final @NotNull String printed) {
       this.sourceName = sourceName;
       this.printed = printed;
-    }
-  }
-
-  static final class OperationTypeNames {
-
-    private final String query;
-    private final String mutation;
-    private final String subscription;
-
-    OperationTypeNames(
-        final @NotNull String query,
-        final @Nullable String mutation,
-        final @Nullable String subscription) {
-      this.query = query;
-      this.mutation = mutation;
-      this.subscription = subscription;
-    }
-
-    @Nullable
-    String getMutation() {
-      return this.mutation;
-    }
-
-    @NotNull
-    String getQuery() {
-      return this.query;
-    }
-
-    @Nullable
-    String getSubscription() {
-      return this.subscription;
     }
   }
 }

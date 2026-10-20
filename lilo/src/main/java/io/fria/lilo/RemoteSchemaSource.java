@@ -162,6 +162,11 @@ public final class RemoteSchemaSource extends SchemaSource {
   }
 
   @Override
+  boolean isRemote() {
+    return true;
+  }
+
+  @Override
   @SuppressWarnings("HiddenField")
   public @NotNull CompletableFuture<ExecutionResult> execute(
       final @NotNull LiloContext liloContext,
@@ -207,7 +212,7 @@ public final class RemoteSchemaSource extends SchemaSource {
     final var schemaDoc =
         new IntrospectionResultToSchema().createSchemaDefinition(dataOptional.get());
     final var typeDefinitionRegistry = new SchemaParser().buildRegistry(schemaDoc);
-    final var operationTypeNames = SchemaMerger.getOperationTypeNames(typeDefinitionRegistry);
+    final var operationTypeNames = OperationTypeNames.of(typeDefinitionRegistry);
 
     final RuntimeWiring.Builder runtimeWiringBuilder = RuntimeWiring.newRuntimeWiring();
     this.typeWiring(typeDefinitionRegistry, liloContext, operationTypeNames.getQuery())
