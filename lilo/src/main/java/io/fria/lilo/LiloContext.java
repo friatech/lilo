@@ -294,35 +294,4 @@ public final class LiloContext {
       return this.retrySchemaLoad;
     }
   }
-
-  /** Lilo's per-request limits; a {@code null} limit is not enforced. */
-  static final class RequestLimits {
-
-    private final @Nullable Integer maxQueryDepth;
-    private final @Nullable Integer maxQueryComplexity;
-    private final boolean introspectionEnabled;
-
-    RequestLimits(
-        final @Nullable Integer maxQueryDepth,
-        final @Nullable Integer maxQueryComplexity,
-        final boolean introspectionEnabled) {
-      this.maxQueryDepth = maxQueryDepth;
-      this.maxQueryComplexity = maxQueryComplexity;
-      this.introspectionEnabled = introspectionEnabled;
-    }
-
-    @Nullable
-    Integer getMaxQueryDepth() {
-      return this.maxQueryDepth;
-    }
-
-    @Nullable
-    Integer getMaxQueryComplexity() {
-      return this.maxQueryComplexity;
-    }
-
-    boolean isIntrospectionEnabled() {
-      return this.introspectionEnabled;
-    }
-  }
 }
