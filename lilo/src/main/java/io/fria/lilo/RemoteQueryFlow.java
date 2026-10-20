@@ -15,14 +15,23 @@
  */
 package io.fria.lilo;
 
+import static io.fria.lilo.JsonUtils.toObj;
+
 import graphql.ExecutionResult;
+import graphql.GraphQLError;
+import graphql.execution.DataFetcherResult;
+import io.fria.lilo.error.LiloSourceDataFetcherException;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * How a {@link RemoteSchemaSource} runs its query retriever; chosen once, when the source is
- * created, from the kind of the retriever.
+ * How a remote source runs its query retriever; chosen once, when the source is created, from the
+ * kind of the retriever.
  */
 interface RemoteQueryFlow {
 
@@ -34,17 +43,52 @@ interface RemoteQueryFlow {
 
   @NotNull
   CompletableFuture<ExecutionResult> execute(
-      @NotNull RemoteSchemaSource source,
+      @NotNull SchemaSource source,
       @NotNull LiloContext liloContext,
       @NotNull GraphQLQuery query,
       @Nullable Object localContext);
 
   @NotNull
   CompletableFuture<Object> fetchData(
-      @NotNull RemoteSchemaSource source,
+      @NotNull SchemaSource source,
       @NotNull LiloContext liloContext,
       @NotNull GraphQLQuery query,
       @Nullable Object localContext);
+
+  private static @Nullable Object extractData(final @NotNull ExecutionResult graphQLResult) {
+
+    final List<GraphQLError> errors = graphQLResult.getErrors();
+    final boolean hasErrors = errors != null && !errors.isEmpty();
+    final Map<String, Object> data = graphQLResult.getData();
+
+    if (data == null) {
+      if (hasErrors) {
+        throw new LiloSourceDataFetcherException(errors);
+      }
+
+      throw new IllegalArgumentException("Remote source returned a response without data");
+    }
+
+    final Object value = data.values().iterator().next();
+
+    if (hasErrors) {
+      // Partial result: keep the remote data and report the remote errors alongside it
+      return DataFetcherResult.newResult().data(value).errors(errors).build();
+    }
+
+    return value;
+  }
+
+  private static @NotNull ExecutionResult toExecutionResult(final @NotNull String queryResult) {
+
+    final Optional<GraphQLResult> graphQLResultOptional = toObj(queryResult, GraphQLResult.class);
+
+    if (graphQLResultOptional.isEmpty()) {
+      throw new IllegalArgumentException("DataFetcher caught an empty response");
+    }
+
+    return graphQLResultOptional.get();
+  }
 
   final class Async implements RemoteQueryFlow {
 
@@ -56,25 +100,25 @@ interface RemoteQueryFlow {
 
     @Override
     public @NotNull CompletableFuture<ExecutionResult> execute(
-        final @NotNull RemoteSchemaSource source,
+        final @NotNull SchemaSource source,
         final @NotNull LiloContext liloContext,
         final @NotNull GraphQLQuery query,
         final @Nullable Object localContext) {
 
       final var queryResult = this.retriever.get(liloContext, source, query, localContext);
-      return queryResult.thenApply(RemoteSchemaSource::toExecutionResult);
+      return queryResult.thenApply(RemoteQueryFlow::toExecutionResult);
     }
 
     @Override
     public @NotNull CompletableFuture<Object> fetchData(
-        final @NotNull RemoteSchemaSource source,
+        final @NotNull SchemaSource source,
         final @NotNull LiloContext liloContext,
         final @NotNull GraphQLQuery query,
         final @Nullable Object localContext) {
 
       final var graphQLResultFuture = this.execute(source, liloContext, query, localContext);
 
-      return graphQLResultFuture.thenApply(RemoteSchemaSource::fetchData);
+      return graphQLResultFuture.thenApply(RemoteQueryFlow::extractData);
     }
   }
 
@@ -89,19 +133,19 @@ interface RemoteQueryFlow {
 
     @Override
     public @NotNull CompletableFuture<ExecutionResult> execute(
-        final @NotNull RemoteSchemaSource source,
+        final @NotNull SchemaSource source,
         final @NotNull LiloContext liloContext,
         final @NotNull GraphQLQuery query,
         final @Nullable Object localContext) {
 
       final SyncQueryRetriever queryRetriever = (SyncQueryRetriever) this.retriever;
       final var queryResult = queryRetriever.get(liloContext, source, query, localContext);
-      return CompletableFuture.supplyAsync(() -> RemoteSchemaSource.toExecutionResult(queryResult));
+      return CompletableFuture.supplyAsync(() -> toExecutionResult(queryResult));
     }
 
     @Override
     public @NotNull CompletableFuture<Object> fetchData(
-        final @NotNull RemoteSchemaSource source,
+        final @NotNull SchemaSource source,
         final @NotNull LiloContext liloContext,
         final @NotNull GraphQLQuery query,
         final @Nullable Object localContext) {
@@ -110,8 +154,24 @@ interface RemoteQueryFlow {
           () -> {
             final var graphQLResultFuture = this.execute(source, liloContext, query, localContext);
 
-            return RemoteSchemaSource.fetchData(graphQLResultFuture);
+            return waitForData(graphQLResultFuture);
           });
+    }
+
+    private static @Nullable Object waitForData(
+        final @NotNull CompletableFuture<ExecutionResult> graphQLResultFuture) {
+      final ExecutionResult graphQLResult;
+
+      try {
+        graphQLResult = graphQLResultFuture.get();
+      } catch (final InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new RuntimeException(e);
+      } catch (final ExecutionException e) {
+        throw new RuntimeException(e);
+      }
+
+      return extractData(graphQLResult);
     }
   }
 }
