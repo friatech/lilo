@@ -17,25 +17,34 @@ package io.fria.lilo;
 
 import graphql.GraphQLError;
 import graphql.language.AstPrinter;
+import graphql.language.Directive;
 import graphql.language.DirectiveDefinition;
 import graphql.language.DirectiveLocation;
 import graphql.language.EnumTypeDefinition;
+import graphql.language.EnumTypeExtensionDefinition;
 import graphql.language.EnumValueDefinition;
 import graphql.language.FieldDefinition;
 import graphql.language.InputObjectTypeDefinition;
+import graphql.language.InputObjectTypeExtensionDefinition;
 import graphql.language.InputValueDefinition;
 import graphql.language.InterfaceTypeDefinition;
+import graphql.language.InterfaceTypeExtensionDefinition;
 import graphql.language.NamedNode;
 import graphql.language.Node;
 import graphql.language.ObjectTypeDefinition;
+import graphql.language.ObjectTypeExtensionDefinition;
 import graphql.language.OperationTypeDefinition;
 import graphql.language.SDLDefinition;
+import graphql.language.ScalarTypeDefinition;
+import graphql.language.ScalarTypeExtensionDefinition;
 import graphql.language.SchemaDefinition;
 import graphql.language.Type;
 import graphql.language.TypeDefinition;
 import graphql.language.TypeName;
 import graphql.language.UnionTypeDefinition;
+import graphql.language.UnionTypeExtensionDefinition;
 import graphql.schema.DataFetcher;
+import graphql.schema.FieldCoordinates;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import graphql.schema.idl.TypeRuntimeWiring;
@@ -43,16 +52,25 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 final class SchemaMerger {
+
+  private static final Logger LOG = LoggerFactory.getLogger(SchemaMerger.class);
 
   private SchemaMerger() {
     // Utility class
@@ -136,10 +154,17 @@ final class SchemaMerger {
     // Keyed by definition name; remembers the first source that added it and its printed form
     final Map<String, SourceDefinition> definitions = new HashMap<>();
 
+    // Non-root data fetchers of local sources, keyed by type, field and source name
+    final Map<String, Map<String, Map<String, DataFetcher>>> typeDataFetchers =
+        new LinkedHashMap<>();
+
     for (final SourceSnapshot schemaSource : snapshots) {
 
       final TypeDefinitionRegistry sourceRegistry = schemaSource.getRegistry();
       final OperationTypeNames operationTypeNames = getOperationTypeNames(sourceRegistry);
+      // Folded before anything is compared, so a type split into a definition and extensions
+      // compares equal to the same type written in one piece
+      final Map<String, TypeDefinition> sourceTypes = completeTypes(sourceRegistry);
 
       queryTypeName = checkName(queryTypeName, operationTypeNames.query);
       mutationTypeName = checkName(mutationTypeName, operationTypeNames.mutation);
@@ -149,23 +174,28 @@ final class SchemaMerger {
       final Map<String, Map<String, DataFetcher>> dataFetchers = sourceWiring.getDataFetchers();
 
       mergeFieldDefinitions(
-          queryTypeName, queryFieldDefinitions, sourceRegistry, runtimeWiringBuilder, dataFetchers);
+          queryTypeName, queryFieldDefinitions, sourceTypes, runtimeWiringBuilder, dataFetchers);
       mergeFieldDefinitions(
           mutationTypeName,
           mutationFieldDefinitions,
-          sourceRegistry,
+          sourceTypes,
           runtimeWiringBuilder,
           dataFetchers);
       mergeFieldDefinitions(
           subscriptionTypeName,
           subscriptionFieldDefinitions,
-          sourceRegistry,
+          sourceTypes,
           runtimeWiringBuilder,
           dataFetchers);
 
       // Add types other than Query and Mutation to combined registry
-      excludeTypes(sourceRegistry, queryTypeName, mutationTypeName, subscriptionTypeName)
-          .forEach(d -> addDefinition(d, "", schemaSource, combinedRegistry, definitions));
+      final List<SDLDefinition> nonRootTypes =
+          excludeTypes(sourceTypes, queryTypeName, mutationTypeName, subscriptionTypeName);
+      nonRootTypes.forEach(d -> addDefinition(d, "", schemaSource, combinedRegistry, definitions));
+
+      if (!schemaSource.isRemote()) {
+        collectDataFetchers(schemaSource, nonRootTypes, dataFetchers, typeDataFetchers);
+      }
 
       // Add all directive definitions
       sourceRegistry
@@ -174,16 +204,143 @@ final class SchemaMerger {
           .forEach(d -> addDefinition(d, "@", schemaSource, combinedRegistry, definitions));
 
       // Add all scalar definitions
-      sourceRegistry
-          .scalars()
-          .values()
+      sourceRegistry.scalars().values().stream()
+          .map(d -> withExtensions(d, sourceRegistry))
           .forEach(d -> addDefinition(d, "", schemaSource, combinedRegistry, definitions));
     }
+
+    wireDataFetchers(
+        typeDataFetchers,
+        new ResultKeyDataFetcherFactory(remoteRootFields(snapshots)),
+        runtimeWiringBuilder);
 
     addType(queryTypeName, queryFieldDefinitions, combinedRegistry);
     addType(mutationTypeName, mutationFieldDefinitions, combinedRegistry);
     addType(subscriptionTypeName, subscriptionFieldDefinitions, combinedRegistry);
     addSchema(queryTypeName, mutationTypeName, subscriptionTypeName, combinedRegistry);
+  }
+
+  /**
+   * Returns the type definitions of a source with the source's own extensions ({@code extend type},
+   * {@code extend interface} and so on) folded into them, keyed by type name. The combined registry
+   * only receives complete types, so an extension of a type that this source does not define is not
+   * merged; a {@link DefinedSchemaSource} already rejects one when it builds its own schema.
+   */
+  @SuppressWarnings("rawtypes")
+  private static @NotNull Map<String, TypeDefinition> completeTypes(
+      final @NotNull TypeDefinitionRegistry registry) {
+
+    final Map<String, TypeDefinition> types = new LinkedHashMap<>(registry.types());
+    types.replaceAll((name, type) -> withExtensions(type, registry));
+    return types;
+  }
+
+  @SuppressWarnings("rawtypes")
+  private static @NotNull TypeDefinition withExtensions(
+      final @NotNull TypeDefinition type, final @NotNull TypeDefinitionRegistry registry) {
+
+    final String name = type.getName();
+
+    if (type instanceof ObjectTypeDefinition) {
+      final ObjectTypeDefinition d = (ObjectTypeDefinition) type;
+      final List<ObjectTypeExtensionDefinition> extensions =
+          registry.objectTypeExtensions().getOrDefault(name, List.of());
+      return extensions.isEmpty()
+          ? d
+          : d.transform(
+              b ->
+                  b.fieldDefinitions(
+                          concat(
+                              d.getFieldDefinitions(),
+                              extensions,
+                              ObjectTypeDefinition::getFieldDefinitions))
+                      .implementz(
+                          concat(
+                              d.getImplements(), extensions, ObjectTypeDefinition::getImplements))
+                      .directives(directives(d, extensions)));
+    } else if (type instanceof InterfaceTypeDefinition) {
+      final InterfaceTypeDefinition d = (InterfaceTypeDefinition) type;
+      final List<InterfaceTypeExtensionDefinition> extensions =
+          registry.interfaceTypeExtensions().getOrDefault(name, List.of());
+      return extensions.isEmpty()
+          ? d
+          : d.transform(
+              b ->
+                  b.definitions(
+                          concat(
+                              d.getFieldDefinitions(),
+                              extensions,
+                              InterfaceTypeDefinition::getFieldDefinitions))
+                      .implementz(
+                          concat(
+                              d.getImplements(),
+                              extensions,
+                              InterfaceTypeDefinition::getImplements))
+                      .directives(directives(d, extensions)));
+    } else if (type instanceof InputObjectTypeDefinition) {
+      final InputObjectTypeDefinition d = (InputObjectTypeDefinition) type;
+      final List<InputObjectTypeExtensionDefinition> extensions =
+          registry.inputObjectTypeExtensions().getOrDefault(name, List.of());
+      return extensions.isEmpty()
+          ? d
+          : d.transform(
+              b ->
+                  b.inputValueDefinitions(
+                          concat(
+                              d.getInputValueDefinitions(),
+                              extensions,
+                              InputObjectTypeDefinition::getInputValueDefinitions))
+                      .directives(directives(d, extensions)));
+    } else if (type instanceof EnumTypeDefinition) {
+      final EnumTypeDefinition d = (EnumTypeDefinition) type;
+      final List<EnumTypeExtensionDefinition> extensions =
+          registry.enumTypeExtensions().getOrDefault(name, List.of());
+      return extensions.isEmpty()
+          ? d
+          : d.transform(
+              b ->
+                  b.enumValueDefinitions(
+                          concat(
+                              d.getEnumValueDefinitions(),
+                              extensions,
+                              EnumTypeDefinition::getEnumValueDefinitions))
+                      .directives(directives(d, extensions)));
+    } else if (type instanceof UnionTypeDefinition) {
+      final UnionTypeDefinition d = (UnionTypeDefinition) type;
+      final List<UnionTypeExtensionDefinition> extensions =
+          registry.unionTypeExtensions().getOrDefault(name, List.of());
+      return extensions.isEmpty()
+          ? d
+          : d.transform(
+              b ->
+                  b.memberTypes(
+                          concat(
+                              d.getMemberTypes(), extensions, UnionTypeDefinition::getMemberTypes))
+                      .directives(directives(d, extensions)));
+    } else if (type instanceof ScalarTypeDefinition) {
+      // A scalar extension can only add directives
+      final ScalarTypeDefinition d = (ScalarTypeDefinition) type;
+      final List<ScalarTypeExtensionDefinition> extensions =
+          registry.scalarTypeExtensions().getOrDefault(name, List.of());
+      return extensions.isEmpty() ? d : d.transform(b -> b.directives(directives(d, extensions)));
+    }
+
+    return type;
+  }
+
+  private static <D extends TypeDefinition<?>> @NotNull List<Directive> directives(
+      final @NotNull D definition, final @NotNull List<? extends D> extensions) {
+    return concat(definition.getDirectives(), extensions, TypeDefinition::getDirectives);
+  }
+
+  private static <D, T> @NotNull List<T> concat(
+      final @NotNull List<T> members,
+      final @NotNull List<? extends D> extensions,
+      final @NotNull Function<D, List<T>> extensionMembers) {
+
+    final List<T> all = new ArrayList<>(members);
+    extensions.forEach(e -> all.addAll(extensionMembers.apply(e)));
+    return all;
   }
 
   private static void addDefinition(
@@ -224,8 +381,10 @@ final class SchemaMerger {
 
   /**
    * Returns a copy of the definition whose members (fields, arguments, input values, enum values,
-   * union members, implemented interfaces and directive locations) are sorted by name, so that two
-   * definitions differing only in member order print the same. The source node is not modified.
+   * union members, implemented interfaces and directive locations) and type-level directives are
+   * sorted, so that two definitions differing only in member order print the same; a type whose
+   * directives are partly applied by an extension then equals the same type written in one piece.
+   * The source node is not modified.
    */
   private static @NotNull Node<?> normalize(final @NotNull SDLDefinition<?> definition) {
 
@@ -234,26 +393,37 @@ final class SchemaMerger {
       return d.transform(
           b ->
               b.fieldDefinitions(sortFields(d.getFieldDefinitions()))
-                  .implementz(sortTypes(d.getImplements())));
+                  .implementz(sortTypes(d.getImplements()))
+                  .directives(sortDirectives(d.getDirectives())));
     } else if (definition instanceof InterfaceTypeDefinition) {
       final InterfaceTypeDefinition d = (InterfaceTypeDefinition) definition;
       return d.transform(
           b ->
               b.definitions(sortFields(d.getFieldDefinitions()))
-                  .implementz(sortTypes(d.getImplements())));
+                  .implementz(sortTypes(d.getImplements()))
+                  .directives(sortDirectives(d.getDirectives())));
     } else if (definition instanceof InputObjectTypeDefinition) {
       final InputObjectTypeDefinition d = (InputObjectTypeDefinition) definition;
       return d.transform(
-          b -> b.inputValueDefinitions(sortInputValues(d.getInputValueDefinitions())));
+          b ->
+              b.inputValueDefinitions(sortInputValues(d.getInputValueDefinitions()))
+                  .directives(sortDirectives(d.getDirectives())));
     } else if (definition instanceof EnumTypeDefinition) {
       final EnumTypeDefinition d = (EnumTypeDefinition) definition;
       return d.transform(
           b ->
               b.enumValueDefinitions(
-                  sortedBy(d.getEnumValueDefinitions(), EnumValueDefinition::getName)));
+                      sortedBy(d.getEnumValueDefinitions(), EnumValueDefinition::getName))
+                  .directives(sortDirectives(d.getDirectives())));
     } else if (definition instanceof UnionTypeDefinition) {
       final UnionTypeDefinition d = (UnionTypeDefinition) definition;
-      return d.transform(b -> b.memberTypes(sortTypes(d.getMemberTypes())));
+      return d.transform(
+          b ->
+              b.memberTypes(sortTypes(d.getMemberTypes()))
+                  .directives(sortDirectives(d.getDirectives())));
+    } else if (definition instanceof ScalarTypeDefinition) {
+      final ScalarTypeDefinition d = (ScalarTypeDefinition) definition;
+      return d.transform(b -> b.directives(sortDirectives(d.getDirectives())));
     } else if (definition instanceof DirectiveDefinition) {
       final DirectiveDefinition d = (DirectiveDefinition) definition;
       return d.transform(
@@ -284,6 +454,11 @@ final class SchemaMerger {
   private static @NotNull List<InputValueDefinition> sortInputValues(
       final @NotNull List<InputValueDefinition> inputValues) {
     return sortedBy(inputValues, InputValueDefinition::getName);
+  }
+
+  private static @NotNull List<Directive> sortDirectives(
+      final @NotNull List<Directive> directives) {
+    return sortedBy(directives, AstPrinter::printAstCompact);
   }
 
   @SuppressWarnings("rawtypes")
@@ -359,13 +534,14 @@ final class SchemaMerger {
     return globalTypeName;
   }
 
+  @SuppressWarnings("rawtypes")
   private static @NotNull List<SDLDefinition> excludeTypes(
-      final @NotNull TypeDefinitionRegistry sourceRegistry,
+      final @NotNull Map<String, TypeDefinition> sourceTypes,
       final @Nullable String queryTypeName,
       final @Nullable String mutationTypeName,
       final @Nullable String subscriptionTypeName) {
 
-    return sourceRegistry.types().values().stream()
+    return sourceTypes.values().stream()
         .filter(
             t ->
                 !Objects.equals(t.getName(), queryTypeName)
@@ -377,7 +553,7 @@ final class SchemaMerger {
   private static void mergeFieldDefinitions(
       final @Nullable String typeName,
       final @NotNull List<FieldDefinition> fieldDefinitions,
-      final @NotNull TypeDefinitionRegistry sourceRegistry,
+      final @NotNull Map<String, TypeDefinition> sourceTypes,
       final RuntimeWiring.@NotNull Builder runtimeWiringBuilder,
       final @NotNull Map<String, Map<String, DataFetcher>> dataFetchers) {
 
@@ -385,7 +561,7 @@ final class SchemaMerger {
       return;
     }
 
-    final TypeDefinition typeDefinitionOrNull = sourceRegistry.getTypeOrNull(typeName);
+    final TypeDefinition typeDefinitionOrNull = sourceTypes.get(typeName);
 
     if (typeDefinitionOrNull == null) {
       return;
@@ -410,6 +586,117 @@ final class SchemaMerger {
 
     runtimeWiringBuilder.type(
         TypeRuntimeWiring.newTypeWiring(typeName).dataFetchers(ownDataFetchers).build());
+  }
+
+  /** Root fields served by remote sources; their payloads are keyed by result key. */
+  static @NotNull Set<FieldCoordinates> remoteRootFields(
+      final @NotNull List<SourceSnapshot> snapshots) {
+
+    final Set<FieldCoordinates> remoteRootFields = new HashSet<>();
+
+    for (final SourceSnapshot snapshot : snapshots) {
+      if (!snapshot.isRemote()) {
+        continue;
+      }
+
+      final TypeDefinitionRegistry registry = snapshot.getRegistry();
+      final OperationTypeNames names = getOperationTypeNames(registry);
+
+      Stream.of(names.getQuery(), names.getMutation(), names.getSubscription())
+          .filter(Objects::nonNull)
+          .map(registry::getTypeOrNull)
+          .filter(t -> t instanceof ObjectTypeDefinition)
+          .map(t -> (ObjectTypeDefinition) t)
+          .forEach(
+              t ->
+                  t.getFieldDefinitions()
+                      .forEach(
+                          f ->
+                              remoteRootFields.add(
+                                  FieldCoordinates.coordinates(t.getName(), f.getName()))));
+    }
+
+    return remoteRootFields;
+  }
+
+  /**
+   * Collects the data fetchers a local source supplies for the fields of the non-root object and
+   * interface types it defines, so they run on the gateway as they do in the source's own schema.
+   * As for root fields, only fields this source defines are taken.
+   */
+  @SuppressWarnings("rawtypes")
+  private static void collectDataFetchers(
+      final @NotNull SourceSnapshot schemaSource,
+      final @NotNull List<SDLDefinition> nonRootTypes,
+      final @NotNull Map<String, Map<String, DataFetcher>> sourceDataFetchers,
+      final @NotNull Map<String, Map<String, Map<String, DataFetcher>>> typeDataFetchers) {
+
+    for (final SDLDefinition definition : nonRootTypes) {
+
+      final List<FieldDefinition> fields;
+
+      if (definition instanceof ObjectTypeDefinition) {
+        fields = ((ObjectTypeDefinition) definition).getFieldDefinitions();
+      } else if (definition instanceof InterfaceTypeDefinition) {
+        fields = ((InterfaceTypeDefinition) definition).getFieldDefinitions();
+      } else {
+        continue;
+      }
+
+      final String typeName = ((TypeDefinition<?>) definition).getName();
+      final Map<String, DataFetcher> fetchers = sourceDataFetchers.getOrDefault(typeName, Map.of());
+
+      for (final FieldDefinition field : fields) {
+        final DataFetcher dataFetcher = fetchers.get(field.getName());
+
+        if (dataFetcher != null) {
+          typeDataFetchers
+              .computeIfAbsent(typeName, k -> new LinkedHashMap<>())
+              .computeIfAbsent(field.getName(), k -> new TreeMap<>())
+              .put(schemaSource.getName(), dataFetcher);
+        }
+      }
+    }
+  }
+
+  /**
+   * Wires one data fetcher per collected field. The gateway has one copy of each type, so the
+   * fetcher runs below every root field returning the type, and each is wrapped so that below a
+   * remote root field the remote payload is still read by result key. When several sources supply
+   * different fetcher instances for the same field, the one of the first source by name is used and
+   * a warning names the others; the same instance supplied twice is registered once.
+   */
+  @SuppressWarnings("rawtypes")
+  private static void wireDataFetchers(
+      final @NotNull Map<String, Map<String, Map<String, DataFetcher>>> typeDataFetchers,
+      final @NotNull ResultKeyDataFetcherFactory dataFetcherFactory,
+      final RuntimeWiring.@NotNull Builder runtimeWiringBuilder) {
+
+    typeDataFetchers.forEach(
+        (typeName, fieldDataFetchers) -> {
+          final Map<String, DataFetcher> fetchers = new LinkedHashMap<>();
+
+          fieldDataFetchers.forEach(
+              (fieldName, sourceFetchers) -> {
+                // Sorted by source name, so the choice does not depend on the load order
+                final Map.Entry<String, DataFetcher> first =
+                    sourceFetchers.entrySet().iterator().next();
+
+                if (sourceFetchers.values().stream().anyMatch(f -> f != first.getValue())) {
+                  LOG.warn(
+                      "Field {}.{} has different data fetchers in sources {}; using the one of {}",
+                      typeName,
+                      fieldName,
+                      sourceFetchers.keySet(),
+                      first.getKey());
+                }
+
+                fetchers.put(fieldName, dataFetcherFactory.localDataFetcher(first.getValue()));
+              });
+
+          runtimeWiringBuilder.type(
+              TypeRuntimeWiring.newTypeWiring(typeName).dataFetchers(fetchers).build());
+        });
   }
 
   /** The loaded state of one source, read once. */

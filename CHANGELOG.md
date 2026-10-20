@@ -20,6 +20,8 @@ Upgrade and API notes (the API changes argue for a non-patch version bump):
 Stitching engine (behavior changes for existing users):
 
 - Shared types that differ structurally between sources now fail at merge with an `IllegalArgumentException` naming the type and both sources. Identical definitions are accepted; descriptions, comments and member order are ignored.
+- Non-root data fetchers of a `DefinedSchemaSource` now run on the gateway (previously ignored). A wiring that relied on them being ignored behaves differently: the gateway has one copy of each type, so a fetcher runs below every root field returning the type, also below other local sources' root fields (a fetcher that casts `env.getSource()` to its own class may now see another source's `Map`). Below a `RemoteSchemaSource`'s root field values are still read from the remote result by result key. When several local sources wire different fetcher instances for the same field, the first source by name wins and a `WARN` names the field and the sources; the merge does not fail.
+- Directives applied to a type are compared regardless of order when shared types are checked, so a type whose directives are partly applied by an `extend` is equal to the same type written in one piece.
 - Remote queries now include an injected `__typename` and nested aliases. This matters for persisted-query allowlists and for retrievers that inspect the query text.
 - `stitch` throws the root cause (for example `IllegalArgumentException` or `SchemaProblem`) instead of `RuntimeException(ExecutionException)`. A missing `__typename` on an abstract value throws from `stitch` rather than returning a GraphQL error.
 - `DefaultRemoteQueryRetriever` and `DefaultRemoteIntrospectionRetriever` use `java.net.http.HttpClient` with a 5 s connect timeout, a 30 s request timeout, a 10 MiB response cap, no redirects, `http`/`https` only and `Accept: application/json`. Failures are `IllegalStateException` or `IllegalArgumentException`. A subclass that overrides only the two-argument `retrieve` is no longer called by `get`.
@@ -65,6 +67,8 @@ Build and tooling:
 
 ### Fixed
 
+- Type extensions in a source's own SDL (`extend type`, `extend interface`, `extend input`, `extend enum`, `extend union`, `extend scalar`, including the root types) are no longer dropped at merge: they are folded into the type they extend, so their fields, values and members reach the gateway schema and take part in the shared type comparison. Extending a type defined only by another source is still not supported.
+- Data fetchers that a `DefinedSchemaSource` wires for fields of its non-root object and interface types now run on the gateway; before, only root field fetchers were used and such fields were read from the returned value by name (a computed field returned `null`). See the behavior change notes under Changed.
 - Conflicting shared types no longer let the first definition win silently.
 - Interface and union fields work because the gateway injects `__typename` into remote queries and resolves abstract types from it; an aliased or directive-carrying `__typename` no longer suppresses the injection.
 - Nested aliases (including inside fragments, and the same field twice with different arguments) are forwarded and read back by result key.

@@ -29,7 +29,6 @@ import graphql.execution.instrumentation.SimplePerformantInstrumentation;
 import graphql.execution.instrumentation.parameters.InstrumentationExecutionParameters;
 import graphql.introspection.Introspection;
 import graphql.language.InterfaceTypeDefinition;
-import graphql.language.ObjectTypeDefinition;
 import graphql.language.UnionTypeDefinition;
 import graphql.schema.FieldCoordinates;
 import graphql.schema.GraphQLCodeRegistry;
@@ -40,13 +39,10 @@ import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -171,37 +167,6 @@ final class GraphQLAssembler {
     };
   }
 
-  /** Root fields served by remote sources; their payloads are keyed by result key. */
-  private static @NotNull Set<FieldCoordinates> remoteRootFields(
-      final @NotNull List<SchemaMerger.SourceSnapshot> snapshots) {
-
-    final Set<FieldCoordinates> remoteRootFields = new HashSet<>();
-
-    for (final SchemaMerger.SourceSnapshot snapshot : snapshots) {
-      if (!snapshot.isRemote()) {
-        continue;
-      }
-
-      final TypeDefinitionRegistry registry = snapshot.getRegistry();
-      final SchemaMerger.OperationTypeNames names = SchemaMerger.getOperationTypeNames(registry);
-
-      Stream.of(names.getQuery(), names.getMutation(), names.getSubscription())
-          .filter(Objects::nonNull)
-          .map(registry::getTypeOrNull)
-          .filter(t -> t instanceof ObjectTypeDefinition)
-          .map(t -> (ObjectTypeDefinition) t)
-          .forEach(
-              t ->
-                  t.getFieldDefinitions()
-                      .forEach(
-                          f ->
-                              remoteRootFields.add(
-                                  FieldCoordinates.coordinates(t.getName(), f.getName()))));
-    }
-
-    return remoteRootFields;
-  }
-
   @NotNull
   GraphQL assemble(final @NotNull List<SchemaSource> schemaSourceList) {
 
@@ -214,7 +179,8 @@ final class GraphQLAssembler {
     SchemaMerger.mergeSnapshots(snapshots, combinedRegistry, runtimeWiringBuilder);
 
     final RuntimeWiring runtimeWiring =
-        finalizeWiring(combinedRegistry, runtimeWiringBuilder, remoteRootFields(snapshots));
+        finalizeWiring(
+            combinedRegistry, runtimeWiringBuilder, SchemaMerger.remoteRootFields(snapshots));
 
     final GraphQLSchema generatedSchema =
         new SchemaGenerator().makeExecutableSchema(combinedRegistry, runtimeWiring);
