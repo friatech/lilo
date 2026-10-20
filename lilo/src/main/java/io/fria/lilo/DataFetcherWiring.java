@@ -83,11 +83,11 @@ final class DataFetcherWiring {
     // Only wire the data fetchers of fields this source defines. A source wiring may contain
     // fetchers for fields served by other sources, and graphql-java's strict wiring mode rejects
     // registering the same field twice.
-    final Map<String, DataFetcher> typeDataFetchers = dataFetchers.getOrDefault(typeName, Map.of());
+    final Map<String, DataFetcher> rootDataFetchers = dataFetchers.getOrDefault(typeName, Map.of());
     final Map<String, DataFetcher> ownDataFetchers = new HashMap<>();
 
     for (final FieldDefinition fieldDefinition : typeDefinition.getFieldDefinitions()) {
-      final DataFetcher dataFetcher = typeDataFetchers.get(fieldDefinition.getName());
+      final DataFetcher dataFetcher = rootDataFetchers.get(fieldDefinition.getName());
 
       if (dataFetcher != null) {
         ownDataFetchers.put(fieldDefinition.getName(), dataFetcher);

@@ -35,11 +35,67 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 
 /** Brings definitions into a canonical form so that structurally equal definitions print alike. */
 final class DefinitionNormalizer {
+
+  // One entry per kind of definition that has members or directives to sort
+  private static final List<Rule<?>> RULES =
+      List.of(
+          new Rule<>(
+              ObjectTypeDefinition.class,
+              d ->
+                  d.transform(
+                      b ->
+                          b.fieldDefinitions(sortFields(d.getFieldDefinitions()))
+                              .implementz(sortTypes(d.getImplements()))
+                              .directives(sortDirectives(d.getDirectives())))),
+          new Rule<>(
+              InterfaceTypeDefinition.class,
+              d ->
+                  d.transform(
+                      b ->
+                          b.definitions(sortFields(d.getFieldDefinitions()))
+                              .implementz(sortTypes(d.getImplements()))
+                              .directives(sortDirectives(d.getDirectives())))),
+          new Rule<>(
+              InputObjectTypeDefinition.class,
+              d ->
+                  d.transform(
+                      b ->
+                          b.inputValueDefinitions(sortInputValues(d.getInputValueDefinitions()))
+                              .directives(sortDirectives(d.getDirectives())))),
+          new Rule<>(
+              EnumTypeDefinition.class,
+              d ->
+                  d.transform(
+                      b ->
+                          b.enumValueDefinitions(
+                                  sortedBy(
+                                      d.getEnumValueDefinitions(), EnumValueDefinition::getName))
+                              .directives(sortDirectives(d.getDirectives())))),
+          new Rule<>(
+              UnionTypeDefinition.class,
+              d ->
+                  d.transform(
+                      b ->
+                          b.memberTypes(sortTypes(d.getMemberTypes()))
+                              .directives(sortDirectives(d.getDirectives())))),
+          new Rule<>(
+              ScalarTypeDefinition.class,
+              d -> d.transform(b -> b.directives(sortDirectives(d.getDirectives())))),
+          new Rule<>(
+              DirectiveDefinition.class,
+              d ->
+                  d.transform(
+                      b ->
+                          b.inputValueDefinitions(sortInputValues(d.getInputValueDefinitions()))
+                              .directiveLocations(
+                                  sortedBy(
+                                      d.getDirectiveLocations(), DirectiveLocation::getName)))));
 
   private DefinitionNormalizer() {
     // Utility class
@@ -54,49 +110,10 @@ final class DefinitionNormalizer {
    */
   static @NotNull Node<?> normalize(final @NotNull SDLDefinition<?> definition) {
 
-    if (definition instanceof ObjectTypeDefinition) {
-      final ObjectTypeDefinition d = (ObjectTypeDefinition) definition;
-      return d.transform(
-          b ->
-              b.fieldDefinitions(sortFields(d.getFieldDefinitions()))
-                  .implementz(sortTypes(d.getImplements()))
-                  .directives(sortDirectives(d.getDirectives())));
-    } else if (definition instanceof InterfaceTypeDefinition) {
-      final InterfaceTypeDefinition d = (InterfaceTypeDefinition) definition;
-      return d.transform(
-          b ->
-              b.definitions(sortFields(d.getFieldDefinitions()))
-                  .implementz(sortTypes(d.getImplements()))
-                  .directives(sortDirectives(d.getDirectives())));
-    } else if (definition instanceof InputObjectTypeDefinition) {
-      final InputObjectTypeDefinition d = (InputObjectTypeDefinition) definition;
-      return d.transform(
-          b ->
-              b.inputValueDefinitions(sortInputValues(d.getInputValueDefinitions()))
-                  .directives(sortDirectives(d.getDirectives())));
-    } else if (definition instanceof EnumTypeDefinition) {
-      final EnumTypeDefinition d = (EnumTypeDefinition) definition;
-      return d.transform(
-          b ->
-              b.enumValueDefinitions(
-                      sortedBy(d.getEnumValueDefinitions(), EnumValueDefinition::getName))
-                  .directives(sortDirectives(d.getDirectives())));
-    } else if (definition instanceof UnionTypeDefinition) {
-      final UnionTypeDefinition d = (UnionTypeDefinition) definition;
-      return d.transform(
-          b ->
-              b.memberTypes(sortTypes(d.getMemberTypes()))
-                  .directives(sortDirectives(d.getDirectives())));
-    } else if (definition instanceof ScalarTypeDefinition) {
-      final ScalarTypeDefinition d = (ScalarTypeDefinition) definition;
-      return d.transform(b -> b.directives(sortDirectives(d.getDirectives())));
-    } else if (definition instanceof DirectiveDefinition) {
-      final DirectiveDefinition d = (DirectiveDefinition) definition;
-      return d.transform(
-          b ->
-              b.inputValueDefinitions(sortInputValues(d.getInputValueDefinitions()))
-                  .directiveLocations(
-                      sortedBy(d.getDirectiveLocations(), DirectiveLocation::getName)));
+    for (final Rule<?> rule : RULES) {
+      if (rule.kind.isInstance(definition)) {
+        return rule.normalize(definition);
+      }
     }
 
     return definition;
@@ -138,5 +155,22 @@ final class DefinitionNormalizer {
     final List<T> sorted = new ArrayList<>(items);
     sorted.sort(Comparator.comparing(key));
     return sorted;
+  }
+
+  /** How one kind of definition is normalized. */
+  private static final class Rule<D extends Node<?>> {
+
+    private final Class<D> kind;
+    private final UnaryOperator<D> normalizer;
+
+    Rule(final @NotNull Class<D> kind, final @NotNull UnaryOperator<D> normalizer) {
+      this.kind = kind;
+      this.normalizer = normalizer;
+    }
+
+    @NotNull
+    D normalize(final @NotNull SDLDefinition<?> definition) {
+      return this.normalizer.apply(this.kind.cast(definition));
+    }
   }
 }

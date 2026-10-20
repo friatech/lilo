@@ -17,23 +17,18 @@ package io.fria.lilo;
 
 import graphql.language.Directive;
 import graphql.language.EnumTypeDefinition;
-import graphql.language.EnumTypeExtensionDefinition;
 import graphql.language.InputObjectTypeDefinition;
-import graphql.language.InputObjectTypeExtensionDefinition;
 import graphql.language.InterfaceTypeDefinition;
-import graphql.language.InterfaceTypeExtensionDefinition;
 import graphql.language.ObjectTypeDefinition;
-import graphql.language.ObjectTypeExtensionDefinition;
 import graphql.language.ScalarTypeDefinition;
-import graphql.language.ScalarTypeExtensionDefinition;
 import graphql.language.TypeDefinition;
 import graphql.language.UnionTypeDefinition;
-import graphql.language.UnionTypeExtensionDefinition;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.jetbrains.annotations.NotNull;
 
@@ -43,6 +38,85 @@ import org.jetbrains.annotations.NotNull;
  * equal to the same type written in one piece.
  */
 final class TypeExtensionFolder {
+
+  // One entry per kind that can be extended; the extensions add members and directives
+  private static final List<Folder<?, ?>> FOLDERS =
+      List.of(
+          new Folder<>(
+              ObjectTypeDefinition.class,
+              TypeDefinitionRegistry::objectTypeExtensions,
+              (d, extensions) ->
+                  d.transform(
+                      b ->
+                          b.fieldDefinitions(
+                                  concat(
+                                      d.getFieldDefinitions(),
+                                      extensions,
+                                      ObjectTypeDefinition::getFieldDefinitions))
+                              .implementz(
+                                  concat(
+                                      d.getImplements(),
+                                      extensions,
+                                      ObjectTypeDefinition::getImplements))
+                              .directives(directives(d, extensions)))),
+          new Folder<>(
+              InterfaceTypeDefinition.class,
+              TypeDefinitionRegistry::interfaceTypeExtensions,
+              (d, extensions) ->
+                  d.transform(
+                      b ->
+                          b.definitions(
+                                  concat(
+                                      d.getFieldDefinitions(),
+                                      extensions,
+                                      InterfaceTypeDefinition::getFieldDefinitions))
+                              .implementz(
+                                  concat(
+                                      d.getImplements(),
+                                      extensions,
+                                      InterfaceTypeDefinition::getImplements))
+                              .directives(directives(d, extensions)))),
+          new Folder<>(
+              InputObjectTypeDefinition.class,
+              TypeDefinitionRegistry::inputObjectTypeExtensions,
+              (d, extensions) ->
+                  d.transform(
+                      b ->
+                          b.inputValueDefinitions(
+                                  concat(
+                                      d.getInputValueDefinitions(),
+                                      extensions,
+                                      InputObjectTypeDefinition::getInputValueDefinitions))
+                              .directives(directives(d, extensions)))),
+          new Folder<>(
+              EnumTypeDefinition.class,
+              TypeDefinitionRegistry::enumTypeExtensions,
+              (d, extensions) ->
+                  d.transform(
+                      b ->
+                          b.enumValueDefinitions(
+                                  concat(
+                                      d.getEnumValueDefinitions(),
+                                      extensions,
+                                      EnumTypeDefinition::getEnumValueDefinitions))
+                              .directives(directives(d, extensions)))),
+          new Folder<>(
+              UnionTypeDefinition.class,
+              TypeDefinitionRegistry::unionTypeExtensions,
+              (d, extensions) ->
+                  d.transform(
+                      b ->
+                          b.memberTypes(
+                                  concat(
+                                      d.getMemberTypes(),
+                                      extensions,
+                                      UnionTypeDefinition::getMemberTypes))
+                              .directives(directives(d, extensions)))),
+          // A scalar extension can only add directives
+          new Folder<>(
+              ScalarTypeDefinition.class,
+              TypeDefinitionRegistry::scalarTypeExtensions,
+              (d, extensions) -> d.transform(b -> b.directives(directives(d, extensions)))));
 
   private TypeExtensionFolder() {
     // Utility class
@@ -68,90 +142,10 @@ final class TypeExtensionFolder {
   static @NotNull TypeDefinition withExtensions(
       final @NotNull TypeDefinition type, final @NotNull TypeDefinitionRegistry registry) {
 
-    final String name = type.getName();
-
-    if (type instanceof ObjectTypeDefinition) {
-      final ObjectTypeDefinition d = (ObjectTypeDefinition) type;
-      final List<ObjectTypeExtensionDefinition> extensions =
-          registry.objectTypeExtensions().getOrDefault(name, List.of());
-      return extensions.isEmpty()
-          ? d
-          : d.transform(
-              b ->
-                  b.fieldDefinitions(
-                          concat(
-                              d.getFieldDefinitions(),
-                              extensions,
-                              ObjectTypeDefinition::getFieldDefinitions))
-                      .implementz(
-                          concat(
-                              d.getImplements(), extensions, ObjectTypeDefinition::getImplements))
-                      .directives(directives(d, extensions)));
-    } else if (type instanceof InterfaceTypeDefinition) {
-      final InterfaceTypeDefinition d = (InterfaceTypeDefinition) type;
-      final List<InterfaceTypeExtensionDefinition> extensions =
-          registry.interfaceTypeExtensions().getOrDefault(name, List.of());
-      return extensions.isEmpty()
-          ? d
-          : d.transform(
-              b ->
-                  b.definitions(
-                          concat(
-                              d.getFieldDefinitions(),
-                              extensions,
-                              InterfaceTypeDefinition::getFieldDefinitions))
-                      .implementz(
-                          concat(
-                              d.getImplements(),
-                              extensions,
-                              InterfaceTypeDefinition::getImplements))
-                      .directives(directives(d, extensions)));
-    } else if (type instanceof InputObjectTypeDefinition) {
-      final InputObjectTypeDefinition d = (InputObjectTypeDefinition) type;
-      final List<InputObjectTypeExtensionDefinition> extensions =
-          registry.inputObjectTypeExtensions().getOrDefault(name, List.of());
-      return extensions.isEmpty()
-          ? d
-          : d.transform(
-              b ->
-                  b.inputValueDefinitions(
-                          concat(
-                              d.getInputValueDefinitions(),
-                              extensions,
-                              InputObjectTypeDefinition::getInputValueDefinitions))
-                      .directives(directives(d, extensions)));
-    } else if (type instanceof EnumTypeDefinition) {
-      final EnumTypeDefinition d = (EnumTypeDefinition) type;
-      final List<EnumTypeExtensionDefinition> extensions =
-          registry.enumTypeExtensions().getOrDefault(name, List.of());
-      return extensions.isEmpty()
-          ? d
-          : d.transform(
-              b ->
-                  b.enumValueDefinitions(
-                          concat(
-                              d.getEnumValueDefinitions(),
-                              extensions,
-                              EnumTypeDefinition::getEnumValueDefinitions))
-                      .directives(directives(d, extensions)));
-    } else if (type instanceof UnionTypeDefinition) {
-      final UnionTypeDefinition d = (UnionTypeDefinition) type;
-      final List<UnionTypeExtensionDefinition> extensions =
-          registry.unionTypeExtensions().getOrDefault(name, List.of());
-      return extensions.isEmpty()
-          ? d
-          : d.transform(
-              b ->
-                  b.memberTypes(
-                          concat(
-                              d.getMemberTypes(), extensions, UnionTypeDefinition::getMemberTypes))
-                      .directives(directives(d, extensions)));
-    } else if (type instanceof ScalarTypeDefinition) {
-      // A scalar extension can only add directives
-      final ScalarTypeDefinition d = (ScalarTypeDefinition) type;
-      final List<ScalarTypeExtensionDefinition> extensions =
-          registry.scalarTypeExtensions().getOrDefault(name, List.of());
-      return extensions.isEmpty() ? d : d.transform(b -> b.directives(directives(d, extensions)));
+    for (final Folder<?, ?> folder : FOLDERS) {
+      if (folder.kind.isInstance(type)) {
+        return folder.fold(type, registry);
+      }
     }
 
     return type;
@@ -170,5 +164,31 @@ final class TypeExtensionFolder {
     final List<T> all = new ArrayList<>(members);
     extensions.forEach(e -> all.addAll(extensionMembers.apply(e)));
     return all;
+  }
+
+  /** How the extensions of one kind of type are found and folded into its definition. */
+  private static final class Folder<D extends TypeDefinition<?>, E extends D> {
+
+    private final Class<D> kind;
+    private final Function<TypeDefinitionRegistry, Map<String, List<E>>> extensions;
+    private final BiFunction<D, List<E>, D> merge;
+
+    Folder(
+        final @NotNull Class<D> kind,
+        final @NotNull Function<TypeDefinitionRegistry, Map<String, List<E>>> extensions,
+        final @NotNull BiFunction<D, List<E>, D> merge) {
+      this.kind = kind;
+      this.extensions = extensions;
+      this.merge = merge;
+    }
+
+    @NotNull
+    D fold(final @NotNull TypeDefinition<?> type, final @NotNull TypeDefinitionRegistry registry) {
+
+      final D definition = this.kind.cast(type);
+      final List<E> typeExtensions =
+          this.extensions.apply(registry).getOrDefault(definition.getName(), List.of());
+      return typeExtensions.isEmpty() ? definition : this.merge.apply(definition, typeExtensions);
+    }
   }
 }
