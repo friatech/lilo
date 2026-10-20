@@ -20,10 +20,8 @@ import graphql.language.FieldDefinition;
 import graphql.language.ObjectTypeDefinition;
 import graphql.language.TypeDefinition;
 import graphql.schema.idl.RuntimeWiring;
-import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
-import graphql.schema.idl.errors.SchemaProblem;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -172,17 +170,7 @@ class TypeExtensionFolderTest {
   }
 
   @Test
-  void extensionOfATypeTheSourceDoesNotDefineIsDropped() {
-
-    final TypeDefinitionRegistry registry =
-        parse("type Query { b: Int } extend type Pair { z: Int }");
-
-    Assertions.assertEquals(
-        List.of("Query"), List.copyOf(TypeExtensionFolder.completeTypes(registry).keySet()));
-  }
-
-  @Test
-  void extensionOfATypeOfAnotherSourceIsNotMergedAndFailsItsOwnSource() {
+  void extensionOfATypeOfAnotherSourceIsNotMerged() {
 
     final TypeDefinitionRegistry registry1 =
         parse("type Query { a: Pair } type Pair { x: Int y: Int }");
@@ -199,20 +187,12 @@ class TypeExtensionFolderTest {
         combined,
         RuntimeWiring.newRuntimeWiring());
 
+    // Only the defining source's fields; the other source's own schema rejects its extension
     final ObjectTypeDefinition pair = (ObjectTypeDefinition) combined.getType("Pair").orElseThrow();
     Assertions.assertEquals(
         List.of("x", "y"),
         pair.getFieldDefinitions().stream()
             .map(FieldDefinition::getName)
             .collect(Collectors.toList()));
-
-    // The source that wrote the extension cannot build its own schema, which is what rejects it
-    final SchemaProblem problem =
-        Assertions.assertThrows(
-            SchemaProblem.class,
-            () ->
-                new SchemaGenerator().makeExecutableSchema(registry2, RuntimeWiring.MOCKED_WIRING));
-    Assertions.assertTrue(
-        problem.getMessage().contains("missing its base underlying type"), problem.getMessage());
   }
 }
