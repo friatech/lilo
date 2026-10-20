@@ -15,13 +15,11 @@
  */
 package io.fria.lilo;
 
-import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
@@ -29,9 +27,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -168,7 +164,7 @@ public abstract class AbstractDefaultRemoteRetriever {
       return timedOut(uri, options, cause);
     }
 
-    if (hasCause(cause, ResponseTooLargeException.class)) {
+    if (hasCause(cause, BoundedBodySubscriber.ResponseTooLargeException.class)) {
       return new IllegalStateException(
           "Response from "
               + describe(uri)
@@ -297,75 +293,6 @@ public abstract class AbstractDefaultRemoteRetriever {
         final @NotNull RemoteRetrieverOptions options, final @NotNull HttpClient client) {
       this.options = options;
       this.client = client;
-    }
-  }
-
-  private static final class ResponseTooLargeException extends RuntimeException {
-
-    private static final long serialVersionUID = 1L;
-
-    private ResponseTooLargeException() {
-      super("Response body exceeded the configured maxResponseBytes");
-    }
-  }
-
-  /** Collects the body chunk by chunk and cancels the transfer once the size limit is exceeded. */
-  private static final class BoundedBodySubscriber implements HttpResponse.BodySubscriber<byte[]> {
-
-    private final long maxBytes;
-    private final CompletableFuture<byte[]> result = new CompletableFuture<>();
-    private final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-    private @Nullable Flow.Subscription subscription;
-
-    private BoundedBodySubscriber(final long maxBytes) {
-      this.maxBytes = maxBytes;
-    }
-
-    @Override
-    public CompletionStage<byte[]> getBody() {
-      // A read-only view, so callers cannot complete the subscriber's future
-      return this.result.minimalCompletionStage();
-    }
-
-    @Override
-    public void onComplete() {
-      this.result.complete(this.buffer.toByteArray());
-    }
-
-    @Override
-    public void onError(final Throwable throwable) {
-      this.result.completeExceptionally(throwable);
-    }
-
-    @Override
-    public void onNext(final List<ByteBuffer> items) {
-
-      if (this.result.isDone()) {
-        return;
-      }
-
-      for (final ByteBuffer item : items) {
-        final int remaining = item.remaining();
-
-        if (this.buffer.size() + (long) remaining > this.maxBytes) {
-          if (this.subscription != null) {
-            this.subscription.cancel();
-          }
-
-          this.result.completeExceptionally(new ResponseTooLargeException());
-          return;
-        }
-
-        final byte[] bytes = new byte[remaining];
-        item.get(bytes);
-        this.buffer.write(bytes, 0, remaining);
-      }
-    }
-
-    @Override
-    public void onSubscribe(final Flow.Subscription newSubscription) {
-      this.subscription = newSubscription;
-      newSubscription.request(Long.MAX_VALUE);
     }
   }
 }
