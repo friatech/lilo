@@ -33,7 +33,6 @@ import java.util.TreeMap;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Wires the data fetchers of the sources into the combined runtime wiring during one merge: the
@@ -42,18 +41,19 @@ import org.slf4j.LoggerFactory;
  */
 final class DataFetcherWiring {
 
-  // Logged under the merger's name, where the merge is configured and where the warning used to be
-  private static final Logger LOG = LoggerFactory.getLogger(SchemaMerger.class);
-
   private final RuntimeWiring.Builder runtimeWiringBuilder;
+  private final Logger log;
 
   // Non-root data fetchers of local sources, keyed by type, field and source name
   @SuppressWarnings("rawtypes")
   private final Map<String, Map<String, Map<String, DataFetcher>>> typeDataFetchers =
       new LinkedHashMap<>();
 
-  DataFetcherWiring(final RuntimeWiring.@NotNull Builder runtimeWiringBuilder) {
+  /** Conflicting fetchers are logged to the given logger, so the warning keeps its category. */
+  DataFetcherWiring(
+      final RuntimeWiring.@NotNull Builder runtimeWiringBuilder, final @NotNull Logger log) {
     this.runtimeWiringBuilder = runtimeWiringBuilder;
+    this.log = log;
   }
 
   /**
@@ -161,7 +161,7 @@ final class DataFetcherWiring {
                     sourceFetchers.entrySet().iterator().next();
 
                 if (sourceFetchers.values().stream().anyMatch(f -> f != first.getValue())) {
-                  LOG.warn(
+                  this.log.warn(
                       "Field {}.{} has different data fetchers in sources {}; using the one of {}",
                       typeName,
                       fieldName,

@@ -42,8 +42,12 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 final class SchemaMerger {
+
+  private static final Logger LOG = LoggerFactory.getLogger(SchemaMerger.class);
 
   private SchemaMerger() {
     // Utility class
@@ -102,7 +106,7 @@ final class SchemaMerger {
     // Keyed by definition name; remembers the first source that added it and its printed form
     final Map<String, SourceDefinition> definitions = new HashMap<>();
 
-    final DataFetcherWiring dataFetcherWiring = new DataFetcherWiring(runtimeWiringBuilder);
+    final DataFetcherWiring dataFetcherWiring = new DataFetcherWiring(runtimeWiringBuilder, LOG);
 
     for (final SourceSnapshot schemaSource : snapshots) {
 
