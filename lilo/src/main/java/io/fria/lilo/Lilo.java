@@ -88,6 +88,7 @@ public final class Lilo {
     private @Nullable Integer maxQueryComplexity;
     private boolean introspectionEnabled = true;
     private @Nullable Consumer<GraphQL.Builder> graphQLCustomizer;
+    private @Nullable String schemaDescription;
 
     @SuppressWarnings("checkstyle:WhitespaceAround")
     private LiloBuilder() {}
@@ -108,6 +109,7 @@ public final class Lilo {
               new LiloContext.RequestLimits(
                   this.maxQueryDepth, this.maxQueryComplexity, this.introspectionEnabled),
               this.graphQLCustomizer,
+              this.schemaDescription,
               this.schemaSources.values().toArray(new SchemaSource[0])));
     }
 
@@ -130,6 +132,22 @@ public final class Lilo {
     public @NotNull LiloBuilder graphQLCustomizer(
         final @Nullable Consumer<GraphQL.Builder> graphQLCustomizer) {
       this.graphQLCustomizer = graphQLCustomizer;
+      return this;
+    }
+
+    /**
+     * Sets the description of the merged gateway schema, which clients read as {@code
+     * __schema.description} through introspection, for example to say which sources it stitches.
+     * Descriptions of the source schemas are not merged. A {@code null} or blank value leaves the
+     * description unset, which is the default.
+     *
+     * @param schemaDescription the description, or {@code null} for none
+     * @return this builder
+     */
+    @SuppressWarnings("HiddenField")
+    public @NotNull LiloBuilder schemaDescription(final @Nullable String schemaDescription) {
+      this.schemaDescription =
+          schemaDescription == null || schemaDescription.isBlank() ? null : schemaDescription;
       return this;
     }
 

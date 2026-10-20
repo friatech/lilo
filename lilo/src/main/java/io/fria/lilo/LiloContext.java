@@ -71,6 +71,7 @@ public final class LiloContext {
       final @Nullable Instrumentation instrumentation,
       final @NotNull RequestLimits requestLimits,
       final @Nullable Consumer<GraphQL.Builder> graphQLCustomizer,
+      final @Nullable String schemaDescription,
       final @NotNull SchemaSource... schemaSources) {
     this.dataFetcherExceptionHandler = Objects.requireNonNull(dataFetcherExceptionHandler);
     this.introspectionFetchingMode = Objects.requireNonNull(introspectionFetchingMode);
@@ -80,7 +81,8 @@ public final class LiloContext {
             this.dataFetcherExceptionHandler,
             GraphQLAssembler.combineInstrumentation(
                 Objects.requireNonNull(requestLimits), instrumentation),
-            graphQLCustomizer);
+            graphQLCustomizer,
+            schemaDescription);
     this.sourceMap = toSourceMap(Arrays.stream(schemaSources));
   }
 
