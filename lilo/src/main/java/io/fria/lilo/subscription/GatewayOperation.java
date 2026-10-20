@@ -75,12 +75,12 @@ final class GatewayOperation {
    * @return true if this call removed it; the caller then reports the end and cancels it as needed
    */
   boolean release() {
-    return this.state.operations.remove(this.id, this);
+    return this.state.remove(this);
   }
 
   /** Whether the operation is still registered, i.e. neither completed nor cancelled meanwhile. */
   boolean isRegistered() {
-    return this.state.operations.get(this.id) == this;
+    return this.state.isRegistered(this);
   }
 
   /**

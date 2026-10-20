@@ -15,6 +15,8 @@
  */
 package io.fria.lilo.subscription;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -80,7 +82,7 @@ final class GatewaySessionRegistry {
   /** Returns whether the session has a registered operation with the id. */
   boolean hasOperation(final @NotNull String sessionId, final @NotNull String operationId) {
     final SessionState active = this.sessionOperations.get(sessionId);
-    return active != null && active.operations.containsKey(operationId);
+    return active != null && active.contains(operationId);
   }
 
   /**
@@ -95,7 +97,6 @@ final class GatewaySessionRegistry {
 
     final SessionState state =
         this.sessionOperations.computeIfAbsent(session.getId(), id -> new SessionState());
-    final Map<String, GatewayOperation> operations = state.operations;
     final GatewayOperation operation = new GatewayOperation(operationId, session, state);
 
     // A session's messages arrive one after the other, so plain checks are enough here. A stitch
@@ -103,11 +104,12 @@ final class GatewaySessionRegistry {
     // counts as well: otherwise subscribe followed by complete would bypass the cap. Every
     // in-flight stitch belongs to a registered operation unless that was completed, so the larger
     // of the two numbers is the session's real usage; their sum would count most operations twice.
-    if (Math.max(operations.size(), state.stitchesInFlight()) >= this.maxOperationsPerSession) {
+    if (Math.max(state.operationCount(), state.stitchesInFlight())
+        >= this.maxOperationsPerSession) {
       return Registration.rejected(Rejection.TOO_MANY_OPERATIONS);
     }
 
-    if (operations.putIfAbsent(operationId, operation) != null) {
+    if (!state.add(operation)) {
       // Lost a race against a concurrent subscribe with the same id
       return Registration.rejected(Rejection.CLOSE_SESSION);
     }
@@ -146,13 +148,8 @@ final class GatewaySessionRegistry {
       return;
     }
 
-    final Map<String, GatewayOperation> operations = state.operations;
-
-    for (final String operationId : operations.keySet()) {
-      final GatewayOperation operation = operations.remove(operationId);
-      if (operation != null) {
-        operation.cancel();
-      }
+    for (final GatewayOperation operation : state.removeAll()) {
+      operation.cancel();
     }
   }
 
@@ -165,7 +162,7 @@ final class GatewaySessionRegistry {
     }
 
     // Whoever removes the operation owns its cleanup, so a late complete or close is a no-op
-    final GatewayOperation operation = state.operations.remove(operationId);
+    final GatewayOperation operation = state.remove(operationId);
 
     if (operation != null) {
       operation.cancel();
@@ -213,10 +210,61 @@ final class GatewaySessionRegistry {
   static final class SessionState {
 
     /** operation id -> operation */
-    final @NotNull Map<String, GatewayOperation> operations = new ConcurrentHashMap<>();
+    private final @NotNull Map<String, GatewayOperation> operations = new ConcurrentHashMap<>();
 
     /** Stitches submitted and not yet finished, including those of completed operations. */
     private final @NotNull AtomicInteger inFlight = new AtomicInteger();
+
+    /**
+     * Registers the operation under its id.
+     *
+     * @return false if the id is taken; nothing is changed then
+     */
+    boolean add(final @NotNull GatewayOperation operation) {
+      return this.operations.putIfAbsent(operation.id(), operation) == null;
+    }
+
+    /** Returns whether an operation is registered under the id. */
+    boolean contains(final @NotNull String operationId) {
+      return this.operations.containsKey(operationId);
+    }
+
+    /** Returns whether exactly this operation is registered. */
+    boolean isRegistered(final @NotNull GatewayOperation operation) {
+      return this.operations.get(operation.id()) == operation;
+    }
+
+    /**
+     * Unregisters the operation under the id.
+     *
+     * @return the operation, or null if none was registered
+     */
+    @Nullable
+    GatewayOperation remove(final @NotNull String operationId) {
+      return this.operations.remove(operationId);
+    }
+
+    /** Unregisters exactly this operation; returns whether this call removed it. */
+    boolean remove(final @NotNull GatewayOperation operation) {
+      return this.operations.remove(operation.id(), operation);
+    }
+
+    /** Unregisters every operation; each one is returned to the caller that removed it. */
+    @NotNull
+    List<GatewayOperation> removeAll() {
+      final List<GatewayOperation> removed = new ArrayList<>();
+      for (final String operationId : this.operations.keySet()) {
+        final GatewayOperation operation = this.operations.remove(operationId);
+        if (operation != null) {
+          removed.add(operation);
+        }
+      }
+      return removed;
+    }
+
+    int operationCount() {
+      return this.operations.size();
+    }
 
     /** Counts a stitch before it is submitted. */
     void stitchSubmitted() {
