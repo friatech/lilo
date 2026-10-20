@@ -224,17 +224,15 @@ public class SourceWebSocketHandler extends AbstractWebSocketHandler {
   private @Nullable String assemble(
       final @NotNull WebSocketSession nativeSession, final @NotNull TextMessage message) {
 
-    // Messages arrive one after the other, so the message that makes the buffer oversized is the
-    // only one for which this changes: the failure is reported once
-    final boolean wasOversized = this.fragments.oversized();
-    final String payload =
-        this.fragments.append(message.getPayload(), message.isLast()).orElse(null);
+    final FragmentBuffer.Result result =
+        this.fragments.append(message.getPayload(), message.isLast());
 
-    if (!wasOversized && this.fragments.oversized()) {
+    if (result.overflowed()) {
+      // Reported by the one fragment that made the message too large
       this.failOversized(nativeSession);
     }
 
-    return payload;
+    return result.message().orElse(null);
   }
 
   /** Capacity of the fragment buffer, in characters; for tests. */
