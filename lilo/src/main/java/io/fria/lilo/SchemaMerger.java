@@ -17,24 +17,32 @@ package io.fria.lilo;
 
 import graphql.GraphQLError;
 import graphql.language.AstPrinter;
+import graphql.language.Directive;
 import graphql.language.DirectiveDefinition;
 import graphql.language.DirectiveLocation;
 import graphql.language.EnumTypeDefinition;
+import graphql.language.EnumTypeExtensionDefinition;
 import graphql.language.EnumValueDefinition;
 import graphql.language.FieldDefinition;
 import graphql.language.InputObjectTypeDefinition;
+import graphql.language.InputObjectTypeExtensionDefinition;
 import graphql.language.InputValueDefinition;
 import graphql.language.InterfaceTypeDefinition;
+import graphql.language.InterfaceTypeExtensionDefinition;
 import graphql.language.NamedNode;
 import graphql.language.Node;
 import graphql.language.ObjectTypeDefinition;
+import graphql.language.ObjectTypeExtensionDefinition;
 import graphql.language.OperationTypeDefinition;
 import graphql.language.SDLDefinition;
+import graphql.language.ScalarTypeDefinition;
+import graphql.language.ScalarTypeExtensionDefinition;
 import graphql.language.SchemaDefinition;
 import graphql.language.Type;
 import graphql.language.TypeDefinition;
 import graphql.language.TypeName;
 import graphql.language.UnionTypeDefinition;
+import graphql.language.UnionTypeExtensionDefinition;
 import graphql.schema.DataFetcher;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.TypeDefinitionRegistry;
@@ -43,6 +51,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -140,6 +149,9 @@ final class SchemaMerger {
 
       final TypeDefinitionRegistry sourceRegistry = schemaSource.getRegistry();
       final OperationTypeNames operationTypeNames = getOperationTypeNames(sourceRegistry);
+      // Folded before anything is compared, so a type split into a definition and extensions
+      // compares equal to the same type written in one piece
+      final Map<String, TypeDefinition> sourceTypes = completeTypes(sourceRegistry);
 
       queryTypeName = checkName(queryTypeName, operationTypeNames.query);
       mutationTypeName = checkName(mutationTypeName, operationTypeNames.mutation);
@@ -149,22 +161,22 @@ final class SchemaMerger {
       final Map<String, Map<String, DataFetcher>> dataFetchers = sourceWiring.getDataFetchers();
 
       mergeFieldDefinitions(
-          queryTypeName, queryFieldDefinitions, sourceRegistry, runtimeWiringBuilder, dataFetchers);
+          queryTypeName, queryFieldDefinitions, sourceTypes, runtimeWiringBuilder, dataFetchers);
       mergeFieldDefinitions(
           mutationTypeName,
           mutationFieldDefinitions,
-          sourceRegistry,
+          sourceTypes,
           runtimeWiringBuilder,
           dataFetchers);
       mergeFieldDefinitions(
           subscriptionTypeName,
           subscriptionFieldDefinitions,
-          sourceRegistry,
+          sourceTypes,
           runtimeWiringBuilder,
           dataFetchers);
 
       // Add types other than Query and Mutation to combined registry
-      excludeTypes(sourceRegistry, queryTypeName, mutationTypeName, subscriptionTypeName)
+      excludeTypes(sourceTypes, queryTypeName, mutationTypeName, subscriptionTypeName)
           .forEach(d -> addDefinition(d, "", schemaSource, combinedRegistry, definitions));
 
       // Add all directive definitions
@@ -174,9 +186,8 @@ final class SchemaMerger {
           .forEach(d -> addDefinition(d, "@", schemaSource, combinedRegistry, definitions));
 
       // Add all scalar definitions
-      sourceRegistry
-          .scalars()
-          .values()
+      sourceRegistry.scalars().values().stream()
+          .map(d -> withExtensions(d, sourceRegistry))
           .forEach(d -> addDefinition(d, "", schemaSource, combinedRegistry, definitions));
     }
 
@@ -184,6 +195,129 @@ final class SchemaMerger {
     addType(mutationTypeName, mutationFieldDefinitions, combinedRegistry);
     addType(subscriptionTypeName, subscriptionFieldDefinitions, combinedRegistry);
     addSchema(queryTypeName, mutationTypeName, subscriptionTypeName, combinedRegistry);
+  }
+
+  /**
+   * Returns the type definitions of a source with the source's own extensions ({@code extend type},
+   * {@code extend interface} and so on) folded into them, keyed by type name. The combined registry
+   * only receives complete types, so an extension of a type that this source does not define is not
+   * merged; a {@link DefinedSchemaSource} already rejects one when it builds its own schema.
+   */
+  @SuppressWarnings("rawtypes")
+  private static @NotNull Map<String, TypeDefinition> completeTypes(
+      final @NotNull TypeDefinitionRegistry registry) {
+
+    final Map<String, TypeDefinition> types = new LinkedHashMap<>(registry.types());
+    types.replaceAll((name, type) -> withExtensions(type, registry));
+    return types;
+  }
+
+  @SuppressWarnings("rawtypes")
+  private static @NotNull TypeDefinition withExtensions(
+      final @NotNull TypeDefinition type, final @NotNull TypeDefinitionRegistry registry) {
+
+    final String name = type.getName();
+
+    if (type instanceof ObjectTypeDefinition) {
+      final ObjectTypeDefinition d = (ObjectTypeDefinition) type;
+      final List<ObjectTypeExtensionDefinition> extensions =
+          registry.objectTypeExtensions().getOrDefault(name, List.of());
+      return extensions.isEmpty()
+          ? d
+          : d.transform(
+              b ->
+                  b.fieldDefinitions(
+                          concat(
+                              d.getFieldDefinitions(),
+                              extensions,
+                              ObjectTypeDefinition::getFieldDefinitions))
+                      .implementz(
+                          concat(
+                              d.getImplements(), extensions, ObjectTypeDefinition::getImplements))
+                      .directives(directives(d, extensions)));
+    } else if (type instanceof InterfaceTypeDefinition) {
+      final InterfaceTypeDefinition d = (InterfaceTypeDefinition) type;
+      final List<InterfaceTypeExtensionDefinition> extensions =
+          registry.interfaceTypeExtensions().getOrDefault(name, List.of());
+      return extensions.isEmpty()
+          ? d
+          : d.transform(
+              b ->
+                  b.definitions(
+                          concat(
+                              d.getFieldDefinitions(),
+                              extensions,
+                              InterfaceTypeDefinition::getFieldDefinitions))
+                      .implementz(
+                          concat(
+                              d.getImplements(),
+                              extensions,
+                              InterfaceTypeDefinition::getImplements))
+                      .directives(directives(d, extensions)));
+    } else if (type instanceof InputObjectTypeDefinition) {
+      final InputObjectTypeDefinition d = (InputObjectTypeDefinition) type;
+      final List<InputObjectTypeExtensionDefinition> extensions =
+          registry.inputObjectTypeExtensions().getOrDefault(name, List.of());
+      return extensions.isEmpty()
+          ? d
+          : d.transform(
+              b ->
+                  b.inputValueDefinitions(
+                          concat(
+                              d.getInputValueDefinitions(),
+                              extensions,
+                              InputObjectTypeDefinition::getInputValueDefinitions))
+                      .directives(directives(d, extensions)));
+    } else if (type instanceof EnumTypeDefinition) {
+      final EnumTypeDefinition d = (EnumTypeDefinition) type;
+      final List<EnumTypeExtensionDefinition> extensions =
+          registry.enumTypeExtensions().getOrDefault(name, List.of());
+      return extensions.isEmpty()
+          ? d
+          : d.transform(
+              b ->
+                  b.enumValueDefinitions(
+                          concat(
+                              d.getEnumValueDefinitions(),
+                              extensions,
+                              EnumTypeDefinition::getEnumValueDefinitions))
+                      .directives(directives(d, extensions)));
+    } else if (type instanceof UnionTypeDefinition) {
+      final UnionTypeDefinition d = (UnionTypeDefinition) type;
+      final List<UnionTypeExtensionDefinition> extensions =
+          registry.unionTypeExtensions().getOrDefault(name, List.of());
+      return extensions.isEmpty()
+          ? d
+          : d.transform(
+              b ->
+                  b.memberTypes(
+                          concat(
+                              d.getMemberTypes(), extensions, UnionTypeDefinition::getMemberTypes))
+                      .directives(directives(d, extensions)));
+    } else if (type instanceof ScalarTypeDefinition) {
+      // A scalar extension can only add directives
+      final ScalarTypeDefinition d = (ScalarTypeDefinition) type;
+      final List<ScalarTypeExtensionDefinition> extensions =
+          registry.scalarTypeExtensions().getOrDefault(name, List.of());
+      return extensions.isEmpty() ? d : d.transform(b -> b.directives(directives(d, extensions)));
+    }
+
+    return type;
+  }
+
+  private static <D extends TypeDefinition<?>> @NotNull List<Directive> directives(
+      final @NotNull D definition, final @NotNull List<? extends D> extensions) {
+    return concat(definition.getDirectives(), extensions, TypeDefinition::getDirectives);
+  }
+
+  private static <D, T> @NotNull List<T> concat(
+      final @NotNull List<T> members,
+      final @NotNull List<? extends D> extensions,
+      final @NotNull Function<D, List<T>> extensionMembers) {
+
+    final List<T> all = new ArrayList<>(members);
+    extensions.forEach(e -> all.addAll(extensionMembers.apply(e)));
+    return all;
   }
 
   private static void addDefinition(
@@ -224,8 +358,10 @@ final class SchemaMerger {
 
   /**
    * Returns a copy of the definition whose members (fields, arguments, input values, enum values,
-   * union members, implemented interfaces and directive locations) are sorted by name, so that two
-   * definitions differing only in member order print the same. The source node is not modified.
+   * union members, implemented interfaces and directive locations) and type-level directives are
+   * sorted, so that two definitions differing only in member order print the same; a type whose
+   * directives are partly applied by an extension then equals the same type written in one piece.
+   * The source node is not modified.
    */
   private static @NotNull Node<?> normalize(final @NotNull SDLDefinition<?> definition) {
 
@@ -234,26 +370,37 @@ final class SchemaMerger {
       return d.transform(
           b ->
               b.fieldDefinitions(sortFields(d.getFieldDefinitions()))
-                  .implementz(sortTypes(d.getImplements())));
+                  .implementz(sortTypes(d.getImplements()))
+                  .directives(sortDirectives(d.getDirectives())));
     } else if (definition instanceof InterfaceTypeDefinition) {
       final InterfaceTypeDefinition d = (InterfaceTypeDefinition) definition;
       return d.transform(
           b ->
               b.definitions(sortFields(d.getFieldDefinitions()))
-                  .implementz(sortTypes(d.getImplements())));
+                  .implementz(sortTypes(d.getImplements()))
+                  .directives(sortDirectives(d.getDirectives())));
     } else if (definition instanceof InputObjectTypeDefinition) {
       final InputObjectTypeDefinition d = (InputObjectTypeDefinition) definition;
       return d.transform(
-          b -> b.inputValueDefinitions(sortInputValues(d.getInputValueDefinitions())));
+          b ->
+              b.inputValueDefinitions(sortInputValues(d.getInputValueDefinitions()))
+                  .directives(sortDirectives(d.getDirectives())));
     } else if (definition instanceof EnumTypeDefinition) {
       final EnumTypeDefinition d = (EnumTypeDefinition) definition;
       return d.transform(
           b ->
               b.enumValueDefinitions(
-                  sortedBy(d.getEnumValueDefinitions(), EnumValueDefinition::getName)));
+                      sortedBy(d.getEnumValueDefinitions(), EnumValueDefinition::getName))
+                  .directives(sortDirectives(d.getDirectives())));
     } else if (definition instanceof UnionTypeDefinition) {
       final UnionTypeDefinition d = (UnionTypeDefinition) definition;
-      return d.transform(b -> b.memberTypes(sortTypes(d.getMemberTypes())));
+      return d.transform(
+          b ->
+              b.memberTypes(sortTypes(d.getMemberTypes()))
+                  .directives(sortDirectives(d.getDirectives())));
+    } else if (definition instanceof ScalarTypeDefinition) {
+      final ScalarTypeDefinition d = (ScalarTypeDefinition) definition;
+      return d.transform(b -> b.directives(sortDirectives(d.getDirectives())));
     } else if (definition instanceof DirectiveDefinition) {
       final DirectiveDefinition d = (DirectiveDefinition) definition;
       return d.transform(
@@ -284,6 +431,11 @@ final class SchemaMerger {
   private static @NotNull List<InputValueDefinition> sortInputValues(
       final @NotNull List<InputValueDefinition> inputValues) {
     return sortedBy(inputValues, InputValueDefinition::getName);
+  }
+
+  private static @NotNull List<Directive> sortDirectives(
+      final @NotNull List<Directive> directives) {
+    return sortedBy(directives, AstPrinter::printAstCompact);
   }
 
   @SuppressWarnings("rawtypes")
@@ -359,13 +511,14 @@ final class SchemaMerger {
     return globalTypeName;
   }
 
+  @SuppressWarnings("rawtypes")
   private static @NotNull List<SDLDefinition> excludeTypes(
-      final @NotNull TypeDefinitionRegistry sourceRegistry,
+      final @NotNull Map<String, TypeDefinition> sourceTypes,
       final @Nullable String queryTypeName,
       final @Nullable String mutationTypeName,
       final @Nullable String subscriptionTypeName) {
 
-    return sourceRegistry.types().values().stream()
+    return sourceTypes.values().stream()
         .filter(
             t ->
                 !Objects.equals(t.getName(), queryTypeName)
@@ -377,7 +530,7 @@ final class SchemaMerger {
   private static void mergeFieldDefinitions(
       final @Nullable String typeName,
       final @NotNull List<FieldDefinition> fieldDefinitions,
-      final @NotNull TypeDefinitionRegistry sourceRegistry,
+      final @NotNull Map<String, TypeDefinition> sourceTypes,
       final RuntimeWiring.@NotNull Builder runtimeWiringBuilder,
       final @NotNull Map<String, Map<String, DataFetcher>> dataFetchers) {
 
@@ -385,7 +538,7 @@ final class SchemaMerger {
       return;
     }
 
-    final TypeDefinition typeDefinitionOrNull = sourceRegistry.getTypeOrNull(typeName);
+    final TypeDefinition typeDefinitionOrNull = sourceTypes.get(typeName);
 
     if (typeDefinitionOrNull == null) {
       return;
