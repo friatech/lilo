@@ -19,11 +19,7 @@ import static io.fria.lilo.subscription.GatewayMessages.EXECUTION_FAILED;
 import static io.fria.lilo.subscription.GatewayMessages.NOT_A_SUBSCRIPTION;
 import static io.fria.lilo.subscription.GatewayMessages.TOO_MANY_REQUESTS;
 import static io.fria.lilo.subscription.GatewayMessages.errors;
-import static io.fria.lilo.subscription.GatewayMessages.errorsOf;
-import static io.fria.lilo.subscription.GatewayMessages.logFailure;
 import static io.fria.lilo.subscription.GatewayMessages.safe;
-import static io.fria.lilo.subscription.GatewayMessages.sendNext;
-import static io.fria.lilo.subscription.GatewayMessages.trySendComplete;
 import static io.fria.lilo.subscription.GatewayMessages.trySendError;
 
 import graphql.ExecutionInput;
@@ -33,13 +29,9 @@ import graphql.execution.reactive.SubscriptionPublisher;
 import io.fria.lilo.Lilo;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -56,13 +48,8 @@ final class SubscriptionStitcher {
   /** The result of a message that is handled once the handler returns. */
   static final CompletableFuture<Void> DONE = CompletableFuture.completedFuture(null);
 
-  private static final int POOL_CORE_SIZE = Math.max(4, Runtime.getRuntime().availableProcessors());
-  private static final int POOL_QUEUE_CAPACITY = 256;
-  private static final long POOL_KEEP_ALIVE_SECONDS = 60;
-
   // Logged under the handler's name: the gateway's classes are one component to an operator
   private static final Logger LOG = LoggerFactory.getLogger(SubscriptionGatewayHandler.class);
-  private static final AtomicInteger THREAD_COUNT = new AtomicInteger();
 
   private final @NotNull Lilo lilo;
   private final @NotNull Executor executor;
@@ -75,40 +62,6 @@ final class SubscriptionStitcher {
     this.lilo = lilo;
     this.executor = executor;
     this.registry = registry;
-  }
-
-  /** The bounded pool of daemon threads a handler owns unless it is given an executor. */
-  static @NotNull Executor newDefaultExecutor() {
-    return newDefaultExecutor(POOL_CORE_SIZE);
-  }
-
-  /**
-   * The default pool with another core size: it grows to four times that (at most {@link
-   * Integer#MAX_VALUE} threads) and queues up to 256 more requests.
-   */
-  static @NotNull Executor newDefaultExecutor(final int coreSize) {
-    if (coreSize <= 0) {
-      throw new IllegalArgumentException("coreSize must be greater than zero");
-    }
-
-    final int maxSize = coreSize > Integer.MAX_VALUE / 4 ? Integer.MAX_VALUE : 4 * coreSize;
-    final ThreadPoolExecutor pool =
-        new ThreadPoolExecutor(
-            coreSize,
-            maxSize,
-            POOL_KEEP_ALIVE_SECONDS,
-            TimeUnit.SECONDS,
-            new ArrayBlockingQueue<>(POOL_QUEUE_CAPACITY),
-            SubscriptionStitcher::newThread);
-    pool.allowCoreThreadTimeOut(true);
-    return pool;
-  }
-
-  private static @NotNull Thread newThread(final @NotNull Runnable runnable) {
-    final Thread thread =
-        new Thread(runnable, "lilo-subscription-" + THREAD_COUNT.incrementAndGet());
-    thread.setDaemon(true);
-    return thread;
   }
 
   private static @Nullable SubscriptionSourcePublisher upstreamOf(final @Nullable Object data) {
@@ -267,7 +220,7 @@ final class SubscriptionStitcher {
           safe(operation.id()),
           safe(String.valueOf(throwable)));
       LOG.debug("Subscription execution failure", throwable);
-      fail(operation, errors(EXECUTION_FAILED));
+      operation.fail(errors(EXECUTION_FAILED));
       return null;
     }
 
@@ -283,12 +236,12 @@ final class SubscriptionStitcher {
           result.getErrors().stream()
               .map(GraphQLError::toSpecification)
               .collect(Collectors.toList());
-      fail(operation, errors);
+      operation.fail(errors);
       return null;
     }
 
     if (upstream == null) {
-      fail(operation, errors(NOT_A_SUBSCRIPTION));
+      operation.fail(errors(NOT_A_SUBSCRIPTION));
     }
 
     return upstream;
@@ -300,58 +253,6 @@ final class SubscriptionStitcher {
       final @NotNull SubscriptionSourcePublisher upstream) {
     return upstream
         .getFlux()
-        .subscribe(
-            payload -> onNext(operation, payload),
-            e -> onError(operation, e),
-            () -> onComplete(operation));
-  }
-
-  private static void onNext(
-      final @NotNull GatewayOperation operation, final @NotNull Object payload) {
-
-    // Nothing follows a client complete, even an event already in flight
-    if (!operation.isRegistered()) {
-      return;
-    }
-
-    sendNext(operation.session(), operation.id(), payload);
-  }
-
-  private static void onError(
-      final @NotNull GatewayOperation operation, final @NotNull Throwable e) {
-
-    // The source failed this operation. Only report it if it was still active.
-    // This also runs when sending a next to the client failed.
-    if (operation.release()) {
-      logFailure(operation.id(), e);
-      try {
-        trySendError(operation.session(), operation.id(), errorsOf(e));
-      } finally {
-        // Releases the source in every case
-        operation.cancel();
-      }
-    }
-  }
-
-  private static void onComplete(final @NotNull GatewayOperation operation) {
-
-    // The source finished this operation. Only report it if the operation was still
-    // active, i.e. neither the client nor a session close cancelled it meanwhile.
-    if (operation.release()) {
-      try {
-        trySendComplete(operation.session(), operation.id());
-      } finally {
-        operation.cancel();
-      }
-    }
-  }
-
-  /** Reports an operation that could not start, unless it was cancelled meanwhile. */
-  private static void fail(
-      final @NotNull GatewayOperation operation, final @NotNull List<Map<String, Object>> errors) {
-
-    if (operation.release()) {
-      trySendError(operation.session(), operation.id(), errors);
-    }
+        .subscribe(operation::onNext, operation::onError, operation::onComplete);
   }
 }

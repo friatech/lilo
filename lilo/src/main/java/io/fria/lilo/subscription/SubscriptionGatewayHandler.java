@@ -65,7 +65,7 @@ public final class SubscriptionGatewayHandler {
    * @param lilo global lilo instance
    */
   public SubscriptionGatewayHandler(final @NotNull Lilo lilo) {
-    this(lilo, SubscriptionStitcher.newDefaultExecutor());
+    this(lilo, StitchExecutors.newDefault());
   }
 
   /**
@@ -79,7 +79,7 @@ public final class SubscriptionGatewayHandler {
    *     50), greater than zero
    */
   public SubscriptionGatewayHandler(final @NotNull Lilo lilo, final int maxOperationsPerSession) {
-    this(lilo, SubscriptionStitcher.newDefaultExecutor(), maxOperationsPerSession);
+    this(lilo, StitchExecutors.newDefault(), maxOperationsPerSession);
   }
 
   /**
@@ -94,7 +94,7 @@ public final class SubscriptionGatewayHandler {
    * @return a new pool; it is not shut down by the handler, its idle threads end on their own
    */
   public static @NotNull Executor defaultExecutor(final int coreSize) {
-    return SubscriptionStitcher.newDefaultExecutor(coreSize);
+    return StitchExecutors.newDefault(coreSize);
   }
 
   /**
