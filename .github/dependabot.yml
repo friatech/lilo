@@ -7,6 +7,10 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # JUnit 6 needs Java 17 and the core module's JDK 11 test job runs on 11.
+    ignore:
+      - dependency-name: "org.junit.jupiter:*"
+        update-types: [ "version-update:semver-major" ]
     groups:
       maven-minor-patch:
         update-types: [ minor, patch ]
@@ -15,6 +19,10 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # JUnit 6 needs Java 17 and the core module's JDK 11 test job runs on 11.
+    ignore:
+      - dependency-name: "org.junit.jupiter:*"
+        update-types: [ "version-update:semver-major" ]
     groups:
       maven-minor-patch:
         update-types: [ minor, patch ]
