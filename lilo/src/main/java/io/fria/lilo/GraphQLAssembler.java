@@ -61,15 +61,12 @@ final class GraphQLAssembler {
   private final @Nullable Consumer<GraphQL.Builder> graphQLCustomizer;
   private final @Nullable String schemaDescription;
 
-  GraphQLAssembler(
-      final @NotNull DataFetcherExceptionHandler dataFetcherExceptionHandler,
-      final @Nullable Instrumentation instrumentation,
-      final @Nullable Consumer<GraphQL.Builder> graphQLCustomizer,
-      final @Nullable String schemaDescription) {
-    this.dataFetcherExceptionHandler = dataFetcherExceptionHandler;
-    this.instrumentation = instrumentation;
-    this.graphQLCustomizer = graphQLCustomizer;
-    this.schemaDescription = schemaDescription;
+  GraphQLAssembler(final @NotNull LiloSettings settings) {
+    this.dataFetcherExceptionHandler = settings.getDataFetcherExceptionHandler();
+    this.instrumentation =
+        combineInstrumentation(settings.getRequestLimits(), settings.getInstrumentation());
+    this.graphQLCustomizer = settings.getGraphQLCustomizer();
+    this.schemaDescription = settings.getSchemaDescription();
   }
 
   /**
