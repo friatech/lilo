@@ -102,14 +102,15 @@ public final class Lilo {
 
       return new Lilo(
           new LiloContext(
-              this.dataFetcherExceptionHandler,
-              this.introspectionFetchingMode,
-              this.retrySchemaLoad,
-              this.instrumentation,
-              new RequestLimits(
-                  this.maxQueryDepth, this.maxQueryComplexity, this.introspectionEnabled),
-              this.graphQLCustomizer,
-              this.schemaDescription,
+              new LiloSettings(
+                  this.dataFetcherExceptionHandler,
+                  this.introspectionFetchingMode,
+                  this.retrySchemaLoad,
+                  this.instrumentation,
+                  new RequestLimits(
+                      this.maxQueryDepth, this.maxQueryComplexity, this.introspectionEnabled),
+                  this.graphQLCustomizer,
+                  this.schemaDescription),
               this.schemaSources.values().toArray(new SchemaSource[0])));
     }
 

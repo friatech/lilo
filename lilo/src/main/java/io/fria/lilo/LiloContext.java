@@ -18,7 +18,6 @@ package io.fria.lilo;
 import graphql.ExecutionInput;
 import graphql.GraphQL;
 import graphql.execution.DataFetcherExceptionHandler;
-import graphql.execution.instrumentation.Instrumentation;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -31,7 +30,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jetbrains.annotations.NotNull;
@@ -64,25 +62,11 @@ public final class LiloContext {
   private volatile @Nullable GraphQL mergedGraphQL;
   private volatile boolean schemasAreNotLoaded = true;
 
-  LiloContext(
-      final @NotNull DataFetcherExceptionHandler dataFetcherExceptionHandler,
-      final @NotNull IntrospectionFetchingMode introspectionFetchingMode,
-      final boolean retrySchemaLoad,
-      final @Nullable Instrumentation instrumentation,
-      final @NotNull RequestLimits requestLimits,
-      final @Nullable Consumer<GraphQL.Builder> graphQLCustomizer,
-      final @Nullable String schemaDescription,
-      final @NotNull SchemaSource... schemaSources) {
-    this.dataFetcherExceptionHandler = Objects.requireNonNull(dataFetcherExceptionHandler);
-    this.introspectionFetchingMode = Objects.requireNonNull(introspectionFetchingMode);
-    this.retrySchemaLoad = retrySchemaLoad;
-    this.assembler =
-        new GraphQLAssembler(
-            this.dataFetcherExceptionHandler,
-            GraphQLAssembler.combineInstrumentation(
-                Objects.requireNonNull(requestLimits), instrumentation),
-            graphQLCustomizer,
-            schemaDescription);
+  LiloContext(final @NotNull LiloSettings settings, final @NotNull SchemaSource... schemaSources) {
+    this.dataFetcherExceptionHandler = settings.getDataFetcherExceptionHandler();
+    this.introspectionFetchingMode = settings.getIntrospectionFetchingMode();
+    this.retrySchemaLoad = settings.isRetrySchemaLoad();
+    this.assembler = new GraphQLAssembler(settings);
     this.sourceMap = toSourceMap(Arrays.stream(schemaSources));
   }
 
