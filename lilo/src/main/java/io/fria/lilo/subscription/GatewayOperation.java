@@ -15,6 +15,14 @@
  */
 package io.fria.lilo.subscription;
 
+import static io.fria.lilo.subscription.GatewayMessages.errorsOf;
+import static io.fria.lilo.subscription.GatewayMessages.logFailure;
+import static io.fria.lilo.subscription.GatewayMessages.sendNext;
+import static io.fria.lilo.subscription.GatewayMessages.trySendComplete;
+import static io.fria.lilo.subscription.GatewayMessages.trySendError;
+
+import java.util.List;
+import java.util.Map;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -75,12 +83,12 @@ final class GatewayOperation {
    * @return true if this call removed it; the caller then reports the end and cancels it as needed
    */
   boolean release() {
-    return this.state.operations.remove(this.id, this);
+    return this.state.remove(this);
   }
 
   /** Whether the operation is still registered, i.e. neither completed nor cancelled meanwhile. */
   boolean isRegistered() {
-    return this.state.operations.get(this.id) == this;
+    return this.state.isRegistered(this);
   }
 
   /**
@@ -135,6 +143,55 @@ final class GatewayOperation {
       }
     } catch (final RuntimeException e) {
       LOG.warn("Could not close a subscription source", e);
+    }
+  }
+
+  /** Forwards an event of the source to the client, unless the operation is over. */
+  void onNext(final @NotNull Object payload) {
+
+    // Nothing follows a client complete, even an event already in flight
+    if (!this.isRegistered()) {
+      return;
+    }
+
+    sendNext(this.session, this.id, payload);
+  }
+
+  /** Reports the source's failure to the client and ends the operation. */
+  void onError(final @NotNull Throwable e) {
+
+    // The source failed this operation. Only report it if it was still active.
+    // This also runs when sending a next to the client failed.
+    if (this.release()) {
+      logFailure(this.id, e);
+      try {
+        trySendError(this.session, this.id, errorsOf(e));
+      } finally {
+        // Releases the source in every case
+        this.cancel();
+      }
+    }
+  }
+
+  /** Reports the source's end to the client and ends the operation. */
+  void onComplete() {
+
+    // The source finished this operation. Only report it if the operation was still
+    // active, i.e. neither the client nor a session close cancelled it meanwhile.
+    if (this.release()) {
+      try {
+        trySendComplete(this.session, this.id);
+      } finally {
+        this.cancel();
+      }
+    }
+  }
+
+  /** Reports an operation that could not start, unless it was cancelled meanwhile. */
+  void fail(final @NotNull List<Map<String, Object>> errors) {
+
+    if (this.release()) {
+      trySendError(this.session, this.id, errors);
     }
   }
 }

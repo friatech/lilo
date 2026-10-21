@@ -60,26 +60,13 @@ public class SourceWebSocketHandler extends AbstractWebSocketHandler {
 
   private static final System.Logger LOG = System.getLogger(SourceWebSocketHandler.class.getName());
 
-  /**
-   * Most characters the fragment buffer keeps allocated between messages. A buffer that grew beyond
-   * this for a large fragmented message is released once the message is handled, so that one large
-   * event does not keep its buffer for the whole operation.
-   */
-  private static final int RETAINED_BUFFER_CAPACITY = 64 * 1024;
-
   private final @NotNull GraphQLQuery query;
   private final @NotNull SubscriptionSourcePublisher publisher;
   private final @NotNull Map<String, Object> connectionInitPayload;
   private final int maxMessageSize;
 
-  /** Fragments of the text message being received; guarded by itself. */
-  private final @NotNull StringBuilder fragments = new StringBuilder();
-
-  /**
-   * Set once a message exceeded the limit: every later message is dropped (the session is ending);
-   * guarded by {@link #fragments}.
-   */
-  private boolean oversized;
+  /** Fragments of the text message being received, and the limit on its size. */
+  private final @NotNull FragmentBuffer fragments;
 
   private @Nullable SubscriptionSourceHandler sourceHandler;
 
@@ -142,6 +129,7 @@ public class SourceWebSocketHandler extends AbstractWebSocketHandler {
     this.connectionInitPayload =
         Collections.unmodifiableMap(new LinkedHashMap<>(connectionInitPayload));
     this.maxMessageSize = maxMessageSize;
+    this.fragments = new FragmentBuffer(maxMessageSize);
   }
 
   private static int validMaxMessageSize(final int maxMessageSize) {
@@ -190,12 +178,8 @@ public class SourceWebSocketHandler extends AbstractWebSocketHandler {
             ? String.valueOf(closeStatus.getCode())
             : closeStatus.getCode() + " " + reason;
 
-    // Messages and the close are delivered one after another, but the lock keeps the buffer's
-    // state visible whichever container thread runs this
-    synchronized (this.fragments) {
-      this.fragments.setLength(0);
-      this.fragments.trimToSize();
-    }
+    // The buffer is synchronized, so its state is visible whichever container thread runs this
+    this.fragments.clear();
 
     handler.handleSessionClose(ClientSessionWrapper.wrap(nativeSession), closeReason);
   }
@@ -231,7 +215,7 @@ public class SourceWebSocketHandler extends AbstractWebSocketHandler {
 
   /**
    * Adds a fragment to the message being received. A message beyond the size limit fails the
-   * operation, which is reported after the lock is released: the failure runs gateway callbacks and
+   * operation, which is reported outside the buffer's lock: the failure runs gateway callbacks and
    * session sends.
    *
    * @return the complete message once its last fragment arrived, null while it is incomplete or
@@ -240,49 +224,20 @@ public class SourceWebSocketHandler extends AbstractWebSocketHandler {
   private @Nullable String assemble(
       final @NotNull WebSocketSession nativeSession, final @NotNull TextMessage message) {
 
-    final String fragment = message.getPayload();
+    final FragmentBuffer.Result result =
+        this.fragments.append(message.getPayload(), message.isLast());
 
-    synchronized (this.fragments) {
-      if (this.oversized) {
-        return null;
-      }
-
-      // long: the sum of two large lengths must not overflow
-      final long length = (long) this.fragments.length() + fragment.length();
-
-      if (length > this.maxMessageSize) {
-        this.fragments.setLength(0);
-        this.fragments.trimToSize();
-        this.oversized = true;
-      } else if (this.fragments.length() == 0 && message.isLast()) {
-        // The common case: a message that arrived whole
-        return fragment;
-      } else {
-        this.fragments.append(fragment);
-
-        if (!message.isLast()) {
-          return null;
-        }
-
-        final String payload = this.fragments.toString();
-        this.fragments.setLength(0);
-        if (this.fragments.capacity() > RETAINED_BUFFER_CAPACITY) {
-          this.fragments.trimToSize();
-        }
-        return payload;
-      }
+    if (result.overflowed()) {
+      // Reported by the one fragment that made the message too large
+      this.failOversized(nativeSession);
     }
 
-    // Only the oversized branch gets here, once: later messages return above
-    this.failOversized(nativeSession);
-    return null;
+    return result.message().orElse(null);
   }
 
   /** Capacity of the fragment buffer, in characters; for tests. */
   int bufferCapacity() {
-    synchronized (this.fragments) {
-      return this.fragments.capacity();
-    }
+    return this.fragments.capacity();
   }
 
   /**
