@@ -106,7 +106,7 @@ public final class Lilo {
               this.introspectionFetchingMode,
               this.retrySchemaLoad,
               this.instrumentation,
-              new LiloContext.RequestLimits(
+              new RequestLimits(
                   this.maxQueryDepth, this.maxQueryComplexity, this.introspectionEnabled),
               this.graphQLCustomizer,
               this.schemaDescription,

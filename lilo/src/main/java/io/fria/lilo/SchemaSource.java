@@ -66,6 +66,11 @@ public abstract class SchemaSource {
     this.typeDefinitionRegistry = null;
   }
 
+  /** Whether the schema and the data of the source come from a remote server. */
+  boolean isRemote() {
+    return false;
+  }
+
   public boolean isSchemaNotLoaded() {
     return this.typeDefinitionRegistry == null;
   }

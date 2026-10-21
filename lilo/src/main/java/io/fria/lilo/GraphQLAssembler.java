@@ -77,7 +77,7 @@ final class GraphQLAssembler {
    * result is exactly the user's instrumentation, so the default behaviour does not change.
    */
   static @Nullable Instrumentation combineInstrumentation(
-      final @NotNull LiloContext.RequestLimits requestLimits,
+      final @NotNull RequestLimits requestLimits,
       final @Nullable Instrumentation userInstrumentation) {
 
     final List<Instrumentation> instrumentations = new ArrayList<>();
@@ -211,8 +211,8 @@ final class GraphQLAssembler {
    * Disables introspection for every execution of the gateway's own schema by setting
    * graphql-java's per-request {@link Introspection#INTROSPECTION_DISABLED} flag in the request's
    * {@code GraphQLContext}. It runs as an instrumentation of the merged {@link GraphQL}, so it
-   * covers {@code stitch}, {@code stitchAsync}, subscriptions and direct use of {@link
-   * LiloContext#getMergedGraphQL()}, and it leaves the JVM-wide switch and the introspection Lilo
+   * covers {@code stitch}, {@code stitchAsync}, subscriptions and direct use of {@code
+   * LiloContext.getMergedGraphQL()}, and it leaves the JVM-wide switch and the introspection Lilo
    * sends to its sources untouched. The flag is always overwritten, so a request cannot enable
    * introspection again.
    */

@@ -18,12 +18,8 @@ package io.fria.lilo;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 import static io.fria.lilo.JsonUtils.getMap;
 import static io.fria.lilo.JsonUtils.toMap;
-import static io.fria.lilo.JsonUtils.toObj;
-import static io.fria.lilo.JsonUtils.toStr;
 
 import graphql.ExecutionResult;
-import graphql.GraphQLError;
-import graphql.execution.DataFetcherResult;
 import graphql.introspection.IntrospectionResultToSchema;
 import graphql.language.FieldDefinition;
 import graphql.language.ObjectTypeDefinition;
@@ -33,15 +29,12 @@ import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import graphql.schema.idl.TypeRuntimeWiring;
 import io.fria.lilo.error.LiloInvalidConfigException;
-import io.fria.lilo.error.LiloSourceDataFetcherException;
 import io.fria.lilo.subscription.SubscriptionRetriever;
 import io.fria.lilo.subscription.SubscriptionSourcePublisher;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -49,15 +42,8 @@ import org.slf4j.LoggerFactory;
 
 public final class RemoteSchemaSource extends SchemaSource {
 
-  // LOG, INTROSPECTION_REQUEST and the helpers below are package-private for the retriever flows;
-  // sharing LOG keeps the logger category of the messages unchanged
-  static final Logger LOG = LoggerFactory.getLogger(RemoteSchemaSource.class);
-  static final String INTROSPECTION_REQUEST =
-      toStr(
-          GraphQLRequest.builder()
-              .query(GraphQLRequest.INTROSPECTION_QUERY)
-              .operationName("IntrospectionQuery")
-              .build());
+  // Passed to the introspection flow, so its messages keep this category
+  private static final Logger LOG = LoggerFactory.getLogger(RemoteSchemaSource.class);
 
   private @NotNull final RemoteIntrospectionFlow introspectionFlow;
   private @NotNull final RemoteQueryFlow queryFlow;
@@ -70,7 +56,7 @@ public final class RemoteSchemaSource extends SchemaSource {
       final @Nullable SubscriptionRetriever subscriptionRetriever) {
 
     super(schemaName);
-    this.introspectionFlow = RemoteIntrospectionFlow.of(introspectionRetriever);
+    this.introspectionFlow = RemoteIntrospectionFlow.of(introspectionRetriever, LOG);
     this.queryFlow = RemoteQueryFlow.of(queryRetriever);
     this.subscriptionRetriever = subscriptionRetriever;
   }
@@ -110,55 +96,9 @@ public final class RemoteSchemaSource extends SchemaSource {
         subscriptionRetriever);
   }
 
-  static @Nullable Object fetchData(
-      final @NotNull CompletableFuture<ExecutionResult> graphQLResultFuture) {
-    final ExecutionResult graphQLResult;
-
-    try {
-      graphQLResult = graphQLResultFuture.get();
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new RuntimeException(e);
-    } catch (final ExecutionException e) {
-      throw new RuntimeException(e);
-    }
-
-    return fetchData(graphQLResult);
-  }
-
-  static @Nullable Object fetchData(final @NotNull ExecutionResult graphQLResult) {
-
-    final List<GraphQLError> errors = graphQLResult.getErrors();
-    final boolean hasErrors = errors != null && !errors.isEmpty();
-    final Map<String, Object> data = graphQLResult.getData();
-
-    if (data == null) {
-      if (hasErrors) {
-        throw new LiloSourceDataFetcherException(errors);
-      }
-
-      throw new IllegalArgumentException("Remote source returned a response without data");
-    }
-
-    final Object value = data.values().iterator().next();
-
-    if (hasErrors) {
-      // Partial result: keep the remote data and report the remote errors alongside it
-      return DataFetcherResult.newResult().data(value).errors(errors).build();
-    }
-
-    return value;
-  }
-
-  static @NotNull ExecutionResult toExecutionResult(final @NotNull String queryResult) {
-
-    final Optional<GraphQLResult> graphQLResultOptional = toObj(queryResult, GraphQLResult.class);
-
-    if (graphQLResultOptional.isEmpty()) {
-      throw new IllegalArgumentException("DataFetcher caught an empty response");
-    }
-
-    return graphQLResultOptional.get();
+  @Override
+  boolean isRemote() {
+    return true;
   }
 
   @Override
@@ -176,7 +116,13 @@ public final class RemoteSchemaSource extends SchemaSource {
   public @NotNull CompletableFuture<SchemaSource> loadSchema(
       final @NotNull LiloContext liloContext, final @Nullable Object localContext) {
 
-    return this.introspectionFlow.loadSchema(this, liloContext, localContext);
+    return this.introspectionFlow
+        .load(this, liloContext, localContext, res -> this.readIntrospection(res, liloContext))
+        .thenApply(
+            introspection -> {
+              introspection.ifPresent(this::store);
+              return this;
+            });
   }
 
   private @NotNull CompletableFuture<Object> fetchData(
@@ -188,8 +134,7 @@ public final class RemoteSchemaSource extends SchemaSource {
   }
 
   @SuppressWarnings("HiddenField")
-  @NotNull
-  SchemaSource fetchIntrospection(
+  private @NotNull Introspection readIntrospection(
       final @NotNull String introspectionResponse, final @NotNull LiloContext liloContext) {
     final var introspectionResultOptional = toMap(introspectionResponse);
 
@@ -207,7 +152,7 @@ public final class RemoteSchemaSource extends SchemaSource {
     final var schemaDoc =
         new IntrospectionResultToSchema().createSchemaDefinition(dataOptional.get());
     final var typeDefinitionRegistry = new SchemaParser().buildRegistry(schemaDoc);
-    final var operationTypeNames = SchemaMerger.getOperationTypeNames(typeDefinitionRegistry);
+    final var operationTypeNames = OperationTypeNames.of(typeDefinitionRegistry);
 
     final RuntimeWiring.Builder runtimeWiringBuilder = RuntimeWiring.newRuntimeWiring();
     this.typeWiring(typeDefinitionRegistry, liloContext, operationTypeNames.getQuery())
@@ -217,10 +162,13 @@ public final class RemoteSchemaSource extends SchemaSource {
     this.typeWiring(typeDefinitionRegistry, liloContext, operationTypeNames.getSubscription())
         .ifPresent(runtimeWiringBuilder::type);
 
-    this.runtimeWiring = runtimeWiringBuilder.build();
-    this.typeDefinitionRegistry = typeDefinitionRegistry;
+    return new Introspection(typeDefinitionRegistry, runtimeWiringBuilder.build());
+  }
 
-    return this;
+  private void store(final @NotNull Introspection introspection) {
+    // The registry is written last: it marks the source as loaded
+    this.runtimeWiring = introspection.runtimeWiring;
+    this.typeDefinitionRegistry = introspection.typeDefinitionRegistry;
   }
 
   @SuppressWarnings("HiddenField")
@@ -267,5 +215,19 @@ public final class RemoteSchemaSource extends SchemaSource {
     }
 
     return Optional.of(typeWiringBuilder.build());
+  }
+
+  /** The schema read from an introspection response, stored once it is read completely. */
+  private static final class Introspection {
+
+    private final TypeDefinitionRegistry typeDefinitionRegistry;
+    private final RuntimeWiring runtimeWiring;
+
+    Introspection(
+        final @NotNull TypeDefinitionRegistry typeDefinitionRegistry,
+        final @NotNull RuntimeWiring runtimeWiring) {
+      this.typeDefinitionRegistry = typeDefinitionRegistry;
+      this.runtimeWiring = runtimeWiring;
+    }
   }
 }

@@ -15,51 +15,72 @@
  */
 package io.fria.lilo;
 
+import static io.fria.lilo.JsonUtils.toStr;
+
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
 
 /**
- * How a {@link RemoteSchemaSource} runs its introspection retriever; chosen once, when the source
- * is created, from the kind of the retriever.
+ * How a remote source runs its introspection retriever; chosen once, when the source is created,
+ * from the kind of the retriever.
  */
 interface RemoteIntrospectionFlow {
 
-  static @NotNull RemoteIntrospectionFlow of(final @NotNull IntrospectionRetriever<?> retriever) {
+  String INTROSPECTION_REQUEST =
+      toStr(
+          GraphQLRequest.builder()
+              .query(GraphQLRequest.INTROSPECTION_QUERY)
+              .operationName("IntrospectionQuery")
+              .build());
+
+  /** The failures are logged to the given logger, so they keep the category of the source. */
+  static @NotNull RemoteIntrospectionFlow of(
+      final @NotNull IntrospectionRetriever<?> retriever, final @NotNull Logger log) {
     return retriever instanceof AsyncIntrospectionRetriever
-        ? new Async((AsyncIntrospectionRetriever) retriever)
-        : new Sync(retriever);
+        ? new Async((AsyncIntrospectionRetriever) retriever, log)
+        : new Sync(retriever, log);
   }
 
-  @NotNull
-  CompletableFuture<SchemaSource> loadSchema(
-      @NotNull RemoteSchemaSource source,
+  /**
+   * Retrieves the introspection response of the source and reads it with the given function. A
+   * failed retrieval is logged and yields an empty result; the asynchronous flow treats a failed
+   * read the same way, while the synchronous one completes exceptionally with it.
+   */
+  <T> @NotNull CompletableFuture<Optional<T>> load(
+      @NotNull SchemaSource source,
       @NotNull LiloContext liloContext,
-      @Nullable Object localContext);
+      @Nullable Object localContext,
+      @NotNull Function<String, T> read);
 
   final class Async implements RemoteIntrospectionFlow {
 
     private final @NotNull AsyncIntrospectionRetriever retriever;
+    private final @NotNull Logger log;
 
-    Async(final @NotNull AsyncIntrospectionRetriever retriever) {
+    Async(final @NotNull AsyncIntrospectionRetriever retriever, final @NotNull Logger log) {
       this.retriever = retriever;
+      this.log = log;
     }
 
     @Override
-    public @NotNull CompletableFuture<SchemaSource> loadSchema(
-        final @NotNull RemoteSchemaSource source,
+    public <T> @NotNull CompletableFuture<Optional<T>> load(
+        final @NotNull SchemaSource source,
         final @NotNull LiloContext liloContext,
-        final @Nullable Object localContext) {
+        final @Nullable Object localContext,
+        final @NotNull Function<String, T> read) {
 
       return this.retriever
-          .get(liloContext, source, RemoteSchemaSource.INTROSPECTION_REQUEST, localContext)
-          .thenApply(res -> source.fetchIntrospection(res, liloContext))
+          .get(liloContext, source, INTROSPECTION_REQUEST, localContext)
+          .thenApply(res -> Optional.of(read.apply(res)))
           .exceptionally(
               e -> {
-                RemoteSchemaSource.LOG.error(
-                    "Could not load introspection for {}", source.schemaName);
-                RemoteSchemaSource.LOG.debug("Introspection fetching exception", e);
-                return source;
+                this.log.error("Could not load introspection for {}", source.getName());
+                this.log.debug("Introspection fetching exception", e);
+                return Optional.empty();
               });
     }
   }
@@ -68,16 +89,19 @@ interface RemoteIntrospectionFlow {
 
     // Cast on use, so a retriever of an unknown kind fails when it is first needed
     private final @NotNull IntrospectionRetriever<?> retriever;
+    private final @NotNull Logger log;
 
-    Sync(final @NotNull IntrospectionRetriever<?> retriever) {
+    Sync(final @NotNull IntrospectionRetriever<?> retriever, final @NotNull Logger log) {
       this.retriever = retriever;
+      this.log = log;
     }
 
     @Override
-    public @NotNull CompletableFuture<SchemaSource> loadSchema(
-        final @NotNull RemoteSchemaSource source,
+    public <T> @NotNull CompletableFuture<Optional<T>> load(
+        final @NotNull SchemaSource source,
         final @NotNull LiloContext liloContext,
-        final @Nullable Object localContext) {
+        final @Nullable Object localContext,
+        final @NotNull Function<String, T> read) {
 
       final SyncIntrospectionRetriever introspectionRetriever =
           (SyncIntrospectionRetriever) this.retriever;
@@ -89,15 +113,14 @@ interface RemoteIntrospectionFlow {
             try {
               introspectionResponse =
                   introspectionRetriever.get(
-                      liloContext, source, RemoteSchemaSource.INTROSPECTION_REQUEST, localContext);
+                      liloContext, source, INTROSPECTION_REQUEST, localContext);
             } catch (final Exception e) {
-              RemoteSchemaSource.LOG.error(
-                  "Could not load introspection for {}", source.schemaName);
-              RemoteSchemaSource.LOG.debug("Introspection fetching exception", e);
-              return source;
+              this.log.error("Could not load introspection for {}", source.getName());
+              this.log.debug("Introspection fetching exception", e);
+              return Optional.empty();
             }
 
-            return source.fetchIntrospection(introspectionResponse, liloContext);
+            return Optional.of(read.apply(introspectionResponse));
           });
     }
   }
