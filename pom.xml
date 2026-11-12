@@ -42,7 +42,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <!-- Plugin Versions -->
-    <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
+    <maven-enforcer-plugin.version>3.7.0</maven-enforcer-plugin.version>
     <!-- Keep in sync with lilo/pom.xml, lilo-spring/pom.xml and the CI fmt:check calls -->
     <fmt-maven-plugin.version>2.29</fmt-maven-plugin.version>
   </properties>
